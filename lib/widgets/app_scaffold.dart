@@ -13,7 +13,6 @@ class AppScaffold extends StatelessWidget {
     ('/budgets', Icons.pie_chart_outline_rounded, Icons.pie_chart_rounded,
         'Budgets'),
     ('/reports', Icons.insights_outlined, Icons.insights_rounded, 'Reports'),
-    ('/settings', Icons.person_outline_rounded, Icons.person_rounded, 'You'),
   ];
 
   int _currentIndex(String location) {

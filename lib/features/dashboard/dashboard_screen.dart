@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../widgets/summary_card.dart';
@@ -18,6 +19,10 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final summaryAsync = ref.watch(dashboardSummaryProvider);
     final recentAsync = ref.watch(transactionsStreamProvider);
+    final user = ref.watch(authStateProvider).asData?.value;
+    final name = user?.displayName ?? user?.email ?? 'You';
+    final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       floatingActionButton: const _AddFab(),
@@ -37,7 +42,7 @@ class DashboardScreen extends ConsumerWidget {
                   Text(
                     'Accounts Note',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
+                          color: scheme.primary,
                           fontWeight: FontWeight.w700,
                         ),
                   ),
@@ -50,6 +55,30 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                 ],
               ),
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: IconButton(
+                    tooltip: 'Profile & settings',
+                    onPressed: () => context.push('/settings'),
+                    style: IconButton.styleFrom(
+                      backgroundColor: scheme.primary.withValues(alpha: 0.1),
+                    ),
+                    icon: CircleAvatar(
+                      radius: 16,
+                      backgroundColor: scheme.primary,
+                      child: Text(
+                        initial,
+                        style: TextStyle(
+                          color: scheme.onPrimary,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               toolbarHeight: 72,
             ),
             SliverPadding(

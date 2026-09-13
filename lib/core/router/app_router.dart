@@ -42,10 +42,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/transactions', builder: (_, _) => const TransactionsScreen()),
           GoRoute(path: '/budgets', builder: (_, _) => const BudgetsScreen()),
           GoRoute(path: '/reports', builder: (_, _) => const ReportsScreen()),
-          GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
-          GoRoute(path: '/categories', builder: (_, _) => const CategoriesScreen()),
         ],
       ),
+      GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
+      GoRoute(path: '/categories', builder: (_, _) => const CategoriesScreen()),
       GoRoute(
         path: '/transaction/add',
         builder: (_, state) {

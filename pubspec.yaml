@@ -72,9 +72,19 @@ dev_dependencies:
   mockito: ^5.7.0
   fake_cloud_firestore: ^4.2.0
   firebase_auth_mocks: ^0.15.2
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
-  # assets:
-  #   - assets/icons/
-  #   - assets/images/
+  assets:
+    - assets/branding/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/branding/app_logo.png
+  adaptive_icon_background: "#0F766E"
+  adaptive_icon_foreground: assets/branding/app_logo_adaptive.png
+  remove_alpha_ios: true
+  min_sdk_android: 21
+

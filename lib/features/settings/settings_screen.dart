@@ -19,18 +19,28 @@ class SettingsScreen extends ConsumerWidget {
     final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('You'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/dashboard');
+            }
+          },
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
         children: [
-          SafeArea(
-            bottom: false,
-            child: Text(
-              'You',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
-            ),
+          Text(
+            'Profile & settings',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: scheme.onSurfaceVariant,
+                ),
           ),
           const SizedBox(height: 16),
           Container(
