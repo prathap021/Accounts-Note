@@ -33,7 +33,8 @@ class ReportsScreen extends ConsumerWidget {
     switch (r) {
       case ReportRange.week:
         final start = now.subtract(Duration(days: now.weekday - 1));
-        return DateTimeRange(start: DateTime(start.year, start.month, start.day), end: now);
+        return DateTimeRange(
+            start: DateTime(start.year, start.month, start.day), end: now);
       case ReportRange.month:
         return DateTimeRange(start: DateTime(now.year, now.month, 1), end: now);
       case ReportRange.year:
@@ -46,22 +47,39 @@ class ReportsScreen extends ConsumerWidget {
     final range = ref.watch(reportRangeProvider);
     final uid = ref.watch(currentUidProvider);
     final dateRange = _rangeFor(range);
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Reports'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.ios_share),
-            tooltip: 'Export CSV',
-            onPressed: uid == null ? null : () => _exportCsv(context, ref, uid, dateRange),
-          ),
-        ],
-      ),
       body: Column(
         children: [
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Reports',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                          ),
+                    ),
+                  ),
+                  IconButton.filledTonal(
+                    icon: const Icon(Icons.ios_share_rounded),
+                    tooltip: 'Export CSV',
+                    onPressed: uid == null
+                        ? null
+                        : () => _exportCsv(context, ref, uid, dateRange),
+                  ),
+                ],
+              ),
+            ),
+          ),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: SegmentedButton<ReportRange>(
               segments: const [
                 ButtonSegment(value: ReportRange.week, label: Text('Week')),
@@ -69,7 +87,8 @@ class ReportsScreen extends ConsumerWidget {
                 ButtonSegment(value: ReportRange.year, label: Text('Year')),
               ],
               selected: {range},
-              onSelectionChanged: (s) => ref.read(reportRangeProvider.notifier).set(s.first),
+              onSelectionChanged: (s) =>
+                  ref.read(reportRangeProvider.notifier).set(s.first),
             ),
           ),
           Expanded(
@@ -85,43 +104,86 @@ class ReportsScreen extends ConsumerWidget {
                       if (!snapshot.hasData) {
                         return const Center(child: CircularProgressIndicator());
                       }
-                      final sums = snapshot.data!.when(success: (d) => d, failure: (_) => {});
+                      final sums = snapshot.data!
+                          .when(success: (d) => d, failure: (_) => {});
                       final income = sums[TransactionType.income] ?? 0;
                       final expense = sums[TransactionType.expense] ?? 0;
+                      final net = income - expense;
 
                       return ListView(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                         children: [
-                          Card(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                children: [
-                                  _StatRow(label: 'Income', value: income, color: AppColors.income),
-                                  const Divider(),
-                                  _StatRow(label: 'Expenses', value: expense, color: AppColors.expense),
-                                  const Divider(),
-                                  _StatRow(
-                                    label: 'Net Savings',
-                                    value: income - expense,
-                                    color: (income - expense) >= 0 ? AppColors.income : AppColors.expense,
-                                    bold: true,
-                                  ),
-                                ],
+                          Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: scheme.surfaceContainer,
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(
+                                color: scheme.outlineVariant
+                                    .withValues(alpha: 0.35),
                               ),
+                            ),
+                            child: Column(
+                              children: [
+                                _StatRow(
+                                    label: 'Income',
+                                    value: income,
+                                    color: AppColors.income),
+                                Divider(
+                                  color: scheme.outlineVariant
+                                      .withValues(alpha: 0.35),
+                                ),
+                                _StatRow(
+                                    label: 'Expenses',
+                                    value: expense,
+                                    color: AppColors.expense),
+                                Divider(
+                                  color: scheme.outlineVariant
+                                      .withValues(alpha: 0.35),
+                                ),
+                                _StatRow(
+                                  label: 'Net savings',
+                                  value: net,
+                                  color: net >= 0
+                                      ? AppColors.income
+                                      : AppColors.expense,
+                                  bold: true,
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 16),
-                          SizedBox(
-                            height: 220,
+                          Container(
+                            height: 240,
+                            padding: const EdgeInsets.fromLTRB(12, 20, 12, 12),
+                            decoration: BoxDecoration(
+                              color: scheme.surfaceContainer,
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(
+                                color: scheme.outlineVariant
+                                    .withValues(alpha: 0.35),
+                              ),
+                            ),
                             child: BarChart(
                               BarChartData(
                                 barGroups: [
                                   BarChartGroupData(x: 0, barRods: [
-                                    BarChartRodData(toY: income, color: AppColors.income, width: 40),
+                                    BarChartRodData(
+                                      toY: income,
+                                      color: AppColors.income,
+                                      width: 36,
+                                      borderRadius: const BorderRadius.vertical(
+                                          top: Radius.circular(10)),
+                                    ),
                                   ]),
                                   BarChartGroupData(x: 1, barRods: [
-                                    BarChartRodData(toY: expense, color: AppColors.expense, width: 40),
+                                    BarChartRodData(
+                                      toY: expense,
+                                      color: AppColors.expense,
+                                      width: 36,
+                                      borderRadius: const BorderRadius.vertical(
+                                          top: Radius.circular(10)),
+                                    ),
                                   ]),
                                 ],
                                 titlesData: FlTitlesData(
@@ -130,21 +192,34 @@ class ReportsScreen extends ConsumerWidget {
                                       showTitles: true,
                                       getTitlesWidget: (value, meta) => Text(
                                         value == 0 ? 'Income' : 'Expense',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelMedium,
                                       ),
                                     ),
                                   ),
                                   leftTitles: const AxisTitles(
-                                    sideTitles: SideTitles(showTitles: true, reservedSize: 48),
+                                    sideTitles: SideTitles(
+                                        showTitles: true, reservedSize: 48),
                                   ),
-                                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                  topTitles: const AxisTitles(
+                                      sideTitles: SideTitles(showTitles: false)),
+                                  rightTitles: const AxisTitles(
+                                      sideTitles: SideTitles(showTitles: false)),
                                 ),
                                 borderData: FlBorderData(show: false),
-                                gridData: const FlGridData(show: true, drawVerticalLine: false),
+                                gridData: FlGridData(
+                                  show: true,
+                                  drawVerticalLine: false,
+                                  getDrawingHorizontalLine: (value) => FlLine(
+                                    color: scheme.outlineVariant
+                                        .withValues(alpha: 0.35),
+                                    strokeWidth: 1,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 24),
                         ],
                       );
                     },
@@ -162,11 +237,14 @@ class ReportsScreen extends ConsumerWidget {
     DateTimeRange range,
   ) async {
     final messenger = ScaffoldMessenger.of(context);
-    final result = await ref.read(transactionRepositoryProvider).fetchPage(uid: uid, pageSize: 1000);
+    final result = await ref
+        .read(transactionRepositoryProvider)
+        .fetchPage(uid: uid, pageSize: 1000);
     result.when(
       success: (all) async {
         final txs = all
-            .where((t) => !t.date.isBefore(range.start) && !t.date.isAfter(range.end))
+            .where((t) =>
+                !t.date.isBefore(range.start) && !t.date.isAfter(range.end))
             .toList();
         final rows = <List<dynamic>>[
           ['Date', 'Type', 'Category', 'Amount', 'Payment Method', 'Note'],
@@ -184,9 +262,12 @@ class ReportsScreen extends ConsumerWidget {
         final dir = await getTemporaryDirectory();
         final file = File('${dir.path}/transactions_export.csv');
         await file.writeAsString(csv);
-        await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'Transaction export'));
+        await SharePlus.instance.share(
+          ShareParams(files: [XFile(file.path)], text: 'Transaction export'),
+        );
       },
-      failure: (f) => messenger.showSnackBar(SnackBar(content: Text('Export failed: ${f.message}'))),
+      failure: (f) => messenger
+          .showSnackBar(SnackBar(content: Text('Export failed: ${f.message}'))),
     );
   }
 }
@@ -196,19 +277,32 @@ class _StatRow extends StatelessWidget {
   final double value;
   final Color color;
   final bool bold;
-  const _StatRow({required this.label, required this.value, required this.color, this.bold = false});
+  const _StatRow({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.bold = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
+            ),
+          ),
           Text(
             CurrencyFormatter.format(value),
-            style: TextStyle(color: color, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),

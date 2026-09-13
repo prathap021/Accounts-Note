@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// Wraps every top-level tab in a persistent bottom navigation bar.
-/// Using GoRouter's ShellRoute means the tab state (scroll position etc.)
-/// is preserved when switching tabs, unlike pushing new pages.
+/// Persistent bottom navigation for top-level tabs (ShellRoute).
 class AppScaffold extends StatelessWidget {
   final Widget child;
   const AppScaffold({super.key, required this.child});
 
   static const _tabs = [
-    ('/dashboard', Icons.dashboard_outlined, Icons.dashboard, 'Home'),
-    ('/transactions', Icons.receipt_long_outlined, Icons.receipt_long, 'Transactions'),
-    ('/budgets', Icons.pie_chart_outline, Icons.pie_chart, 'Budgets'),
-    ('/reports', Icons.bar_chart_outlined, Icons.bar_chart, 'Reports'),
-    ('/settings', Icons.settings_outlined, Icons.settings, 'Settings'),
+    ('/dashboard', Icons.home_outlined, Icons.home_rounded, 'Home'),
+    ('/transactions', Icons.receipt_long_outlined, Icons.receipt_long_rounded,
+        'Activity'),
+    ('/budgets', Icons.pie_chart_outline_rounded, Icons.pie_chart_rounded,
+        'Budgets'),
+    ('/reports', Icons.insights_outlined, Icons.insights_rounded, 'Reports'),
+    ('/settings', Icons.person_outline_rounded, Icons.person_rounded, 'You'),
   ];
 
   int _currentIndex(String location) {
@@ -25,20 +25,31 @@ class AppScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
     final currentIndex = _currentIndex(location);
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      body: SafeArea(child: child),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: currentIndex,
-        onDestinationSelected: (i) => context.go(_tabs[i].$1),
-        destinations: [
-          for (final tab in _tabs)
-            NavigationDestination(
-              icon: Icon(tab.$2),
-              selectedIcon: Icon(tab.$3),
-              label: tab.$4,
+      body: child,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainer,
+          border: Border(
+            top: BorderSide(
+              color: scheme.outlineVariant.withValues(alpha: 0.35),
             ),
-        ],
+          ),
+        ),
+        child: NavigationBar(
+          selectedIndex: currentIndex,
+          onDestinationSelected: (i) => context.go(_tabs[i].$1),
+          destinations: [
+            for (final tab in _tabs)
+              NavigationDestination(
+                icon: Icon(tab.$2),
+                selectedIcon: Icon(tab.$3),
+                label: tab.$4,
+              ),
+          ],
+        ),
       ),
     );
   }

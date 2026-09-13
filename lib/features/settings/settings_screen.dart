@@ -1,8 +1,10 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -12,56 +14,131 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authStateProvider).asData?.value;
     final actions = ref.read(authActionsProvider.notifier);
+    final scheme = Theme.of(context).colorScheme;
+    final name = user?.displayName ?? user?.email ?? 'Signed in user';
+    final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
         children: [
-          ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.person)),
-            title: Text(user?.displayName ?? user?.email ?? 'Signed in user'),
-            subtitle: Text(user?.email ?? ''),
+          SafeArea(
+            bottom: false,
+            child: Text(
+              'You',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
+            ),
           ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.category_outlined),
-            title: const Text('Manage Categories'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/categories'),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.brandDeep, AppColors.brand],
+              ),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: Colors.white.withValues(alpha: 0.2),
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 22,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                      if (user?.email != null)
+                        Text(
+                          user!.email!,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.white.withValues(alpha: 0.8),
+                              ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          const ListTile(
-            leading: Icon(Icons.currency_rupee),
-            title: Text('Currency'),
-            subtitle: Text('INR (₹) — change in profile preferences'),
+          const SizedBox(height: 20),
+          _SettingsGroup(
+            children: [
+              _SettingsTile(
+                icon: Icons.category_outlined,
+                title: 'Manage categories',
+                onTap: () => context.push('/categories'),
+              ),
+              const _SettingsTile(
+                icon: Icons.currency_rupee_rounded,
+                title: 'Currency',
+                subtitle: 'INR (₹)',
+              ),
+              const _SettingsTile(
+                icon: Icons.dark_mode_outlined,
+                title: 'Theme',
+                subtitle: 'Follows system',
+              ),
+              const _SettingsTile(
+                icon: Icons.notifications_none_rounded,
+                title: 'Notifications',
+                subtitle: 'Budget alerts & summaries',
+              ),
+            ],
           ),
-          const ListTile(
-            leading: Icon(Icons.dark_mode_outlined),
-            title: Text('Theme'),
-            subtitle: Text('Follows system setting'),
+          const SizedBox(height: 14),
+          _SettingsGroup(
+            children: [
+              _SettingsTile(
+                icon: Icons.logout_rounded,
+                title: 'Log out',
+                onTap: () => actions.signOut(),
+              ),
+              _SettingsTile(
+                icon: Icons.delete_forever_rounded,
+                title: 'Delete account',
+                subtitle: 'Removes all financial data',
+                destructive: true,
+                onTap: () => _confirmDelete(context, actions),
+              ),
+            ],
           ),
-          const ListTile(
-            leading: Icon(Icons.notifications_outlined),
-            title: Text('Notification preferences'),
-            subtitle: Text('Budget alerts, recurring reminders, monthly summary'),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout),
-            title: const Text('Log out'),
-            onTap: () => actions.signOut(),
-          ),
-          ListTile(
-            leading: Icon(Icons.delete_forever, color: Theme.of(context).colorScheme.error),
-            title: Text('Delete account', style: TextStyle(color: Theme.of(context).colorScheme.error)),
-            subtitle: const Text('Permanently deletes your account and all financial data'),
-            onTap: () => _confirmDelete(context, actions),
+          const SizedBox(height: 24),
+          Text(
+            'Accounts Note · Open source · MIT',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, AuthActionsNotifier actions) async {
+  Future<void> _confirmDelete(
+      BuildContext context, AuthActionsNotifier actions) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => const _DeleteAccountDialog(),
@@ -69,6 +146,83 @@ class SettingsScreen extends ConsumerWidget {
     if (confirmed == true) {
       await actions.deleteAccount();
     }
+  }
+}
+
+class _SettingsGroup extends StatelessWidget {
+  final List<Widget> children;
+  const _SettingsGroup({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            children[i],
+            if (i != children.length - 1)
+              Divider(
+                height: 1,
+                indent: 56,
+                color: scheme.outlineVariant.withValues(alpha: 0.35),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+  final bool destructive;
+
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.onTap,
+    this.destructive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = destructive ? scheme.error : scheme.onSurface;
+
+    return ListTile(
+      onTap: onTap,
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: (destructive ? scheme.error : scheme.primary)
+              .withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, size: 20, color: destructive ? scheme.error : scheme.primary),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(color: color, fontWeight: FontWeight.w600),
+      ),
+      subtitle: subtitle == null
+          ? null
+          : Text(subtitle!, style: TextStyle(color: scheme.onSurfaceVariant)),
+      trailing: onTap == null
+          ? null
+          : Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+    );
   }
 }
 
@@ -88,9 +242,7 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
     super.initState();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsLeft > 0) {
-        setState(() {
-          _secondsLeft--;
-        });
+        setState(() => _secondsLeft--);
       } else {
         _timer?.cancel();
       }
@@ -119,11 +271,12 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
           style: FilledButton.styleFrom(
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
-          onPressed: _secondsLeft > 0 ? null : () => Navigator.pop(context, true),
+          onPressed:
+              _secondsLeft > 0 ? null : () => Navigator.pop(context, true),
           child: Text(
             _secondsLeft > 0
-                ? 'Delete Everything ($_secondsLeft)'
-                : 'Delete Everything',
+                ? 'Delete everything ($_secondsLeft)'
+                : 'Delete everything',
           ),
         ),
       ],

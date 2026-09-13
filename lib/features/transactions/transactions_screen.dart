@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/theme/app_theme.dart';
 import '../../data/repositories/transaction_repository.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/transaction_provider.dart';
@@ -33,67 +34,114 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   Widget build(BuildContext context) {
     final txsAsync = ref.watch(transactionsStreamProvider);
     final filter = ref.watch(transactionFilterProvider);
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Transactions'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () => _showFilterSheet(context),
-          ),
-        ],
+      floatingActionButton: FloatingActionButton(
+        onPressed: () =>
+            context.push('/transaction/add', extra: TransactionType.expense),
+        child: const Icon(Icons.add_rounded),
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search transactions...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: filter.searchQuery?.isNotEmpty ?? false
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          _updateFilter((f) => TransactionFilter(
-                                startDate: f.startDate,
-                                endDate: f.endDate,
-                                type: f.type,
-                                categoryId: f.categoryId,
-                                paymentMethod: f.paymentMethod,
-                              ));
-                        },
-                      )
-                    : null,
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Activity',
+                          style:
+                              Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.5,
+                                  ),
+                        ),
+                      ),
+                      IconButton.filledTonal(
+                        onPressed: () => _showFilterSheet(context),
+                        icon: const Icon(Icons.tune_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search notes or categories',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: filter.searchQuery?.isNotEmpty ?? false
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded),
+                              onPressed: () {
+                                _searchController.clear();
+                                _updateFilter(
+                                  (f) => TransactionFilter(
+                                    startDate: f.startDate,
+                                    endDate: f.endDate,
+                                    type: f.type,
+                                    categoryId: f.categoryId,
+                                    paymentMethod: f.paymentMethod,
+                                  ),
+                                );
+                              },
+                            )
+                          : null,
+                    ),
+                    onChanged: (value) => _updateFilter(
+                      (f) => TransactionFilter(
+                        startDate: f.startDate,
+                        endDate: f.endDate,
+                        type: f.type,
+                        categoryId: f.categoryId,
+                        paymentMethod: f.paymentMethod,
+                        searchQuery: value,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              onChanged: (value) => _updateFilter((f) => TransactionFilter(
-                    startDate: f.startDate,
-                    endDate: f.endDate,
-                    type: f.type,
-                    categoryId: f.categoryId,
-                    paymentMethod: f.paymentMethod,
-                    searchQuery: value,
-                  )),
             ),
           ),
+          const SizedBox(height: 8),
           Expanded(
             child: txsAsync.when(
               data: (txs) {
                 if (txs.isEmpty) {
-                  return const Center(child: Text('No transactions match your filters.'));
+                  return const EmptyState(
+                    icon: Icons.filter_alt_off_outlined,
+                    title: 'Nothing matches',
+                    message: 'Try clearing filters or add a new transaction.',
+                  );
                 }
-                return ListView.builder(
+                return ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                   itemCount: txs.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 4),
                   itemBuilder: (context, i) {
                     final tx = txs[i];
-                    return TransactionTile(
-                      transaction: tx,
-                      onTap: () => context.push('/transaction/edit', extra: tx),
-                      onDelete: () =>
-                          ref.read(transactionActionsProvider.notifier).deleteTransaction(tx.id),
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainer,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: TransactionTile(
+                        transaction: tx,
+                        onTap: () =>
+                            context.push('/transaction/edit', extra: tx),
+                        onDelete: () => ref
+                            .read(transactionActionsProvider.notifier)
+                            .deleteTransaction(tx.id),
+                      ),
                     );
                   },
                 );
@@ -103,10 +151,6 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/transaction/add', extra: TransactionType.expense),
-        child: const Icon(Icons.add),
       ),
     );
   }
@@ -146,7 +190,8 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
     _type = widget.current.type;
     _categoryId = widget.current.categoryId;
     if (widget.current.startDate != null && widget.current.endDate != null) {
-      _range = DateTimeRange(start: widget.current.startDate!, end: widget.current.endDate!);
+      _range = DateTimeRange(
+          start: widget.current.startDate!, end: widget.current.endDate!);
     }
   }
 
@@ -156,20 +201,29 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 20, right: 20, top: 20,
+        left: 20,
+        right: 20,
+        top: 8,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Filter Transactions', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            'Filter activity',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
           const SizedBox(height: 16),
           SegmentedButton<TransactionType?>(
             segments: const [
               ButtonSegment(value: null, label: Text('All')),
-              ButtonSegment(value: TransactionType.income, label: Text('Income')),
-              ButtonSegment(value: TransactionType.expense, label: Text('Expense')),
+              ButtonSegment(
+                  value: TransactionType.income, label: Text('Income')),
+              ButtonSegment(
+                  value: TransactionType.expense, label: Text('Expense')),
             ],
             selected: {_type},
             onSelectionChanged: (s) => setState(() {
@@ -181,6 +235,7 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
           categoriesAsync.when(
             data: (categories) => Wrap(
               spacing: 8,
+              runSpacing: 8,
               children: [
                 ChoiceChip(
                   label: const Text('All categories'),
@@ -200,7 +255,7 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
           ),
           const SizedBox(height: 16),
           OutlinedButton.icon(
-            icon: const Icon(Icons.date_range),
+            icon: const Icon(Icons.date_range_rounded),
             label: Text(_range == null
                 ? 'Select date range'
                 : '${_range!.start.toLocal().toString().split(' ').first} - ${_range!.end.toLocal().toString().split(' ').first}'),
@@ -219,9 +274,7 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () {
-                    widget.onApply(const TransactionFilter());
-                  },
+                  onPressed: () => widget.onApply(const TransactionFilter()),
                   child: const Text('Clear'),
                 ),
               ),

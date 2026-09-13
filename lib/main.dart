@@ -54,7 +54,7 @@ class IncomeExpenseTrackerApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'Income & Expense Tracker',
+      title: 'Accounts Note',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
