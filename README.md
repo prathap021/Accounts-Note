@@ -180,47 +180,6 @@ Ideas that help a lot:
 
 ---
 
-## Contributions (Stripe — one-time)
-
-No subscription. Freemium + optional contribution:
-
-| Tier | Limit |
-|------|--------|
-| Free | **7 transactions/day** |
-| After contributing | **Unlimited** (one-time unlock) |
-
-Contribution amounts (USD):
-- Presets: **$5 · $10 · $25**
-- Or any custom amount (**minimum $5**)
-
-### Setup
-1. Stripe Dashboard → enable Checkout (one-time payments)
-2. Put **publishable** key only in `functions/.env` (gitignored)
-3. Put **secret** keys in `functions/.secret.local` (gitignored) for local/emulator
-4. Production secrets (already set for this project):
-   ```bash
-   firebase functions:secrets:set STRIPE_SECRET_KEY
-   firebase functions:secrets:set STRIPE_WEBHOOK_SECRET
-   ```
-5. Deploy:
-   ```bash
-   cd functions && npm install && npm run build && cd ..
-   firebase deploy --only functions,hosting,firestore:rules
-   ```
-6. Stripe webhook endpoint (copy Signing secret → update `STRIPE_WEBHOOK_SECRET`):
-
-`https://stripewebhook-xsmfilywxa-uc.a.run.app`
-
-   Event: `checkout.session.completed`
-
-**Never commit** `.env`, `.secret.local`, or real `sk_` / `whsec_` values. Only `functions/.env.example` is safe to commit.
-
-### In the app
-- **You → Contribute**, or the paywall after 7 daily transactions
-- Success/cancel pages deep-link via `accountsnote://stripe-success`
-
----
-
 ## Security & secrets
 
 Do **not** commit:
