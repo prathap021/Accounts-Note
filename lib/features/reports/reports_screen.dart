@@ -105,9 +105,9 @@ class ReportsScreen extends ConsumerWidget {
                         return const Center(child: CircularProgressIndicator());
                       }
                       final sums = snapshot.data!
-                          .when(success: (d) => d, failure: (_) => {});
-                      final income = sums[TransactionType.income] ?? 0;
-                      final expense = sums[TransactionType.expense] ?? 0;
+                          .when(success: (d) => d, failure: (_) => <TransactionType, double>{});
+                      final income = sums[TransactionType.income] ?? 0.0;
+                      final expense = sums[TransactionType.expense] ?? 0.0;
                       final net = income - expense;
 
                       return ListView(

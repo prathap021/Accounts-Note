@@ -24,6 +24,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _showEmailForm = false;
   bool _obscure = true;
 
+  /// Which auth button is busy: google | apple | email
+  String? _busyAction;
+
   @override
   void dispose() {
     _email.dispose();
@@ -31,22 +34,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  Future<void> _runAuth(String action, Future<void> Function() fn) async {
+    if (_busyAction != null) return;
+    setState(() => _busyAction = action);
+    try {
+      await fn();
+    } finally {
+      if (mounted) setState(() => _busyAction = null);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final actions = ref.read(authActionsProvider.notifier);
     final actionState = ref.watch(authActionsProvider);
+    final isBusy = _busyAction != null || actionState.isLoading;
 
     ref.listen(authActionsProvider, (prev, next) {
       if (next is AsyncError) {
         final err = next.error;
-        final message = err is AppFailure ? err.message : 'Something went wrong.';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
+        final message =
+            err is AppFailure ? err.message : 'Sign-in failed. Please try again.';
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(message),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
       }
     });
 
-    final isLoading = actionState.isLoading;
     final isIOS = !kIsWeb && Platform.isIOS;
     final scheme = Theme.of(context).colorScheme;
 
@@ -70,11 +90,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       const SizedBox(height: 28),
                       Text(
                         'Accounts Note',
-                        style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -1.2,
-                              height: 1.05,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.displaySmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -1.2,
+                                  height: 1.05,
+                                ),
                       ),
                       const SizedBox(height: 10),
                       Text(
@@ -97,32 +118,51 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 password: _password,
                                 isSignUp: _isSignUp,
                                 obscure: _obscure,
-                                isLoading: isLoading,
+                                isLoading: isBusy,
                                 onToggleObscure: () =>
                                     setState(() => _obscure = !_obscure),
                                 onToggleMode: () =>
                                     setState(() => _isSignUp = !_isSignUp),
-                                onBack: () =>
-                                    setState(() => _showEmailForm = false),
+                                onBack: isBusy
+                                    ? null
+                                    : () =>
+                                        setState(() => _showEmailForm = false),
                                 onSubmit: () {
-                                  if (!_formKey.currentState!.validate()) return;
-                                  if (_isSignUp) {
-                                    actions.signUpWithEmail(
-                                        _email.text, _password.text);
-                                  } else {
-                                    actions.signInWithEmail(
-                                        _email.text, _password.text);
+                                  if (!_formKey.currentState!.validate()) {
+                                    return;
                                   }
+                                  _runAuth('email', () async {
+                                    if (_isSignUp) {
+                                      await actions.signUpWithEmail(
+                                        _email.text,
+                                        _password.text,
+                                      );
+                                    } else {
+                                      await actions.signInWithEmail(
+                                        _email.text,
+                                        _password.text,
+                                      );
+                                    }
+                                  });
                                 },
                               )
                             : _AuthOptions(
                                 key: const ValueKey('options'),
                                 isIOS: isIOS,
-                                isLoading: isLoading,
-                                onGoogle: actions.signInWithGoogle,
-                                onApple: actions.signInWithApple,
-                                onEmail: () =>
-                                    setState(() => _showEmailForm = true),
+                                busyAction: _busyAction,
+                                onGoogle: () => _runAuth(
+                                      'google',
+                                      actions.signInWithGoogle,
+                                    ),
+                                onApple: () => _runAuth(
+                                      'apple',
+                                      actions.signInWithApple,
+                                    ),
+                                onEmail: isBusy
+                                    ? null
+                                    : () => setState(
+                                          () => _showEmailForm = true,
+                                        ),
                               ),
                       ),
                       const SizedBox(height: 24),
@@ -140,40 +180,83 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
 class _AuthOptions extends StatelessWidget {
   final bool isIOS;
-  final bool isLoading;
+  final String? busyAction;
   final VoidCallback onGoogle;
   final VoidCallback onApple;
-  final VoidCallback onEmail;
+  final VoidCallback? onEmail;
 
   const _AuthOptions({
     super.key,
     required this.isIOS,
-    required this.isLoading,
+    required this.busyAction,
     required this.onGoogle,
     required this.onApple,
     required this.onEmail,
   });
 
+  bool get _anyBusy => busyAction != null;
+
   @override
   Widget build(BuildContext context) {
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (!isIOS)
-          FilledButton.icon(
-            onPressed: isLoading ? null : onGoogle,
-            icon: const Icon(Icons.g_mobiledata_rounded, size: 28),
-            label: const Text('Continue with Google'),
+          FilledButton(
+            onPressed: _anyBusy ? null : onGoogle,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+            ),
+            child: busyAction == 'google'
+                ? SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: onPrimary,
+                    ),
+                  )
+                : const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.g_mobiledata_rounded, size: 28),
+                      SizedBox(width: 8),
+                      Text('Continue with Google'),
+                    ],
+                  ),
           ),
         if (isIOS)
-          FilledButton.icon(
-            onPressed: isLoading ? null : onApple,
-            icon: const Icon(Icons.apple),
-            label: const Text('Continue with Apple'),
+          FilledButton(
+            onPressed: _anyBusy ? null : onApple,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+            ),
+            child: busyAction == 'apple'
+                ? SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: onPrimary,
+                    ),
+                  )
+                : const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.apple),
+                      SizedBox(width: 8),
+                      Text('Continue with Apple'),
+                    ],
+                  ),
           ),
         const SizedBox(height: 12),
         OutlinedButton(
-          onPressed: isLoading ? null : onEmail,
+          onPressed: onEmail,
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(52),
+          ),
           child: const Text('Continue with Email'),
         ),
       ],
@@ -190,7 +273,7 @@ class _EmailForm extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onToggleObscure;
   final VoidCallback onToggleMode;
-  final VoidCallback onBack;
+  final VoidCallback? onBack;
   final VoidCallback onSubmit;
 
   const _EmailForm({
@@ -209,6 +292,8 @@ class _EmailForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+
     return Form(
       key: formKey,
       child: Column(
@@ -216,6 +301,7 @@ class _EmailForm extends StatelessWidget {
         children: [
           TextFormField(
             controller: email,
+            enabled: !isLoading,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
             decoration: const InputDecoration(
@@ -228,12 +314,13 @@ class _EmailForm extends StatelessWidget {
           const SizedBox(height: 12),
           TextFormField(
             controller: password,
+            enabled: !isLoading,
             obscureText: obscure,
             decoration: InputDecoration(
               labelText: 'Password',
               prefixIcon: const Icon(Icons.lock_outline_rounded),
               suffixIcon: IconButton(
-                onPressed: onToggleObscure,
+                onPressed: isLoading ? null : onToggleObscure,
                 icon: Icon(
                   obscure
                       ? Icons.visibility_outlined
@@ -248,16 +335,22 @@ class _EmailForm extends StatelessWidget {
           const SizedBox(height: 18),
           FilledButton(
             onPressed: isLoading ? null : onSubmit,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+            ),
             child: isLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                ? SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: onPrimary,
+                    ),
                   )
                 : Text(isSignUp ? 'Create account' : 'Sign in'),
           ),
           TextButton(
-            onPressed: onToggleMode,
+            onPressed: isLoading ? null : onToggleMode,
             child: Text(
               isSignUp
                   ? 'Already have an account? Sign in'

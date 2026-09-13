@@ -41,7 +41,10 @@ service cloud.firestore {
       allow delete: if isOwner(uid);
 
       match /transactions/{txId} {
-        allow read, write: if isOwner(uid) && isValidTransaction();
+        // Reads/listens must not require request.resource validation.
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid) && isValidTransaction();
+        allow delete: if isOwner(uid);
       }
 
       match /categories/{catId} {
