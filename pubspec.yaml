@@ -1,7 +1,9 @@
 name: income_expense_tracker
-description: A production-grade Income & Expense Tracker built with Flutter, Riverpod, and Firestore.
+description: Open-source Income & Expense Tracker built with Flutter, Riverpod, and Firestore.
 publish_to: 'none'
 version: 1.0.0+1
+# SPDX-License-Identifier: MIT
+# See LICENSE in the repository root.
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
