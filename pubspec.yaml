@@ -1,0 +1,77 @@
+name: income_expense_tracker
+description: A production-grade Income & Expense Tracker built with Flutter, Riverpod, and Firestore.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.12.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # ---- Firebase ----
+  firebase_core: ^4.14.0
+  firebase_auth: ^6.6.1
+  cloud_firestore: ^6.9.0
+  firebase_storage: ^13.5.0
+  firebase_analytics: ^12.5.0
+  firebase_crashlytics: ^5.3.0
+  firebase_messaging: ^16.6.0
+
+  # ---- Auth providers ----
+  google_sign_in: ^7.2.0
+  sign_in_with_apple: ^8.2.0
+  crypto: ^3.0.6 # used to build the nonce for Sign in with Apple
+
+  # ---- State management ----
+  flutter_riverpod: ^3.4.3
+  riverpod_annotation: ^4.0.7
+
+  # ---- Routing ----
+  go_router: ^17.5.0
+
+  # ---- Local storage / cache ----
+  shared_preferences: ^2.5.0
+  flutter_secure_storage: ^11.1.1
+  hive_flutter: ^1.1.0
+
+  # ---- Charts ----
+  fl_chart: ^1.2.0
+
+  # ---- Date / time ----
+  intl: ^0.20.3
+  table_calendar: ^3.2.1
+
+  # ---- Notifications ----
+  flutter_local_notifications: ^22.3.1
+
+  # ---- Export ----
+  csv: ^8.0.0
+  pdf: ^3.11.3
+  printing: ^5.14.2
+  path_provider: ^2.1.5
+  share_plus: ^13.3.0
+
+  # ---- Misc UI/util ----
+  uuid: ^4.5.1
+  equatable: ^2.0.7
+  connectivity_plus: ^7.3.1
+  flutter_svg: ^2.0.10+1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  riverpod_generator: ^4.0.9
+  build_runner: ^2.15.1
+  mockito: ^5.7.0
+  fake_cloud_firestore: ^4.2.0
+  firebase_auth_mocks: ^0.15.2
+
+flutter:
+  uses-material-design: true
+  # assets:
+  #   - assets/icons/
+  #   - assets/images/
