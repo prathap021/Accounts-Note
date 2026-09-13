@@ -52,11 +52,11 @@ class TransactionTile extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: 46,
-                  height: 46,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14),
+                    color: color.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
                   ),
                   child: Icon(
                     isIncome

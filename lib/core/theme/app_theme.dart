@@ -96,12 +96,13 @@ class AppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        elevation: 0,
+        elevation: 6,
+        shadowColor: scheme.shadow.withValues(alpha: 0.08),
         color: scheme.surfaceContainer,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.35)),
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide.none,
         ),
         margin: EdgeInsets.zero,
       ),
@@ -110,49 +111,51 @@ class AppTheme {
         fillColor: scheme.surfaceContainer,
         hintStyle: TextStyle(color: scheme.onSurfaceVariant),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(30),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4)),
+          borderRadius: BorderRadius.circular(30),
+          borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(30),
           borderSide: BorderSide(color: scheme.primary, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           elevation: 0,
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 32),
+          shape: const StadiumBorder(),
           textStyle: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          side: BorderSide(color: scheme.outlineVariant),
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 32),
+          shape: const StadiumBorder(),
+          side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
           textStyle: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        elevation: 4,
+        shape: const StadiumBorder(),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: scheme.surfaceContainer,
-        indicatorColor: scheme.primary.withValues(alpha: 0.14),
-        elevation: 0,
-        height: 72,
+        indicatorColor: scheme.primary.withValues(alpha: 0.1),
+        indicatorShape: const StadiumBorder(),
+        elevation: 8,
+        shadowColor: scheme.shadow.withValues(alpha: 0.05),
+        height: 80,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
-          return textTheme.labelMedium?.copyWith(
+          return textTheme.labelSmall?.copyWith(
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
             color: selected ? scheme.primary : scheme.onSurfaceVariant,
           );
@@ -161,26 +164,29 @@ class AppTheme {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
             color: selected ? scheme.primary : scheme.onSurfaceVariant,
-            size: 22,
+            size: 24,
           );
         }),
       ),
       chipTheme: ChipThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+        shape: const StadiumBorder(),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.2)),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
       dividerTheme: DividerThemeData(
-        color: scheme.outlineVariant.withValues(alpha: 0.45),
-        space: 1,
+        color: scheme.outlineVariant.withValues(alpha: 0.2),
+        space: 24,
       ),
-      snackBarTheme: SnackBarThemeData(
+      snackBarTheme: const SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: StadiumBorder(),
+        elevation: 4,
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: scheme.surfaceContainer,
+        elevation: 10,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         ),
         showDragHandle: true,
       ),
@@ -269,9 +275,9 @@ class BalanceHeroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(22, 24, 22, 24),
+      padding: const EdgeInsets.fromLTRB(28, 32, 28, 32),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(32),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -279,40 +285,49 @@ class BalanceHeroCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.brand.withValues(alpha: 0.28),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: AppColors.brand.withValues(alpha: 0.15),
+            blurRadius: 32,
+            spreadRadius: 4,
+            offset: const Offset(0, 16),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.82),
-                  letterSpacing: 0.4,
-                ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
           TweenAnimationBuilder<double>(
             tween: Tween(begin: 0.92, end: 1),
-            duration: const Duration(milliseconds: 500),
+            duration: const Duration(milliseconds: 600),
             curve: Curves.easeOutCubic,
             builder: (context, value, child) => Opacity(
               opacity: value.clamp(0.0, 1.0),
               child: Transform.translate(
-                offset: Offset(0, (1 - value) * 10),
+                offset: Offset(0, (1 - value) * 12),
                 child: child,
               ),
             ),
             child: Text(
               amount,
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+              style: Theme.of(context).textTheme.displaySmall?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: -1,
+                    letterSpacing: -1.5,
                     height: 1.1,
                   ),
             ),
@@ -321,8 +336,9 @@ class BalanceHeroCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               subtitle!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.75),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontWeight: FontWeight.w500,
                   ),
             ),
           ],

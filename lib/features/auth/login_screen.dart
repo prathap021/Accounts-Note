@@ -54,7 +54,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (next is AsyncError) {
         final err = next.error;
         final message =
-            err is AppFailure ? err.message : 'Sign-in failed. Please try again.';
+            err is AppFailure ? err.userMessage : 'Something went wrong. Please try again.';
         final messenger = ScaffoldMessenger.of(context);
         messenger.clearSnackBars();
         messenger.showSnackBar(

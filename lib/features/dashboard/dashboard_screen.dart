@@ -7,6 +7,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/contribution_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../widgets/summary_card.dart';
@@ -20,7 +21,13 @@ class DashboardScreen extends ConsumerWidget {
     final summaryAsync = ref.watch(dashboardSummaryProvider);
     final recentAsync = ref.watch(transactionsStreamProvider);
     final user = ref.watch(authStateProvider).asData?.value;
-    final name = user?.displayName ?? user?.email ?? 'You';
+    final profile = ref.watch(userProfileProvider).asData?.value;
+    final name = user?.displayName?.trim().isNotEmpty == true
+        ? user!.displayName!
+        : (profile?.displayName?.trim().isNotEmpty == true
+            ? profile!.displayName!
+            : (user?.email ?? 'You'));
+    final photoUrl = user?.photoURL ?? profile?.photoUrl;
     final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
     final scheme = Theme.of(context).colorScheme;
 
@@ -67,14 +74,19 @@ class DashboardScreen extends ConsumerWidget {
                     icon: CircleAvatar(
                       radius: 16,
                       backgroundColor: scheme.primary,
-                      child: Text(
-                        initial,
-                        style: TextStyle(
-                          color: scheme.onPrimary,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                        ),
-                      ),
+                      backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+                          ? NetworkImage(photoUrl)
+                          : null,
+                      child: photoUrl != null && photoUrl.isNotEmpty
+                          ? null
+                          : Text(
+                              initial,
+                              style: TextStyle(
+                                color: scheme.onPrimary,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                              ),
+                            ),
                     ),
                   ),
                 ),
@@ -88,7 +100,9 @@ class DashboardScreen extends ConsumerWidget {
                   summaryAsync.when(
                     data: (summary) => _SummarySection(summary: summary),
                     loading: () => const _SummarySkeleton(),
-                    error: (e, _) => Text('Could not load summary: $e'),
+                    error: (e, _) => const Text(
+                      'Something went wrong. Please try again.',
+                    ),
                   ),
                   const SizedBox(height: 28),
                   SectionHeader(
@@ -108,16 +122,17 @@ class DashboardScreen extends ConsumerWidget {
                         );
                       }
                       return Container(
-                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                         decoration: BoxDecoration(
                           color: Theme.of(context).colorScheme.surfaceContainer,
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .outlineVariant
-                                .withValues(alpha: 0.35),
-                          ),
+                          borderRadius: BorderRadius.circular(32),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Theme.of(context).shadowColor.withValues(alpha: 0.05),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
                         ),
                         child: Column(
                           children: [
@@ -146,7 +161,9 @@ class DashboardScreen extends ConsumerWidget {
                       padding: EdgeInsets.symmetric(vertical: 32),
                       child: Center(child: CircularProgressIndicator()),
                     ),
-                    error: (e, _) => Text('Could not load transactions: $e'),
+                    error: (e, _) => const Text(
+                      'Something went wrong. Please try again.',
+                    ),
                   ),
                 ]),
               ),
@@ -170,7 +187,7 @@ class _SummarySection extends StatelessWidget {
         BalanceHeroCard(
           label: 'CURRENT BALANCE',
           amount: CurrencyFormatter.format(summary.balance),
-          subtitle: 'Synced across your devices',
+          subtitle: CurrencyFormatter.inWords(summary.balance),
         ),
         const SizedBox(height: 14),
         Row(
@@ -199,16 +216,17 @@ class _SummarySection extends StatelessWidget {
           const SectionHeader(title: 'Expense breakdown'),
           const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainer,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: Theme.of(context)
-                    .colorScheme
-                    .outlineVariant
-                    .withValues(alpha: 0.35),
-              ),
+              borderRadius: BorderRadius.circular(32),
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(context).shadowColor.withValues(alpha: 0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
             child: SizedBox(
               height: 200,

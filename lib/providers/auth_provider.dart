@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -72,6 +74,26 @@ class AuthActionsNotifier extends Notifier<AsyncValue<void>> {
 
   Future<void> sendPasswordReset(String email) =>
       _run(() => _repo.sendPasswordReset(email));
+
+  Future<Result<void>> updateDisplayName(String name) async {
+    state = const AsyncLoading();
+    final result = await _repo.updateDisplayName(name);
+    result.when(
+      success: (_) => state = const AsyncData(null),
+      failure: (f) => state = AsyncError(f, StackTrace.current),
+    );
+    return result;
+  }
+
+  Future<Result<void>> updateProfilePhoto(File imageFile) async {
+    state = const AsyncLoading();
+    final result = await _repo.updateProfilePhoto(imageFile);
+    result.when(
+      success: (_) => state = const AsyncData(null),
+      failure: (f) => state = AsyncError(f, StackTrace.current),
+    );
+    return result;
+  }
 
   Future<void> signOut() => _run(() async {
         await _repo.signOut();

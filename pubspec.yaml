@@ -64,6 +64,8 @@ dependencies:
   google_fonts: ^8.2.1
   cloud_functions: ^6.4.0
   url_launcher: ^6.3.2
+  number_to_indian_words: ^1.0.1
+  image_picker: ^1.2.3
 
 dev_dependencies:
   flutter_test:

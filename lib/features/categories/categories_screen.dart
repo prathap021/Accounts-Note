@@ -120,7 +120,9 @@ class _CategoryList extends ConsumerWidget {
         },
       ),
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => const Center(
+        child: Text('Something went wrong. Please try again.'),
+      ),
     );
   }
 

@@ -7,8 +7,11 @@ import 'package:intl/intl.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/result.dart';
+import '../../core/utils/user_facing_error.dart';
 import '../../providers/contribution_provider.dart';
 import 'contribution_dialogs.dart';
+
+enum _SupportKind { oneTime, recurring, sponsor }
 
 class ContributeScreen extends ConsumerStatefulWidget {
   const ContributeScreen({super.key});
@@ -18,14 +21,17 @@ class ContributeScreen extends ConsumerStatefulWidget {
 }
 
 class _ContributeScreenState extends ConsumerState<ContributeScreen> {
+  _SupportKind? _selectedKind;
   double? _selectedPreset = ContributionPricing.presetUsd.first;
   final _customController = TextEditingController();
+  final _featureController = TextEditingController();
   bool _useCustom = false;
   bool _thankYouShown = false;
 
   @override
   void dispose() {
     _customController.dispose();
+    _featureController.dispose();
     super.dispose();
   }
 
@@ -34,6 +40,19 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
       return double.tryParse(_customController.text.trim());
     }
     return _selectedPreset;
+  }
+
+  String get _continueLabel {
+    switch (_selectedKind) {
+      case _SupportKind.oneTime:
+        return 'Continue with one-time donation';
+      case _SupportKind.recurring:
+        return 'Continue with monthly support';
+      case _SupportKind.sponsor:
+        return 'Continue to sponsor a feature';
+      case null:
+        return 'Choose a support option';
+    }
   }
 
   void _showThankYouOnce() {
@@ -45,29 +64,61 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
     });
   }
 
+  Future<void> _startCheckout() async {
+    final kind = _selectedKind;
+    if (kind == null) return;
+
+    final amount = _amount;
+    if (amount == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid amount.')),
+      );
+      return;
+    }
+
+    final featureNote = _featureController.text.trim();
+    if (kind == _SupportKind.sponsor && featureNote.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Describe the feature you\'d like to sponsor.'),
+        ),
+      );
+      return;
+    }
+
+    await ref.read(contributionActionsProvider.notifier).contribute(
+          amount,
+          supportType: switch (kind) {
+            _SupportKind.oneTime => 'one_time',
+            _SupportKind.recurring => 'recurring',
+            _SupportKind.sponsor => 'sponsor',
+          },
+          featureNote: kind == _SupportKind.sponsor ? featureNote : null,
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(userProfileProvider).asData?.value;
     final actionState = ref.watch(contributionActionsProvider);
-    final actions = ref.read(contributionActionsProvider.notifier);
     final scheme = Theme.of(context).colorScheme;
     final isContributor = profile?.isContributor ?? false;
-    final contributedThisMonth = profile?.contributedInCurrentMonth() ?? false;
-    final threshold = AppDefaults.contributionPromptTransactionThreshold;
 
     ref.listen(contributionActionsProvider, (prev, next) {
       if (next is AsyncError) {
         final err = next.error;
         final message =
-            err is AppFailure ? err.message : 'Something went wrong.';
+            err is AppFailure ? err.userMessage : userFacingError(err);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(message)));
       }
     });
 
     ref.listen(userProfileProvider, (prev, next) {
-      final wasThisMonth = prev?.asData?.value?.contributedInCurrentMonth() ?? false;
-      final nowThisMonth = next.asData?.value?.contributedInCurrentMonth() ?? false;
+      final wasThisMonth =
+          prev?.asData?.value?.contributedInCurrentMonth() ?? false;
+      final nowThisMonth =
+          next.asData?.value?.contributedInCurrentMonth() ?? false;
       if (!wasThisMonth && nowThisMonth) {
         _showThankYouOnce();
       }
@@ -75,7 +126,7 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Contribute'),
+        title: const Text('Support'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () {
@@ -104,32 +155,34 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  contributedThisMonth
-                      ? 'Thank you this month!'
-                      : (isContributor
-                          ? 'Support again'
-                          : 'Support Accounts Note'),
+                  'Support Accounts Note',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
                       ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 Text(
-                  contributedThisMonth
-                      ? 'Thanks for contributing this month. '
-                          'Income and expense tracking stays unlimited and separate. '
-                          'We won\'t ask again until next month.'
-                      : 'Contribution is completely optional and separate from '
-                          'income & expense. After $threshold transactions we may '
-                          'gently ask once a day. If you contribute, we won\'t ask '
-                          'again for the rest of that month.',
+                  'Financial contributions',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Accounts Note is a free, open-source Flutter app for managing '
+                  'your accounts and notes. It\'s built and maintained in spare '
+                  'time, with no ads or paid features.\n\n'
+                  'If this app helps you and you\'d like to support its ongoing '
+                  'development, you can contribute financially.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.9),
+                        color: Colors.white.withValues(alpha: 0.92),
+                        height: 1.4,
                       ),
                 ),
                 if (isContributor && profile?.lastContributionAt != null) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   Text(
                     'Last gift: \$${profile!.totalContributedUsd.toStringAsFixed(2)} · '
                     '${DateFormat.yMMMd().format(profile.lastContributionAt!)}',
@@ -141,119 +194,207 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
           Text(
-            'Choose an amount (USD)',
+            'Ways to support',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Minimum \$${ContributionPricing.minUsd.toStringAsFixed(0)}. Payments via Stripe.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
+          const SizedBox(height: 10),
+          _SupportOptionCard(
+            emoji: '☕',
+            title: 'One-time donation',
+            subtitle:
+                'Helps cover hosting, domains, and development time.',
+            selected: _selectedKind == _SupportKind.oneTime,
+            onTap: () => setState(() => _selectedKind = _SupportKind.oneTime),
           ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              for (final preset in ContributionPricing.presetUsd) ...[
-                Expanded(
-                  child: _AmountChip(
-                    label: '\$${preset.toStringAsFixed(0)}',
-                    selected: !_useCustom && _selectedPreset == preset,
-                    onTap: () => setState(() {
-                      _useCustom = false;
-                      _selectedPreset = preset;
-                      _customController.clear();
-                    }),
+          const SizedBox(height: 10),
+          _SupportOptionCard(
+            emoji: '🔄',
+            title: 'Recurring support',
+            subtitle:
+                'Makes long-term maintenance and new features more sustainable.',
+            selected: _selectedKind == _SupportKind.recurring,
+            onTap: () => setState(() => _selectedKind = _SupportKind.recurring),
+          ),
+          const SizedBox(height: 10),
+          _SupportOptionCard(
+            emoji: '💼',
+            title: 'Sponsor a feature',
+            subtitle:
+                'Fund a specific improvement (e.g. better export, cloud sync, advanced filters).',
+            selected: _selectedKind == _SupportKind.sponsor,
+            onTap: () => setState(() => _selectedKind = _SupportKind.sponsor),
+          ),
+          if (_selectedKind != null) ...[
+            const SizedBox(height: 24),
+            Text(
+              _selectedKind == _SupportKind.recurring
+                  ? 'Monthly amount (USD)'
+                  : 'Amount (USD)',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
-                ),
-                if (preset != ContributionPricing.presetUsd.last)
-                  const SizedBox(width: 10),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Minimum \$${ContributionPricing.minUsd.toStringAsFixed(0)}. Payments via Stripe.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                for (final preset in ContributionPricing.presetUsd) ...[
+                  Expanded(
+                    child: _AmountChip(
+                      label: _selectedKind == _SupportKind.recurring
+                          ? '\$${preset.toStringAsFixed(0)}/mo'
+                          : '\$${preset.toStringAsFixed(0)}',
+                      selected: !_useCustom && _selectedPreset == preset,
+                      onTap: () => setState(() {
+                        _useCustom = false;
+                        _selectedPreset = preset;
+                        _customController.clear();
+                      }),
+                    ),
+                  ),
+                  if (preset != ContributionPricing.presetUsd.last)
+                    const SizedBox(width: 10),
+                ],
               ],
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _customController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+              ],
+              decoration: InputDecoration(
+                prefixText: '\$ ',
+                labelText: _selectedKind == _SupportKind.recurring
+                    ? 'Custom monthly amount'
+                    : 'Custom amount',
+                hintText: 'e.g. 15',
+                helperText:
+                    'Minimum \$${ContributionPricing.minUsd.toStringAsFixed(0)}',
+                filled: true,
+              ),
+              onTap: () => setState(() => _useCustom = true),
+              onChanged: (_) => setState(() => _useCustom = true),
+            ),
+            if (_selectedKind == _SupportKind.sponsor) ...[
+              const SizedBox(height: 16),
+              TextField(
+                controller: _featureController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Feature to sponsor',
+                  hintText: 'e.g. CSV export, advanced filters, cloud sync…',
+                  filled: true,
+                ),
+              ),
             ],
-          ),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: actionState.isLoading ? null : _startCheckout,
+              child: actionState.isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(_continueLabel),
+            ),
+          ],
           const SizedBox(height: 16),
           Text(
-            'Or enter your own amount',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _customController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-            ],
-            decoration: InputDecoration(
-              prefixText: '\$ ',
-              labelText: 'Custom amount',
-              hintText: 'e.g. 15',
-              helperText:
-                  'Minimum \$${ContributionPricing.minUsd.toStringAsFixed(0)}',
-              filled: true,
-            ),
-            onTap: () => setState(() => _useCustom = true),
-            onChanged: (_) => setState(() => _useCustom = true),
-          ),
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: actionState.isLoading
-                ? null
-                : () {
-                    final amount = _amount;
-                    if (amount == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Enter a valid contribution amount.'),
-                        ),
-                      );
-                      return;
-                    }
-                    actions.contribute(amount);
-                  },
-            icon: actionState.isLoading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.favorite_rounded),
-            label: Text(
-              contributedThisMonth
-                  ? 'Contribute again'
-                  : 'Contribute (optional)',
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'You can always add income and expense transactions without contributing.',
+            'Support is completely optional. Accounts Note stays free, with no ads '
+            'and no paid locks on income or expense tracking.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
           ),
-          const SizedBox(height: 28),
-          Text(
-            'Why contribute?',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: 8),
-          const _Benefit(
-            text: 'Optional support — never required to track money',
-          ),
-          const _Benefit(
-            text: 'Separate from income & expense transactions',
-          ),
-          const _Benefit(text: 'Supports ongoing development'),
-          const _Benefit(text: 'One-time payment — no subscription'),
         ],
+      ),
+    );
+  }
+}
+
+class _SupportOptionCard extends StatelessWidget {
+  final String emoji;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SupportOptionCard({
+    required this.emoji,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: selected
+          ? scheme.primary.withValues(alpha: 0.1)
+          : scheme.surfaceContainer,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: selected
+              ? scheme.primary
+              : scheme.outlineVariant.withValues(alpha: 0.4),
+          width: selected ? 1.5 : 1,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 22)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: selected ? scheme.primary : scheme.onSurface,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            height: 1.35,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              if (selected)
+                Icon(Icons.check_circle_rounded, color: scheme.primary),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -282,7 +423,7 @@ class _AmountChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
@@ -295,32 +436,12 @@ class _AmountChip extends StatelessWidget {
           alignment: Alignment.center,
           child: Text(
             label,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                   color: selected ? scheme.primary : scheme.onSurface,
                 ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _Benefit extends StatelessWidget {
-  final String text;
-  const _Benefit({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          const Icon(Icons.check_circle_rounded,
-              color: AppColors.income, size: 20),
-          const SizedBox(width: 10),
-          Expanded(child: Text(text)),
-        ],
       ),
     );
   }

@@ -31,18 +31,21 @@ class Failure<T> extends Result<T> {
 }
 
 class AppFailure implements Exception {
+  /// Internal detail (logging). Prefer [userMessage] in the UI.
   final String message;
   final String? code;
   final Object? cause;
 
   const AppFailure(this.message, {this.code, this.cause});
 
+  /// Safe copy for toasts / on-screen errors — never expose backend details.
+  String get userMessage => 'Something went wrong. Please try again.';
+
   factory AppFailure.fromException(Object e) {
-    final msg = e.toString();
     return AppFailure(
       'Something went wrong. Please try again.',
       code: 'unknown',
-      cause: msg,
+      cause: e.toString(),
     );
   }
 

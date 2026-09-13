@@ -66,11 +66,17 @@ class AppDefaults {
 
 /// Optional one-time contribution (USD) — user-tier support, not a ledger entry.
 class ContributionPricing {
-  static const minUsd = 5.0;
-  static const presetUsd = <double>[5, 10, 25];
+  static const minUsd = 1.0;
+  static const presetUsd = <double>[1, 5, 10];
   static const currency = 'usd';
   static const successDeepLink = 'accountsnote://stripe-success';
   static const cancelDeepLink = 'accountsnote://stripe-cancel';
+}
+
+/// Public project links shown in Settings / About.
+class AppLinks {
+  static const githubRepo = 'https://github.com/prathap021/Accounts-Note';
+  static const license = 'MIT';
 }
 
 const List<Map<String, dynamic>> kDefaultExpenseCategories = [

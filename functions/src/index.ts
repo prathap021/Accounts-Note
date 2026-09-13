@@ -1,5 +1,8 @@
 /**
- * Stripe one-time contributions for Accounts Note.
+ * Stripe financial contributions for Accounts Note.
+ *
+ * Uses 1st-gen HTTPS functions so mobile/Stripe clients can invoke without
+ * Cloud Run IAM (Gen2 allUsers invoker is blocked on this project).
  *
  * Secrets (never commit):
  *   STRIPE_SECRET_KEY
@@ -8,8 +11,7 @@
  * Local: functions/.env and functions/.secret.local (gitignored)
  * Prod:  firebase functions:secrets:set ...
  */
-import {onCall, onRequest, HttpsError} from "firebase-functions/v2/https";
-import {defineSecret} from "firebase-functions/params";
+import * as functions from "firebase-functions/v1";
 import {initializeApp} from "firebase-admin/app";
 import {getFirestore, FieldValue} from "firebase-admin/firestore";
 import Stripe from "stripe";
@@ -17,13 +19,14 @@ import Stripe from "stripe";
 initializeApp();
 const db = getFirestore();
 
-const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
-const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
-
-const MIN_USD = 5;
+const MIN_USD = 1;
 
 function stripeClient(): Stripe {
-  return new Stripe(stripeSecretKey.value());
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) {
+    throw new Error("STRIPE_SECRET_KEY is not configured.");
+  }
+  return new Stripe(key);
 }
 
 async function getOrCreateCustomer(
@@ -73,22 +76,36 @@ async function markContributor(uid: string, amountUsd: number): Promise<void> {
 }
 
 /**
- * Callable: one-time Stripe Checkout for a contribution amount (USD).
+ * Callable: Stripe Checkout for financial support (one-time, recurring, or sponsor).
  */
-export const createContributionCheckout = onCall(
-  {secrets: [stripeSecretKey], cors: true},
-  async (request) => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Sign in required.");
+export const createContributionCheckout = functions
+  .runWith({
+    secrets: ["STRIPE_SECRET_KEY"],
+    timeoutSeconds: 60,
+    memory: "256MB",
+  })
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Sign in required.",
+      );
     }
 
-    const uid = request.auth.uid;
-    const email = request.auth.token.email as string | undefined;
-    const amountUsd = Number(request.data?.amountUsd);
+    const uid = context.auth.uid;
+    const email = context.auth.token.email as string | undefined;
+    const amountUsd = Number(data?.amountUsd);
+    const supportTypeRaw = String(data?.supportType || "one_time");
+    const supportType = ["one_time", "recurring", "sponsor"].includes(
+      supportTypeRaw,
+    ) ?
+      supportTypeRaw :
+      "one_time";
+    const featureNote = String(data?.featureNote || "").trim().slice(0, 200);
     const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
 
     if (!Number.isFinite(amountUsd) || amountUsd < MIN_USD) {
-      throw new HttpsError(
+      throw new functions.https.HttpsError(
         "invalid-argument",
         `Minimum contribution is $${MIN_USD}.`,
       );
@@ -96,17 +113,38 @@ export const createContributionCheckout = onCall(
 
     const unitAmount = Math.round(amountUsd * 100);
     if (unitAmount < MIN_USD * 100) {
-      throw new HttpsError(
+      throw new functions.https.HttpsError(
         "invalid-argument",
         `Minimum contribution is $${MIN_USD}.`,
+      );
+    }
+
+    if (supportType === "sponsor" && !featureNote) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Describe the feature you'd like to sponsor.",
       );
     }
 
     const stripe = stripeClient();
     const customerId = await getOrCreateCustomer(stripe, uid, email);
 
+    const productName = supportType === "sponsor" ?
+      "Accounts Note feature sponsorship" :
+      supportType === "recurring" ?
+        "Accounts Note monthly support" :
+        "Accounts Note one-time donation";
+
+    const productDescription = supportType === "sponsor" ?
+      `Sponsor: ${featureNote}` :
+      supportType === "recurring" ?
+        "Monthly support for ongoing development of Accounts Note." :
+        "One-time donation helping cover hosting, domains, and development time.";
+
+    const isRecurring = supportType === "recurring";
+
     const session = await stripe.checkout.sessions.create({
-      mode: "payment",
+      mode: isRecurring ? "subscription" : "payment",
       customer: customerId,
       line_items: [
         {
@@ -114,11 +152,10 @@ export const createContributionCheckout = onCall(
           price_data: {
             currency: "usd",
             unit_amount: unitAmount,
+            ...(isRecurring ? {recurring: {interval: "month" as const}} : {}),
             product_data: {
-              name: "Accounts Note contribution",
-              description:
-                "Thank you for supporting open-source. " +
-                "Unlocks unlimited transactions.",
+              name: productName,
+              description: productDescription,
             },
           },
         },
@@ -129,23 +166,34 @@ export const createContributionCheckout = onCall(
       metadata: {
         firebaseUid: uid,
         type: "contribution",
+        supportType,
         amountUsd: String(amountUsd),
+        ...(featureNote ? {featureNote} : {}),
       },
       allow_promotion_codes: true,
     });
 
     return {url: session.url, sessionId: session.id};
-  },
-);
+  });
 
 /**
  * Stripe webhook — marks the user as a contributor after successful payment.
  */
-export const stripeWebhook = onRequest(
-  {secrets: [stripeSecretKey, stripeWebhookSecret]},
-  async (req, res) => {
+export const stripeWebhook = functions
+  .runWith({
+    secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"],
+    timeoutSeconds: 60,
+    memory: "256MB",
+  })
+  .https.onRequest(async (req, res) => {
     if (req.method !== "POST") {
       res.status(405).send("Method Not Allowed");
+      return;
+    }
+
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      res.status(500).send("Webhook secret not configured");
       return;
     }
 
@@ -161,7 +209,7 @@ export const stripeWebhook = onRequest(
       event = stripe.webhooks.constructEvent(
         req.rawBody,
         sig,
-        stripeWebhookSecret.value(),
+        webhookSecret,
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -173,7 +221,13 @@ export const stripeWebhook = onRequest(
     try {
       if (event.type === "checkout.session.completed") {
         const session = event.data.object as Stripe.Checkout.Session;
-        if (session.mode === "payment" && session.payment_status === "paid") {
+        const paid =
+          session.payment_status === "paid" ||
+          session.mode === "subscription";
+        if (
+          paid &&
+          (session.mode === "payment" || session.mode === "subscription")
+        ) {
           let uid =
             session.client_reference_id ||
             session.metadata?.firebaseUid ||
@@ -200,5 +254,4 @@ export const stripeWebhook = onRequest(
       console.error("Webhook handler error", err);
       res.status(500).send("Webhook handler failed");
     }
-  },
-);
+  });

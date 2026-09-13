@@ -137,7 +137,9 @@ class _AddEditTransactionScreenState
                 validator: (v) => v == null ? 'Select a category' : null,
               ),
               loading: () => const LinearProgressIndicator(),
-              error: (e, _) => Text('Could not load categories: $e'),
+              error: (e, _) => const Text(
+                'Something went wrong. Please try again.',
+              ),
             ),
             const SizedBox(height: 16),
             ListTile(
@@ -237,8 +239,8 @@ class _AddEditTransactionScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            failure?.message ??
-                'Could not save transaction. Please try again.',
+            failure?.userMessage ??
+                'Something went wrong. Please try again.',
           ),
         ),
       );

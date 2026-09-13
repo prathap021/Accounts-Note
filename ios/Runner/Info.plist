@@ -60,6 +60,12 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Accounts Note needs photo access so you can set a profile picture.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Accounts Note needs camera access so you can take a profile picture.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Accounts Note may save photos you choose for your profile.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

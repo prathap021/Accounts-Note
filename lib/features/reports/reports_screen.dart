@@ -271,8 +271,9 @@ class ReportsScreen extends ConsumerWidget {
           ShareParams(files: [XFile(file.path)], text: 'Transaction export'),
         );
       },
-      failure: (f) => messenger
-          .showSnackBar(SnackBar(content: Text('Export failed: ${f.message}'))),
+      failure: (f) => messenger.showSnackBar(
+        SnackBar(content: Text(f.userMessage)),
+      ),
     );
   }
 }

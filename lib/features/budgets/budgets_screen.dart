@@ -161,8 +161,10 @@ class BudgetsScreen extends ConsumerWidget {
             loading: () => const SliverFillRemaining(
               child: Center(child: CircularProgressIndicator()),
             ),
-            error: (e, _) => SliverFillRemaining(
-              child: Center(child: Text('Error: $e')),
+            error: (e, _) => const SliverFillRemaining(
+              child: Center(
+                child: Text('Something went wrong. Please try again.'),
+              ),
             ),
           ),
         ],

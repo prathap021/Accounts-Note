@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
@@ -16,15 +18,19 @@ import '../../models/app_user_model.dart';
 class AuthRepository {
   final fb.FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
+  final FirebaseStorage _storage;
   Future<void>? _googleSignInReady;
 
   AuthRepository({
     fb.FirebaseAuth? auth,
     FirebaseFirestore? firestore,
+    FirebaseStorage? storage,
   })  : _auth = auth ?? fb.FirebaseAuth.instance,
-        _firestore = firestore ?? FirebaseFirestore.instance;
+        _firestore = firestore ?? FirebaseFirestore.instance,
+        _storage = storage ?? FirebaseStorage.instance;
 
-  Stream<fb.User?> authStateChanges() => _auth.authStateChanges();
+  /// Prefer [userChanges] so displayName / photoURL updates refresh the UI.
+  Stream<fb.User?> authStateChanges() => _auth.userChanges();
 
   fb.User? get currentUser => _auth.currentUser;
 
@@ -151,6 +157,72 @@ class AuthRepository {
       return Result.success(null);
     } on fb.FirebaseAuthException catch (e) {
       return Result.failure(AppFailure(_mapAuthError(e), code: e.code));
+    }
+  }
+
+  /// Updates display name in Firebase Auth + Firestore user profile.
+  Future<Result<void>> updateDisplayName(String name) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      return Result.failure(const AppFailure('No signed-in user.', code: 'no-user'));
+    }
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      return Result.failure(
+        const AppFailure('Name cannot be empty.', code: 'empty-name'),
+      );
+    }
+    if (trimmed.length > 60) {
+      return Result.failure(
+        const AppFailure('Name is too long (max 60 characters).', code: 'name-too-long'),
+      );
+    }
+    try {
+      await user.updateDisplayName(trimmed);
+      await _firestore.collection(FirestoreCollections.users).doc(user.uid).set(
+        {'displayName': trimmed},
+        SetOptions(merge: true),
+      );
+      await user.reload();
+      return Result.success(null);
+    } on fb.FirebaseAuthException catch (e) {
+      return Result.failure(AppFailure(_mapAuthError(e), code: e.code));
+    } catch (e) {
+      return Result.failure(AppFailure.fromException(e));
+    }
+  }
+
+  /// Uploads a profile photo to Storage and updates Auth + Firestore.
+  Future<Result<void>> updateProfilePhoto(File imageFile) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      return Result.failure(const AppFailure('No signed-in user.', code: 'no-user'));
+    }
+    try {
+      final ref = _storage.ref('users/${user.uid}/profile/avatar.jpg');
+      await ref.putFile(
+        imageFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      final url = await ref.getDownloadURL();
+      await user.updatePhotoURL(url);
+      await _firestore.collection(FirestoreCollections.users).doc(user.uid).set(
+        {'photoUrl': url},
+        SetOptions(merge: true),
+      );
+      await user.reload();
+      return Result.success(null);
+    } on fb.FirebaseAuthException catch (e) {
+      return Result.failure(AppFailure(_mapAuthError(e), code: e.code));
+    } on FirebaseException catch (e) {
+      final message = e.code == 'object-not-found' ||
+              e.code == 'bucket-not-found' ||
+              (e.message?.toLowerCase().contains('storage') ?? false)
+          ? 'Photo storage is not enabled yet. Open Firebase Console → Storage → Get Started, then try again.'
+          : (e.message ?? 'Could not upload photo. Please try again.');
+      return Result.failure(AppFailure(message, code: e.code));
+    } catch (e) {
+      return Result.failure(AppFailure.fromException(e));
     }
   }
 

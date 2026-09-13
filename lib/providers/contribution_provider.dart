@@ -29,11 +29,19 @@ class ContributionActionsNotifier extends Notifier<AsyncValue<void>> {
   @override
   AsyncValue<void> build() => const AsyncData(null);
 
-  Future<Result<void>> contribute(double amountUsd) async {
+  Future<Result<void>> contribute(
+    double amountUsd, {
+    String supportType = 'one_time',
+    String? featureNote,
+  }) async {
     state = const AsyncLoading();
     final result = await ref
         .read(contributionRepositoryProvider)
-        .startContribution(amountUsd);
+        .startContribution(
+          amountUsd,
+          supportType: supportType,
+          featureNote: featureNote,
+        );
     result.when(
       success: (_) => state = const AsyncData(null),
       failure: (f) => state = AsyncError(f, StackTrace.current),

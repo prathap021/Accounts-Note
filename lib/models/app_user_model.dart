@@ -177,6 +177,7 @@ class AppUserModel extends Equatable {
         uid,
         email,
         displayName,
+        photoUrl,
         currency,
         themeMode,
         hasContributed,

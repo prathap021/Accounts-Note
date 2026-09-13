@@ -14,7 +14,8 @@ class ContributionRepository {
     FirebaseFirestore? firestore,
     cf.FirebaseFunctions? functions,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _functions = functions ?? cf.FirebaseFunctions.instance;
+        _functions = functions ??
+            cf.FirebaseFunctions.instanceFor(region: 'us-central1');
 
   Stream<AppUserModel?> watchProfile(String uid) {
     return _firestore
@@ -52,8 +53,12 @@ class ContributionRepository {
     }
   }
 
-  /// Starts Stripe Checkout for a one-time contribution (USD).
-  Future<Result<void>> startContribution(double amountUsd) async {
+  /// Starts Stripe Checkout for a financial contribution (USD).
+  Future<Result<void>> startContribution(
+    double amountUsd, {
+    String supportType = 'one_time',
+    String? featureNote,
+  }) async {
     if (amountUsd < ContributionPricing.minUsd) {
       return Result.failure(
         AppFailure(
@@ -63,29 +68,55 @@ class ContributionRepository {
       );
     }
     try {
-      final callable = _functions.httpsCallable('createContributionCheckout');
-      final result = await callable.call(<String, dynamic>{
+      final callable = _functions.httpsCallable(
+        'createContributionCheckout',
+        options: cf.HttpsCallableOptions(timeout: const Duration(seconds: 60)),
+      );
+      final payload = <String, dynamic>{
         'amountUsd': amountUsd,
-      });
-      final url = (result.data as Map)['url'] as String?;
+        'supportType': supportType,
+      };
+      if (featureNote != null && featureNote.trim().isNotEmpty) {
+        payload['featureNote'] = featureNote.trim();
+      }
+      final result = await callable.call(payload);
+      final raw = result.data;
+      final map = raw is Map ? Map<Object?, Object?>.from(raw) : null;
+      final url = map?['url']?.toString();
       if (url == null || url.isEmpty) {
         return Result.failure(
-          const AppFailure('Could not start checkout. Try again.', code: 'no-url'),
+          const AppFailure(
+            'Could not start checkout. Try again.',
+            code: 'no-url',
+          ),
         );
       }
-      final ok = await launchUrl(
-        Uri.parse(url),
+      final uri = Uri.parse(url);
+      var launched = await launchUrl(
+        uri,
         mode: LaunchMode.externalApplication,
       );
-      if (!ok) {
+      if (!launched) {
+        launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
+      }
+      if (!launched) {
         return Result.failure(
-          const AppFailure('Could not open Stripe Checkout.', code: 'launch-failed'),
+          const AppFailure(
+            'Could not open Stripe Checkout in the browser.',
+            code: 'launch-failed',
+          ),
         );
       }
       return Result.success(null);
     } on cf.FirebaseFunctionsException catch (e) {
+      final detail = e.message?.trim();
       return Result.failure(
-        AppFailure(e.message ?? 'Checkout failed.', code: e.code),
+        AppFailure(
+          detail != null && detail.isNotEmpty
+              ? detail
+              : 'Checkout failed (${e.code}). Please try again.',
+          code: e.code,
+        ),
       );
     } catch (e) {
       return Result.failure(AppFailure.fromException(e));
