@@ -32,6 +32,15 @@ Future<void> main() async {
         FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
         return true;
       };
+    } else {
+      FlutterError.onError = (details) {
+        FlutterError.presentError(details);
+        debugPrint('Flutter Error: ${details.exception}\n${details.stack}');
+      };
+      PlatformDispatcher.instance.onError = (error, stack) {
+        debugPrint('Platform Error: $error\n$stack');
+        return true;
+      };
     }
 
     await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(!kDebugMode);

@@ -24,6 +24,34 @@ class ContributionRepository {
         .map((snap) => snap.exists ? AppUserModel.fromDoc(snap) : null);
   }
 
+  static String todayKey([DateTime? now]) {
+    final n = now ?? DateTime.now();
+    final m = n.month.toString().padLeft(2, '0');
+    final d = n.day.toString().padLeft(2, '0');
+    return '${n.year}-$m-$d';
+  }
+
+  /// Records that the contribution dialog was shown (and optionally declined).
+  /// Suppresses further prompts for the rest of the calendar day.
+  Future<Result<void>> markContributionPromptHandled(
+    String uid, {
+    required bool declined,
+  }) async {
+    try {
+      final today = todayKey();
+      final data = <String, dynamic>{
+        'contributionPromptLastShownDate': today,
+      };
+      if (declined) {
+        data['contributionDeclinedDate'] = today;
+      }
+      await _firestore.collection(FirestoreCollections.users).doc(uid).update(data);
+      return Result.success(null);
+    } catch (e) {
+      return Result.failure(AppFailure.fromException(e));
+    }
+  }
+
   /// Starts Stripe Checkout for a one-time contribution (USD).
   Future<Result<void>> startContribution(double amountUsd) async {
     if (amountUsd < ContributionPricing.minUsd) {
@@ -42,7 +70,7 @@ class ContributionRepository {
       final url = (result.data as Map)['url'] as String?;
       if (url == null || url.isEmpty) {
         return Result.failure(
-          AppFailure('Could not start checkout. Try again.', code: 'no-url'),
+          const AppFailure('Could not start checkout. Try again.', code: 'no-url'),
         );
       }
       final ok = await launchUrl(
@@ -51,7 +79,7 @@ class ContributionRepository {
       );
       if (!ok) {
         return Result.failure(
-          AppFailure('Could not open Stripe Checkout.', code: 'launch-failed'),
+          const AppFailure('Could not open Stripe Checkout.', code: 'launch-failed'),
         );
       }
       return Result.success(null);
@@ -63,24 +91,4 @@ class ContributionRepository {
       return Result.failure(AppFailure.fromException(e));
     }
   }
-}
-
-/// Whether the user may create another transaction today.
-class TransactionEntitlement {
-  final bool allowed;
-  final bool isUnlocked;
-  final int usedToday;
-  final int dailyLimit;
-  final String? message;
-
-  const TransactionEntitlement({
-    required this.allowed,
-    required this.isUnlocked,
-    required this.usedToday,
-    required this.dailyLimit,
-    this.message,
-  });
-
-  int get remaining =>
-      isUnlocked ? -1 : (dailyLimit - usedToday).clamp(0, dailyLimit);
 }

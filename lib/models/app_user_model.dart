@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
+import '../core/constants/app_constants.dart';
+
 class AppUserModel extends Equatable {
   final String uid;
   final String? email;
@@ -11,15 +13,20 @@ class AppUserModel extends Equatable {
   final int financialMonthStartDay;
   final DateTime createdAt;
 
-  /// One-time Stripe contribution unlocks unlimited transactions.
+  /// True after at least one successful Stripe contribution (user tier).
   final bool hasContributed;
   final double totalContributedUsd;
   final DateTime? lastContributionAt;
   final String? stripeCustomerId;
 
-  /// Local usage counters for the free daily limit (client-maintained).
-  final String? dailyTxnDate; // yyyy-MM-dd
-  final int dailyTxnCount;
+  /// Lifetime income+expense creates (for contribution-prompt eligibility).
+  final int lifetimeTxnCount;
+
+  /// yyyy-MM-dd — dialog was shown / declined this calendar day.
+  final String? contributionPromptLastShownDate;
+
+  /// yyyy-MM-dd — user tapped Not Now (same-day suppression).
+  final String? contributionDeclinedDate;
 
   const AppUserModel({
     required this.uid,
@@ -34,12 +41,50 @@ class AppUserModel extends Equatable {
     this.totalContributedUsd = 0,
     this.lastContributionAt,
     this.stripeCustomerId,
-    this.dailyTxnDate,
-    this.dailyTxnCount = 0,
+    this.lifetimeTxnCount = 0,
+    this.contributionPromptLastShownDate,
+    this.contributionDeclinedDate,
   });
 
-  /// Contributors (after a successful Stripe payment) have unlimited adds.
-  bool get isUnlocked => hasContributed;
+  /// Contributor badge: has ever supported the app.
+  bool get isContributor => hasContributed;
+
+  /// Contribution is a user tier, not an income/expense transaction.
+  UserAccessTier get accessTier =>
+      hasContributed ? UserAccessTier.contributor : UserAccessTier.free;
+
+  /// Reached the 7-transaction threshold for optional prompts.
+  bool get isContributionPromptThresholdMet =>
+      lifetimeTxnCount >= AppDefaults.contributionPromptTransactionThreshold;
+
+  /// Last contribution was in the current calendar month.
+  bool contributedInCurrentMonth([DateTime? now]) {
+    final at = lastContributionAt;
+    if (at == null) return false;
+    final n = now ?? DateTime.now();
+    return at.year == n.year && at.month == n.month;
+  }
+
+  /// Whether the optional contribution dialog may be shown now.
+  ///
+  /// Rules:
+  /// - Eligible only after [AppDefaults.contributionPromptTransactionThreshold] txs
+  /// - Not again on a day the dialog was already shown / declined
+  /// - Not again during the same calendar month after a successful contribution
+  bool shouldShowContributionPrompt({DateTime? now, String? todayKey}) {
+    if (!isContributionPromptThresholdMet) return false;
+    if (contributedInCurrentMonth(now)) return false;
+    final today = todayKey ?? _formatDay(now ?? DateTime.now());
+    if (contributionPromptLastShownDate == today) return false;
+    if (contributionDeclinedDate == today) return false;
+    return true;
+  }
+
+  static String _formatDay(DateTime n) {
+    final m = n.month.toString().padLeft(2, '0');
+    final d = n.day.toString().padLeft(2, '0');
+    return '${n.year}-$m-$d';
+  }
 
   Map<String, dynamic> toMap() => {
         'email': email,
@@ -55,14 +100,19 @@ class AppUserModel extends Equatable {
             ? null
             : Timestamp.fromDate(lastContributionAt!),
         'stripeCustomerId': stripeCustomerId,
-        'dailyTxnDate': dailyTxnDate,
-        'dailyTxnCount': dailyTxnCount,
+        'lifetimeTxnCount': lifetimeTxnCount,
+        'contributionPromptLastShownDate': contributionPromptLastShownDate,
+        'contributionDeclinedDate': contributionDeclinedDate,
       };
 
   factory AppUserModel.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
-    // Back-compat: older subscription users treated as unlocked.
+    // Back-compat: older subscription users treated as contributors.
     final legacySubscribed = data['subscriptionStatus'] == 'active';
+    // Migrate older daily counters into lifetime count when missing.
+    final lifetime = (data['lifetimeTxnCount'] as num?)?.toInt() ??
+        (data['dailyTxnCount'] as num?)?.toInt() ??
+        0;
     return AppUserModel(
       uid: doc.id,
       email: data['email'] as String?,
@@ -79,8 +129,10 @@ class AppUserModel extends Equatable {
       lastContributionAt:
           (data['lastContributionAt'] as Timestamp?)?.toDate(),
       stripeCustomerId: data['stripeCustomerId'] as String?,
-      dailyTxnDate: data['dailyTxnDate'] as String?,
-      dailyTxnCount: (data['dailyTxnCount'] as num?)?.toInt() ?? 0,
+      lifetimeTxnCount: lifetime,
+      contributionPromptLastShownDate:
+          data['contributionPromptLastShownDate'] as String?,
+      contributionDeclinedDate: data['contributionDeclinedDate'] as String?,
     );
   }
 
@@ -94,8 +146,9 @@ class AppUserModel extends Equatable {
     double? totalContributedUsd,
     DateTime? lastContributionAt,
     String? stripeCustomerId,
-    String? dailyTxnDate,
-    int? dailyTxnCount,
+    int? lifetimeTxnCount,
+    String? contributionPromptLastShownDate,
+    String? contributionDeclinedDate,
   }) {
     return AppUserModel(
       uid: uid,
@@ -111,8 +164,11 @@ class AppUserModel extends Equatable {
       totalContributedUsd: totalContributedUsd ?? this.totalContributedUsd,
       lastContributionAt: lastContributionAt ?? this.lastContributionAt,
       stripeCustomerId: stripeCustomerId ?? this.stripeCustomerId,
-      dailyTxnDate: dailyTxnDate ?? this.dailyTxnDate,
-      dailyTxnCount: dailyTxnCount ?? this.dailyTxnCount,
+      lifetimeTxnCount: lifetimeTxnCount ?? this.lifetimeTxnCount,
+      contributionPromptLastShownDate: contributionPromptLastShownDate ??
+          this.contributionPromptLastShownDate,
+      contributionDeclinedDate:
+          contributionDeclinedDate ?? this.contributionDeclinedDate,
     );
   }
 
@@ -125,7 +181,9 @@ class AppUserModel extends Equatable {
         themeMode,
         hasContributed,
         totalContributedUsd,
-        dailyTxnCount,
-        dailyTxnDate,
+        lastContributionAt,
+        lifetimeTxnCount,
+        contributionPromptLastShownDate,
+        contributionDeclinedDate,
       ];
 }

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/contribution_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -14,6 +15,8 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authStateProvider).asData?.value;
     final actions = ref.read(authActionsProvider.notifier);
+    final isContributor =
+        ref.watch(userProfileProvider).asData?.value?.isContributor ?? false;
     final scheme = Theme.of(context).colorScheme;
     final name = user?.displayName ?? user?.email ?? 'Signed in user';
     final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
@@ -98,7 +101,9 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: Icons.favorite_rounded,
                 title: 'Contribute',
-                subtitle: 'Optional support · from \$5',
+                subtitle: isContributor
+                    ? 'Contributor · thank you!'
+                    : 'Optional supporter · from \$5',
                 onTap: () => context.push('/contribute'),
               ),
               _SettingsTile(

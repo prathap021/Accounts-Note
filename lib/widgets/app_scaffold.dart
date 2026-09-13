@@ -1,23 +1,70 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/contribute/contribution_dialogs.dart';
+import '../providers/contribution_provider.dart';
+
 /// Persistent bottom navigation for top-level tabs (ShellRoute).
-class AppScaffold extends StatelessWidget {
+/// Also hosts the optional contribution prompt (never blocks transactions).
+class AppScaffold extends ConsumerStatefulWidget {
   final Widget child;
   const AppScaffold({super.key, required this.child});
 
+  @override
+  ConsumerState<AppScaffold> createState() => _AppScaffoldState();
+}
+
+class _AppScaffoldState extends ConsumerState<AppScaffold> {
   static const _tabs = [
     ('/dashboard', Icons.home_outlined, Icons.home_rounded, 'Home'),
-    ('/transactions', Icons.receipt_long_outlined, Icons.receipt_long_rounded,
-        'Activity'),
+    (
+      '/transactions',
+      Icons.receipt_long_outlined,
+      Icons.receipt_long_rounded,
+      'Activity'
+    ),
     ('/budgets', Icons.pie_chart_outline_rounded, Icons.pie_chart_rounded,
         'Budgets'),
     ('/reports', Icons.insights_outlined, Icons.insights_rounded, 'Reports'),
   ];
 
+  bool _promptInFlight = false;
+  bool _promptScheduled = false;
+
   int _currentIndex(String location) {
     final index = _tabs.indexWhere((t) => location.startsWith(t.$1));
     return index == -1 ? 0 : index;
+  }
+
+  void _scheduleContributionPrompt() {
+    if (_promptInFlight || _promptScheduled || !mounted) return;
+    _promptScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      _promptScheduled = false;
+      if (!mounted) return;
+      if (!ref.read(shouldShowContributionPromptProvider)) return;
+      await _presentContributionPrompt();
+    });
+  }
+
+  Future<void> _presentContributionPrompt() async {
+    if (_promptInFlight || !mounted) return;
+    _promptInFlight = true;
+    try {
+      final result = await showContributionPromptDialog(context);
+      if (!mounted) return;
+      final actions = ref.read(contributionActionsProvider.notifier);
+      if (result == ContributionPromptResult.contribute) {
+        await actions.markPromptShownToday();
+        if (mounted) context.push('/contribute');
+      } else {
+        // Not Now or barrier dismiss — suppress for the rest of today.
+        await actions.declinePromptForToday();
+      }
+    } finally {
+      _promptInFlight = false;
+    }
   }
 
   @override
@@ -26,8 +73,16 @@ class AppScaffold extends StatelessWidget {
     final currentIndex = _currentIndex(location);
     final scheme = Theme.of(context).colorScheme;
 
+    ref.listen<bool>(shouldShowContributionPromptProvider, (prev, next) {
+      if (next) _scheduleContributionPrompt();
+    });
+
+    if (ref.watch(shouldShowContributionPromptProvider)) {
+      _scheduleContributionPrompt();
+    }
+
     return Scaffold(
-      body: child,
+      body: widget.child,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: scheme.surfaceContainer,

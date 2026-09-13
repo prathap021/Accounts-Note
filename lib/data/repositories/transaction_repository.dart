@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/result.dart';
-import '../../models/app_user_model.dart';
 import '../../models/transaction_model.dart';
 
 class TransactionFilter {
@@ -42,13 +41,6 @@ class TransactionRepository {
 
   DocumentReference<Map<String, dynamic>> _userRef(String uid) =>
       _firestore.collection(FirestoreCollections.users).doc(uid);
-
-  static String todayKey([DateTime? now]) {
-    final n = now ?? DateTime.now();
-    final m = n.month.toString().padLeft(2, '0');
-    final d = n.day.toString().padLeft(2, '0');
-    return '${n.year}-$m-$d';
-  }
 
   Stream<List<TransactionModel>> watchTransactions(
     String uid, {
@@ -117,7 +109,8 @@ class TransactionRepository {
     }
   }
 
-  /// Creates a transaction and atomically enforces the free daily limit.
+  /// Creates a transaction and increments lifetime count for contribution prompts.
+  /// Never blocks income/expense — contribution is optional and separate.
   Future<Result<TransactionModel>> addTransaction(
     String uid,
     TransactionModel tx,
@@ -126,7 +119,6 @@ class TransactionRepository {
       final userRef = _userRef(uid);
       final txRef = _col(uid).doc();
       final now = DateTime.now();
-      final today = todayKey(now);
       final toSave = tx.copyWith(id: txRef.id, createdAt: now, updatedAt: now);
 
       await _firestore.runTransaction((txn) async {
@@ -134,41 +126,14 @@ class TransactionRepository {
         if (!userSnap.exists) {
           throw StateError('User profile missing.');
         }
-        final profile = AppUserModel.fromDoc(userSnap);
-
-        if (!profile.isUnlocked) {
-          final used =
-              profile.dailyTxnDate == today ? profile.dailyTxnCount : 0;
-          if (used >= AppDefaults.freeDailyTransactionLimit) {
-            throw FirebaseException(
-              plugin: 'cloud_firestore',
-              code: 'daily-limit',
-              message:
-                  'You have used today\'s ${AppDefaults.freeDailyTransactionLimit} '
-                  'free income & expense entries. You can add more tomorrow.',
-            );
-          }
-          txn.update(userRef, {
-            'dailyTxnDate': today,
-            'dailyTxnCount': used + 1,
-          });
-        }
 
         txn.set(txRef, toSave.toMap());
+        txn.update(userRef, {
+          'lifetimeTxnCount': FieldValue.increment(1),
+        });
       });
 
       return Result.success(toSave);
-    } on FirebaseException catch (e) {
-      if (e.code == 'daily-limit') {
-        return Result.failure(
-          AppFailure(
-            e.message ??
-                'Daily free limit reached. You can add more transactions tomorrow.',
-            code: 'daily-limit',
-          ),
-        );
-      }
-      return Result.failure(AppFailure.fromException(e));
     } catch (e) {
       return Result.failure(AppFailure.fromException(e));
     }
@@ -189,31 +154,7 @@ class TransactionRepository {
 
   Future<Result<void>> deleteTransaction(String uid, String txId) async {
     try {
-      final userRef = _userRef(uid);
-      final txRef = _col(uid).doc(txId);
-      final today = todayKey();
-
-      await _firestore.runTransaction((txn) async {
-        final txSnap = await txn.get(txRef);
-        final userSnap = await txn.get(userRef);
-        if (!txSnap.exists) return;
-
-        final createdAt =
-            (txSnap.data()?['createdAt'] as Timestamp?)?.toDate();
-        txn.delete(txRef);
-
-        if (userSnap.exists && createdAt != null) {
-          final profile = AppUserModel.fromDoc(userSnap);
-          if (!profile.isUnlocked &&
-              todayKey(createdAt) == today &&
-              profile.dailyTxnDate == today &&
-              profile.dailyTxnCount > 0) {
-            txn.update(userRef, {
-              'dailyTxnCount': profile.dailyTxnCount - 1,
-            });
-          }
-        }
-      });
+      await _col(uid).doc(txId).delete();
       return Result.success(null);
     } catch (e) {
       return Result.failure(AppFailure.fromException(e));

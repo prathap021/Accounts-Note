@@ -1,65 +1,29 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../core/constants/app_constants.dart';
 import '../core/utils/result.dart';
 import '../data/repositories/contribution_repository.dart';
+import '../models/app_user_model.dart';
 import 'auth_provider.dart';
 
 final contributionRepositoryProvider = Provider<ContributionRepository>((ref) {
   return ContributionRepository();
 });
 
-final userProfileProvider = StreamProvider((ref) {
+final userProfileProvider = StreamProvider<AppUserModel?>((ref) {
   final uid = ref.watch(currentUidProvider);
   if (uid == null) return Stream.value(null);
   return ref.watch(contributionRepositoryProvider).watchProfile(uid);
 });
 
-final isUnlockedProvider = Provider<bool>((ref) {
-  return ref.watch(userProfileProvider).asData?.value?.isUnlocked ?? false;
+final isContributorProvider = Provider<bool>((ref) {
+  return ref.watch(userProfileProvider).asData?.value?.isContributor ?? false;
 });
 
-final transactionEntitlementProvider = Provider<TransactionEntitlement>((ref) {
+/// Whether the optional contribution dialog should appear (non-blocking).
+final shouldShowContributionPromptProvider = Provider<bool>((ref) {
   final profile = ref.watch(userProfileProvider).asData?.value;
-  final limit = AppDefaults.freeDailyTransactionLimit;
-  if (profile == null) {
-    return const TransactionEntitlement(
-      allowed: false,
-      isUnlocked: false,
-      usedToday: 0,
-      dailyLimit: AppDefaults.freeDailyTransactionLimit,
-      message: 'Sign in to add transactions.',
-    );
-  }
-  if (profile.isUnlocked) {
-    return TransactionEntitlement(
-      allowed: true,
-      isUnlocked: true,
-      usedToday: profile.dailyTxnCount,
-      dailyLimit: limit,
-    );
-  }
-  final today = _todayKey();
-  final used = profile.dailyTxnDate == today ? profile.dailyTxnCount : 0;
-  final allowed = used < limit;
-  return TransactionEntitlement(
-    allowed: allowed,
-    isUnlocked: false,
-    usedToday: used,
-    dailyLimit: limit,
-    message: allowed
-        ? null
-        : 'You have used today\'s $limit free income & expense entries. '
-            'You can add more again tomorrow. Contribution is optional.',
-  );
+  if (profile == null) return false;
+  return profile.shouldShowContributionPrompt();
 });
-
-String _todayKey() {
-  final n = DateTime.now();
-  final m = n.month.toString().padLeft(2, '0');
-  final d = n.day.toString().padLeft(2, '0');
-  return '${n.year}-$m-$d';
-}
 
 class ContributionActionsNotifier extends Notifier<AsyncValue<void>> {
   @override
@@ -76,9 +40,33 @@ class ContributionActionsNotifier extends Notifier<AsyncValue<void>> {
     );
     return result;
   }
+
+  /// Not Now / dialog dismissed — suppress for the rest of today.
+  Future<void> declinePromptForToday() async {
+    final uid = ref.read(currentUidProvider);
+    if (uid == null) return;
+    await ref.read(contributionRepositoryProvider).markContributionPromptHandled(
+          uid,
+          declined: true,
+        );
+  }
+
+  /// Dialog shown and user chose Contribute — suppress re-show today.
+  Future<void> markPromptShownToday() async {
+    final uid = ref.read(currentUidProvider);
+    if (uid == null) return;
+    await ref.read(contributionRepositoryProvider).markContributionPromptHandled(
+          uid,
+          declined: false,
+        );
+  }
 }
 
 final contributionActionsProvider =
     NotifierProvider<ContributionActionsNotifier, AsyncValue<void>>(
   ContributionActionsNotifier.new,
 );
+
+/// Kept for any leftover references; income/expense are never blocked.
+@Deprecated('Contribution no longer gates transactions')
+final isUnlockedProvider = isContributorProvider;

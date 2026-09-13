@@ -44,6 +44,11 @@ class FirestorePaths {
 
 enum TransactionType { income, expense }
 
+/// User access tier — separate from income/expense transaction types.
+/// Contribution marks the user as a [contributor]; it is never logged as a
+/// transaction in the ledger.
+enum UserAccessTier { free, contributor }
+
 enum RecurrenceFrequency { daily, weekly, monthly, yearly }
 
 class AppDefaults {
@@ -51,11 +56,15 @@ class AppDefaults {
   static const pageSize = 20; // transactions fetched per pagination page
   static const financialMonthStartDay = 1;
 
-  /// Free tier: max combined income+expense creates per calendar day.
-  static const freeDailyTransactionLimit = 7;
+  /// After this many lifetime income+expense creates, the optional
+  /// contribution dialog becomes eligible (does not block transactions).
+  static const contributionPromptTransactionThreshold = 7;
+
+  /// @Deprecated Use [contributionPromptTransactionThreshold].
+  static const freeDailyTransactionLimit = contributionPromptTransactionThreshold;
 }
 
-/// One-time contribution (USD) — unlocks unlimited transactions.
+/// Optional one-time contribution (USD) — user-tier support, not a ledger entry.
 class ContributionPricing {
   static const minUsd = 5.0;
   static const presetUsd = <double>[5, 10, 25];

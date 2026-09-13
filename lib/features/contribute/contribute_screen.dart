@@ -8,6 +8,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/result.dart';
 import '../../providers/contribution_provider.dart';
+import 'contribution_dialogs.dart';
 
 class ContributeScreen extends ConsumerStatefulWidget {
   const ContributeScreen({super.key});
@@ -20,6 +21,7 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
   double? _selectedPreset = ContributionPricing.presetUsd.first;
   final _customController = TextEditingController();
   bool _useCustom = false;
+  bool _thankYouShown = false;
 
   @override
   void dispose() {
@@ -34,21 +36,40 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
     return _selectedPreset;
   }
 
+  void _showThankYouOnce() {
+    if (_thankYouShown || !mounted) return;
+    _thankYouShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showContributionThankYouDialog(context);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(userProfileProvider).asData?.value;
-    final entitlement = ref.watch(transactionEntitlementProvider);
     final actionState = ref.watch(contributionActionsProvider);
     final actions = ref.read(contributionActionsProvider.notifier);
     final scheme = Theme.of(context).colorScheme;
-    final unlocked = profile?.isUnlocked ?? false;
+    final isContributor = profile?.isContributor ?? false;
+    final contributedThisMonth = profile?.contributedInCurrentMonth() ?? false;
+    final threshold = AppDefaults.contributionPromptTransactionThreshold;
 
     ref.listen(contributionActionsProvider, (prev, next) {
       if (next is AsyncError) {
         final err = next.error;
         final message =
             err is AppFailure ? err.message : 'Something went wrong.';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
+      }
+    });
+
+    ref.listen(userProfileProvider, (prev, next) {
+      final wasThisMonth = prev?.asData?.value?.contributedInCurrentMonth() ?? false;
+      final nowThisMonth = next.asData?.value?.contributedInCurrentMonth() ?? false;
+      if (!wasThisMonth && nowThisMonth) {
+        _showThankYouOnce();
       }
     });
 
@@ -83,7 +104,11 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  unlocked ? 'Thank you!' : 'Support Accounts Note',
+                  contributedThisMonth
+                      ? 'Thank you this month!'
+                      : (isContributor
+                          ? 'Support again'
+                          : 'Support Accounts Note'),
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
@@ -91,27 +116,19 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  unlocked
-                      ? 'Thank you for supporting Accounts Note. Unlimited entries stay unlocked.'
-                      : 'Contribution is optional. Everyone gets '
-                          '${AppDefaults.freeDailyTransactionLimit} free income & expense '
-                          'entries per day. A gift of \$${ContributionPricing.minUsd.toStringAsFixed(0)}+ '
-                          'removes the daily limit if you want.',
+                  contributedThisMonth
+                      ? 'Thanks for contributing this month. '
+                          'Income and expense tracking stays unlimited and separate. '
+                          'We won\'t ask again until next month.'
+                      : 'Contribution is completely optional and separate from '
+                          'income & expense. After $threshold transactions we may '
+                          'gently ask once a day. If you contribute, we won\'t ask '
+                          'again for the rest of that month.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.white.withValues(alpha: 0.9),
                       ),
                 ),
-                if (!unlocked) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    'Today: ${entitlement.usedToday}/${entitlement.dailyLimit} free entries used',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ],
-                if (unlocked && profile?.lastContributionAt != null) ...[
+                if (isContributor && profile?.lastContributionAt != null) ...[
                   const SizedBox(height: 12),
                   Text(
                     'Last gift: \$${profile!.totalContributedUsd.toStringAsFixed(2)} · '
@@ -207,12 +224,14 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
                   )
                 : const Icon(Icons.favorite_rounded),
             label: Text(
-              unlocked ? 'Contribute again' : 'Contribute (optional)',
+              contributedThisMonth
+                  ? 'Contribute again'
+                  : 'Contribute (optional)',
             ),
           ),
           const SizedBox(height: 12),
           Text(
-            'You can keep using the free daily entries without contributing.',
+            'You can always add income and expense transactions without contributing.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
@@ -226,7 +245,12 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
                 ),
           ),
           const SizedBox(height: 8),
-          const _Benefit(text: 'Optional thank-you that removes the daily free limit'),
+          const _Benefit(
+            text: 'Optional support — never required to track money',
+          ),
+          const _Benefit(
+            text: 'Separate from income & expense transactions',
+          ),
           const _Benefit(text: 'Supports ongoing development'),
           const _Benefit(text: 'One-time payment — no subscription'),
         ],
