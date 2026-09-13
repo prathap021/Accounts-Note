@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/result.dart';
 import '../../models/category_model.dart';
@@ -96,14 +94,15 @@ class _AddEditTransactionScreenState extends ConsumerState<AddEditTransactionScr
             if (blocked) ...[
               _LimitBanner(
                 message: entitlement.message ??
-                    'Daily free limit reached. Subscribe for unlimited transactions.',
+                    'You have used today\'s free income & expense entries. '
+                    'You can add more tomorrow.',
                 used: entitlement.usedToday,
                 limit: entitlement.dailyLimit,
               ),
               const SizedBox(height: 16),
             ] else if (!_isEditing && !entitlement.isUnlocked) ...[
               Text(
-                'Free plan · ${entitlement.usedToday}/${entitlement.dailyLimit} transactions today',
+                '${entitlement.usedToday}/${entitlement.dailyLimit} free entries today',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -180,23 +179,20 @@ class _AddEditTransactionScreenState extends ConsumerState<AddEditTransactionScr
               maxLines: 2,
             ),
             const SizedBox(height: 24),
-            if (blocked)
-              FilledButton.icon(
-                onPressed: () => context.push('/contribute'),
-                icon: const Icon(Icons.favorite_rounded),
-                label: const Text('Contribute to unlock'),
-              )
-            else
-              FilledButton(
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(_isEditing ? 'Save Changes' : 'Add Transaction'),
-              ),
+            FilledButton(
+              onPressed: (blocked || _saving) ? null : _save,
+              child: _saving
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(
+                      blocked
+                          ? 'Come back tomorrow'
+                          : (_isEditing ? 'Save Changes' : 'Add Transaction'),
+                    ),
+            ),
           ],
         ),
       ),
@@ -253,19 +249,12 @@ class _AddEditTransactionScreenState extends ConsumerState<AddEditTransactionScr
       final failure = err is AsyncError && err.error is AppFailure
           ? err.error as AppFailure
           : null;
-      final isLimit = failure?.code == 'daily-limit';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             failure?.message ??
                 'Could not save transaction. Please try again.',
           ),
-          action: isLimit
-              ? SnackBarAction(
-                  label: 'Contribute',
-                  onPressed: () => context.push('/contribute'),
-                )
-              : null,
         ),
       );
     }
@@ -320,19 +309,24 @@ class _LimitBanner extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.lock_outline_rounded, color: scheme.error),
+              Icon(Icons.schedule_rounded, color: scheme.onErrorContainer),
               const SizedBox(width: 8),
-              Text(
-                'Daily limit reached ($used/$limit)',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: scheme.error,
-                    ),
+              Expanded(
+                child: Text(
+                  'Free entries used for today ($used/$limit)',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: scheme.onErrorContainer,
+                      ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(message),
+          Text(
+            message,
+            style: TextStyle(color: scheme.onErrorContainer),
+          ),
         ],
       ),
     );

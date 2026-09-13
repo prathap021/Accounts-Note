@@ -55,6 +55,9 @@ class TransactionRepository {
     TransactionFilter filter = const TransactionFilter(),
     int limit = AppDefaults.pageSize,
   }) {
+    // Only constrain by date on the server. Equality filters on `type` plus
+    // `orderBy(date)` need composite indexes that may still be building; apply
+    // type/category/payment/search client-side so Activity filters stay usable.
     Query<Map<String, dynamic>> query =
         _col(uid).orderBy('date', descending: true);
 
@@ -66,13 +69,18 @@ class TransactionRepository {
       query = query.where('date',
           isLessThanOrEqualTo: Timestamp.fromDate(filter.endDate!));
     }
-    if (filter.type != null) {
-      query = query.where('type', isEqualTo: filter.type!.name);
-    }
-    query = query.limit(limit * 3);
+
+    final needsClientFilter = filter.type != null ||
+        filter.categoryId != null ||
+        filter.paymentMethod != null ||
+        (filter.searchQuery != null && filter.searchQuery!.isNotEmpty);
+    query = query.limit(needsClientFilter ? (limit * 15).clamp(limit, 300) : limit);
 
     return query.snapshots().map((snap) {
       var items = snap.docs.map(TransactionModel.fromDoc).toList();
+      if (filter.type != null) {
+        items = items.where((t) => t.type == filter.type).toList();
+      }
       if (filter.categoryId != null) {
         items = items.where((t) => t.categoryId == filter.categoryId).toList();
       }
@@ -136,8 +144,8 @@ class TransactionRepository {
               plugin: 'cloud_firestore',
               code: 'daily-limit',
               message:
-                  'Free plan allows ${AppDefaults.freeDailyTransactionLimit} '
-                  'transactions per day. Contribute to unlock unlimited access.',
+                  'You have used today\'s ${AppDefaults.freeDailyTransactionLimit} '
+                  'free income & expense entries. You can add more tomorrow.',
             );
           }
           txn.update(userRef, {
@@ -155,7 +163,7 @@ class TransactionRepository {
         return Result.failure(
           AppFailure(
             e.message ??
-                'Daily free limit reached. Contribute to unlock unlimited transactions.',
+                'Daily free limit reached. You can add more transactions tomorrow.',
             code: 'daily-limit',
           ),
         );
@@ -248,14 +256,15 @@ class TransactionRepository {
     TransactionType type = TransactionType.expense,
   }) async {
     try {
+      // Date-only query avoids composite type+date index requirements.
       final snap = await _col(uid)
           .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
           .where('date', isLessThanOrEqualTo: Timestamp.fromDate(end))
-          .where('type', isEqualTo: type.name)
           .get();
       final Map<String, double> totals = {};
       for (final doc in snap.docs) {
         final data = doc.data();
+        if (data['type'] != type.name) continue;
         final name = data['categoryName'] as String? ?? 'Other';
         final amount = (data['amount'] as num).toDouble();
         totals[name] = (totals[name] ?? 0) + amount;

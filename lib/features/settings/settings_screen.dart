@@ -98,7 +98,7 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: Icons.favorite_rounded,
                 title: 'Contribute',
-                subtitle: 'Unlock unlimited · from \$5',
+                subtitle: 'Optional support · from \$5',
                 onTap: () => context.push('/contribute'),
               ),
               _SettingsTile(

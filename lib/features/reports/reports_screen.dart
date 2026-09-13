@@ -104,10 +104,15 @@ class ReportsScreen extends ConsumerWidget {
                       if (!snapshot.hasData) {
                         return const Center(child: CircularProgressIndicator());
                       }
-                      final sums = snapshot.data!
-                          .when(success: (d) => d, failure: (_) => <TransactionType, double>{});
-                      final income = sums[TransactionType.income] ?? 0.0;
-                      final expense = sums[TransactionType.expense] ?? 0.0;
+                      final sums = snapshot.data!.when(
+                        success: (d) => d,
+                        failure: (_) => <TransactionType, double>{},
+                      );
+                      // Firestore/num maps can surface ints; normalize for chart widgets.
+                      final income =
+                          (sums[TransactionType.income] ?? 0).toDouble();
+                      final expense =
+                          (sums[TransactionType.expense] ?? 0).toDouble();
                       final net = income - expense;
 
                       return ListView(

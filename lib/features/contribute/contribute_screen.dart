@@ -92,10 +92,11 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
                 const SizedBox(height: 8),
                 Text(
                   unlocked
-                      ? 'Your contribution unlocked unlimited income & expense entries.'
-                      : 'Free plan: ${AppDefaults.freeDailyTransactionLimit} transactions/day. '
-                          'Contribute at least \$${ContributionPricing.minUsd.toStringAsFixed(0)} '
-                          'to unlock unlimited tracking.',
+                      ? 'Thank you for supporting Accounts Note. Unlimited entries stay unlocked.'
+                      : 'Contribution is optional. Everyone gets '
+                          '${AppDefaults.freeDailyTransactionLimit} free income & expense '
+                          'entries per day. A gift of \$${ContributionPricing.minUsd.toStringAsFixed(0)}+ '
+                          'removes the daily limit if you want.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.white.withValues(alpha: 0.9),
                       ),
@@ -103,7 +104,7 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
                 if (!unlocked) ...[
                   const SizedBox(height: 12),
                   Text(
-                    'Today: ${entitlement.usedToday}/${entitlement.dailyLimit} used',
+                    'Today: ${entitlement.usedToday}/${entitlement.dailyLimit} free entries used',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
@@ -206,8 +207,16 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
                   )
                 : const Icon(Icons.favorite_rounded),
             label: Text(
-              unlocked ? 'Contribute again' : 'Contribute & unlock',
+              unlocked ? 'Contribute again' : 'Contribute (optional)',
             ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'You can keep using the free daily entries without contributing.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
           ),
           const SizedBox(height: 28),
           Text(
@@ -217,8 +226,8 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
                 ),
           ),
           const SizedBox(height: 8),
-          const _Benefit(text: 'Unlock unlimited income & expense entries'),
-          const _Benefit(text: 'Support open-source development'),
+          const _Benefit(text: 'Optional thank-you that removes the daily free limit'),
+          const _Benefit(text: 'Supports ongoing development'),
           const _Benefit(text: 'One-time payment — no subscription'),
         ],
       ),

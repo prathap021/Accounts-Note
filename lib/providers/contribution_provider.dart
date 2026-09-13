@@ -49,9 +49,8 @@ final transactionEntitlementProvider = Provider<TransactionEntitlement>((ref) {
     dailyLimit: limit,
     message: allowed
         ? null
-        : 'Free plan allows $limit transactions per day. '
-            'Contribute at least \$${ContributionPricing.minUsd.toStringAsFixed(0)} '
-            'to unlock unlimited income & expenses.',
+        : 'You have used today\'s $limit free income & expense entries. '
+            'You can add more again tomorrow. Contribution is optional.',
   );
 });
 
