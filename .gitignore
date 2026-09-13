@@ -58,6 +58,7 @@ firebase.json
 .env
 .env.*
 !.env.example
+!**/.env.example
 *.pem
 *.p12
 credentials.json
@@ -73,3 +74,10 @@ firebase-adminsdk*.json
 # FVM / local tooling
 .fvm/
 .fvmrc
+
+# Local AI / Firebase cache (do not commit)
+.agents/
+.claude/
+.firebase/
+skills-lock.json
+

@@ -50,6 +50,18 @@ class AppDefaults {
   static const defaultCurrency = 'INR';
   static const pageSize = 20; // transactions fetched per pagination page
   static const financialMonthStartDay = 1;
+
+  /// Free tier: max combined income+expense creates per calendar day.
+  static const freeDailyTransactionLimit = 7;
+}
+
+/// One-time contribution (USD) — unlocks unlimited transactions.
+class ContributionPricing {
+  static const minUsd = 5.0;
+  static const presetUsd = <double>[5, 10, 25];
+  static const currency = 'usd';
+  static const successDeepLink = 'accountsnote://stripe-success';
+  static const cancelDeepLink = 'accountsnote://stripe-cancel';
 }
 
 const List<Map<String, dynamic>> kDefaultExpenseCategories = [

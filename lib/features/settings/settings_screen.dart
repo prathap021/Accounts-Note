@@ -96,6 +96,12 @@ class SettingsScreen extends ConsumerWidget {
           _SettingsGroup(
             children: [
               _SettingsTile(
+                icon: Icons.favorite_rounded,
+                title: 'Contribute',
+                subtitle: 'Unlock unlimited · from \$5',
+                onTap: () => context.push('/contribute'),
+              ),
+              _SettingsTile(
                 icon: Icons.category_outlined,
                 title: 'Manage categories',
                 onTap: () => context.push('/categories'),

@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Compiled output
+lib/
+
+# Local secrets — NEVER commit
+.env
+.env.*
+!.env.example
+.secret.local
+*.local
+
+# Logs
+*.log
+firebase-debug.log
+firebase-debug.*.log

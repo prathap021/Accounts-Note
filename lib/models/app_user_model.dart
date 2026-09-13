@@ -11,6 +11,16 @@ class AppUserModel extends Equatable {
   final int financialMonthStartDay;
   final DateTime createdAt;
 
+  /// One-time Stripe contribution unlocks unlimited transactions.
+  final bool hasContributed;
+  final double totalContributedUsd;
+  final DateTime? lastContributionAt;
+  final String? stripeCustomerId;
+
+  /// Local usage counters for the free daily limit (client-maintained).
+  final String? dailyTxnDate; // yyyy-MM-dd
+  final int dailyTxnCount;
+
   const AppUserModel({
     required this.uid,
     this.email,
@@ -20,7 +30,16 @@ class AppUserModel extends Equatable {
     this.themeMode = 'system',
     this.financialMonthStartDay = 1,
     required this.createdAt,
+    this.hasContributed = false,
+    this.totalContributedUsd = 0,
+    this.lastContributionAt,
+    this.stripeCustomerId,
+    this.dailyTxnDate,
+    this.dailyTxnCount = 0,
   });
+
+  /// Contributors (after a successful Stripe payment) have unlimited adds.
+  bool get isUnlocked => hasContributed;
 
   Map<String, dynamic> toMap() => {
         'email': email,
@@ -30,10 +49,20 @@ class AppUserModel extends Equatable {
         'themeMode': themeMode,
         'financialMonthStartDay': financialMonthStartDay,
         'createdAt': Timestamp.fromDate(createdAt),
+        'hasContributed': hasContributed,
+        'totalContributedUsd': totalContributedUsd,
+        'lastContributionAt': lastContributionAt == null
+            ? null
+            : Timestamp.fromDate(lastContributionAt!),
+        'stripeCustomerId': stripeCustomerId,
+        'dailyTxnDate': dailyTxnDate,
+        'dailyTxnCount': dailyTxnCount,
       };
 
   factory AppUserModel.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
+    // Back-compat: older subscription users treated as unlocked.
+    final legacySubscribed = data['subscriptionStatus'] == 'active';
     return AppUserModel(
       uid: doc.id,
       email: data['email'] as String?,
@@ -43,6 +72,15 @@ class AppUserModel extends Equatable {
       themeMode: data['themeMode'] as String? ?? 'system',
       financialMonthStartDay: data['financialMonthStartDay'] as int? ?? 1,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      hasContributed:
+          (data['hasContributed'] as bool?) ?? legacySubscribed,
+      totalContributedUsd:
+          (data['totalContributedUsd'] as num?)?.toDouble() ?? 0,
+      lastContributionAt:
+          (data['lastContributionAt'] as Timestamp?)?.toDate(),
+      stripeCustomerId: data['stripeCustomerId'] as String?,
+      dailyTxnDate: data['dailyTxnDate'] as String?,
+      dailyTxnCount: (data['dailyTxnCount'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -52,6 +90,12 @@ class AppUserModel extends Equatable {
     String? currency,
     String? themeMode,
     int? financialMonthStartDay,
+    bool? hasContributed,
+    double? totalContributedUsd,
+    DateTime? lastContributionAt,
+    String? stripeCustomerId,
+    String? dailyTxnDate,
+    int? dailyTxnCount,
   }) {
     return AppUserModel(
       uid: uid,
@@ -63,9 +107,25 @@ class AppUserModel extends Equatable {
       financialMonthStartDay:
           financialMonthStartDay ?? this.financialMonthStartDay,
       createdAt: createdAt,
+      hasContributed: hasContributed ?? this.hasContributed,
+      totalContributedUsd: totalContributedUsd ?? this.totalContributedUsd,
+      lastContributionAt: lastContributionAt ?? this.lastContributionAt,
+      stripeCustomerId: stripeCustomerId ?? this.stripeCustomerId,
+      dailyTxnDate: dailyTxnDate ?? this.dailyTxnDate,
+      dailyTxnCount: dailyTxnCount ?? this.dailyTxnCount,
     );
   }
 
   @override
-  List<Object?> get props => [uid, email, displayName, currency, themeMode];
+  List<Object?> get props => [
+        uid,
+        email,
+        displayName,
+        currency,
+        themeMode,
+        hasContributed,
+        totalContributedUsd,
+        dailyTxnCount,
+        dailyTxnDate,
+      ];
 }

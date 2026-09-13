@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/result.dart';
+import '../../models/app_user_model.dart';
 import '../../models/transaction_model.dart';
 
 class TransactionFilter {
@@ -31,9 +32,6 @@ class TransactionFilter {
 }
 
 /// All reads/writes for a signed-in user's transactions live here.
-/// Firestore's offline persistence (enabled once in main.dart) means
-/// these calls work transparently offline; cloud_firestore queues writes
-/// and syncs automatically when connectivity returns.
 class TransactionRepository {
   final FirebaseFirestore _firestore;
   TransactionRepository({FirebaseFirestore? firestore})
@@ -42,16 +40,23 @@ class TransactionRepository {
   CollectionReference<Map<String, dynamic>> _col(String uid) =>
       _firestore.collection(FirestorePaths.transactions(uid));
 
-  /// Real-time stream of transactions for a date range, most recent first.
-  /// Client-side filters (category/payment/search) are applied after the
-  /// snapshot arrives to avoid needing a composite index for every
-  /// combination; date range + type are server-side for efficiency.
+  DocumentReference<Map<String, dynamic>> _userRef(String uid) =>
+      _firestore.collection(FirestoreCollections.users).doc(uid);
+
+  static String todayKey([DateTime? now]) {
+    final n = now ?? DateTime.now();
+    final m = n.month.toString().padLeft(2, '0');
+    final d = n.day.toString().padLeft(2, '0');
+    return '${n.year}-$m-$d';
+  }
+
   Stream<List<TransactionModel>> watchTransactions(
     String uid, {
     TransactionFilter filter = const TransactionFilter(),
     int limit = AppDefaults.pageSize,
   }) {
-    Query<Map<String, dynamic>> query = _col(uid).orderBy('date', descending: true);
+    Query<Map<String, dynamic>> query =
+        _col(uid).orderBy('date', descending: true);
 
     if (filter.startDate != null) {
       query = query.where('date',
@@ -64,7 +69,7 @@ class TransactionRepository {
     if (filter.type != null) {
       query = query.where('type', isEqualTo: filter.type!.name);
     }
-    query = query.limit(limit * 3); // headroom for client-side filtering
+    query = query.limit(limit * 3);
 
     return query.snapshots().map((snap) {
       var items = snap.docs.map(TransactionModel.fromDoc).toList();
@@ -86,7 +91,6 @@ class TransactionRepository {
     });
   }
 
-  /// Cursor-based pagination for the full transaction history screen.
   Future<Result<List<TransactionModel>>> fetchPage({
     required String uid,
     DocumentSnapshot? startAfter,
@@ -105,16 +109,58 @@ class TransactionRepository {
     }
   }
 
+  /// Creates a transaction and atomically enforces the free daily limit.
   Future<Result<TransactionModel>> addTransaction(
     String uid,
     TransactionModel tx,
   ) async {
     try {
-      final ref = _col(uid).doc();
+      final userRef = _userRef(uid);
+      final txRef = _col(uid).doc();
       final now = DateTime.now();
-      final toSave = tx.copyWith(id: ref.id, createdAt: now, updatedAt: now);
-      await ref.set(toSave.toMap());
+      final today = todayKey(now);
+      final toSave = tx.copyWith(id: txRef.id, createdAt: now, updatedAt: now);
+
+      await _firestore.runTransaction((txn) async {
+        final userSnap = await txn.get(userRef);
+        if (!userSnap.exists) {
+          throw StateError('User profile missing.');
+        }
+        final profile = AppUserModel.fromDoc(userSnap);
+
+        if (!profile.isUnlocked) {
+          final used =
+              profile.dailyTxnDate == today ? profile.dailyTxnCount : 0;
+          if (used >= AppDefaults.freeDailyTransactionLimit) {
+            throw FirebaseException(
+              plugin: 'cloud_firestore',
+              code: 'daily-limit',
+              message:
+                  'Free plan allows ${AppDefaults.freeDailyTransactionLimit} '
+                  'transactions per day. Contribute to unlock unlimited access.',
+            );
+          }
+          txn.update(userRef, {
+            'dailyTxnDate': today,
+            'dailyTxnCount': used + 1,
+          });
+        }
+
+        txn.set(txRef, toSave.toMap());
+      });
+
       return Result.success(toSave);
+    } on FirebaseException catch (e) {
+      if (e.code == 'daily-limit') {
+        return Result.failure(
+          AppFailure(
+            e.message ??
+                'Daily free limit reached. Contribute to unlock unlimited transactions.',
+            code: 'daily-limit',
+          ),
+        );
+      }
+      return Result.failure(AppFailure.fromException(e));
     } catch (e) {
       return Result.failure(AppFailure.fromException(e));
     }
@@ -135,16 +181,37 @@ class TransactionRepository {
 
   Future<Result<void>> deleteTransaction(String uid, String txId) async {
     try {
-      await _col(uid).doc(txId).delete();
+      final userRef = _userRef(uid);
+      final txRef = _col(uid).doc(txId);
+      final today = todayKey();
+
+      await _firestore.runTransaction((txn) async {
+        final txSnap = await txn.get(txRef);
+        final userSnap = await txn.get(userRef);
+        if (!txSnap.exists) return;
+
+        final createdAt =
+            (txSnap.data()?['createdAt'] as Timestamp?)?.toDate();
+        txn.delete(txRef);
+
+        if (userSnap.exists && createdAt != null) {
+          final profile = AppUserModel.fromDoc(userSnap);
+          if (!profile.isUnlocked &&
+              todayKey(createdAt) == today &&
+              profile.dailyTxnDate == today &&
+              profile.dailyTxnCount > 0) {
+            txn.update(userRef, {
+              'dailyTxnCount': profile.dailyTxnCount - 1,
+            });
+          }
+        }
+      });
       return Result.success(null);
     } catch (e) {
       return Result.failure(AppFailure.fromException(e));
     }
   }
 
-  /// Sum of income/expense for a given closed date range — used by the
-  /// dashboard and reports. Reads once (not a stream) to keep Firestore
-  /// costs down; callers can refresh on pull-to-refresh or after writes.
   Future<Result<Map<TransactionType, double>>> sumByType(
     String uid, {
     required DateTime start,
@@ -174,7 +241,6 @@ class TransactionRepository {
     }
   }
 
-  /// Category-wise expense totals for charts (pie/bar), single range read.
   Future<Result<Map<String, double>>> categoryBreakdown(
     String uid, {
     required DateTime start,

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/result.dart';
 import '../../models/category_model.dart';
 import '../../models/transaction_model.dart';
 import '../../providers/category_provider.dart';
+import '../../providers/contribution_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/transaction_provider.dart';
 
@@ -60,7 +63,9 @@ class _AddEditTransactionScreenState extends ConsumerState<AddEditTransactionScr
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesStreamProvider(_type));
+    final entitlement = ref.watch(transactionEntitlementProvider);
     final color = _type == TransactionType.income ? AppColors.income : AppColors.expense;
+    final blocked = !_isEditing && !entitlement.allowed;
 
     // Pre-select the existing category once the stream resolves.
     categoriesAsync.whenData((categories) {
@@ -88,20 +93,41 @@ class _AddEditTransactionScreenState extends ConsumerState<AddEditTransactionScr
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (blocked) ...[
+              _LimitBanner(
+                message: entitlement.message ??
+                    'Daily free limit reached. Subscribe for unlimited transactions.',
+                used: entitlement.usedToday,
+                limit: entitlement.dailyLimit,
+              ),
+              const SizedBox(height: 16),
+            ] else if (!_isEditing && !entitlement.isUnlocked) ...[
+              Text(
+                'Free plan · ${entitlement.usedToday}/${entitlement.dailyLimit} transactions today',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 12),
+            ],
             SegmentedButton<TransactionType>(
               segments: const [
                 ButtonSegment(value: TransactionType.expense, label: Text('Expense')),
                 ButtonSegment(value: TransactionType.income, label: Text('Income')),
               ],
               selected: {_type},
-              onSelectionChanged: (s) => setState(() {
-                _type = s.first;
-                _selectedCategory = null;
-              }),
+              onSelectionChanged: (s) {
+                if (blocked) return;
+                setState(() {
+                  _type = s.first;
+                  _selectedCategory = null;
+                });
+              },
             ),
             const SizedBox(height: 20),
             TextFormField(
               controller: _amountController,
+              enabled: !blocked,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: color),
               decoration: const InputDecoration(prefixText: '₹ ', labelText: 'Amount'),
@@ -120,7 +146,7 @@ class _AddEditTransactionScreenState extends ConsumerState<AddEditTransactionScr
                   for (final c in categories)
                     DropdownMenuItem(value: c, child: Text(c.name)),
                 ],
-                onChanged: (c) => setState(() => _selectedCategory = c),
+                onChanged: blocked ? null : (c) => setState(() => _selectedCategory = c),
                 validator: (v) => v == null ? 'Select a category' : null,
               ),
               loading: () => const LinearProgressIndicator(),
@@ -129,10 +155,11 @@ class _AddEditTransactionScreenState extends ConsumerState<AddEditTransactionScr
             const SizedBox(height: 16),
             ListTile(
               contentPadding: EdgeInsets.zero,
+              enabled: !blocked,
               title: const Text('Date & time'),
               subtitle: Text(_date.toLocal().toString().substring(0, 16)),
               trailing: const Icon(Icons.calendar_today_outlined),
-              onTap: _pickDateTime,
+              onTap: blocked ? null : _pickDateTime,
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
@@ -141,21 +168,35 @@ class _AddEditTransactionScreenState extends ConsumerState<AddEditTransactionScr
               items: [
                 for (final m in _paymentMethods) DropdownMenuItem(value: m, child: Text(m)),
               ],
-              onChanged: (v) => setState(() => _paymentMethod = v ?? _paymentMethod),
+              onChanged: blocked
+                  ? null
+                  : (v) => setState(() => _paymentMethod = v ?? _paymentMethod),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _noteController,
+              enabled: !blocked,
               decoration: const InputDecoration(labelText: 'Note (optional)'),
               maxLines: 2,
             ),
             const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(_isEditing ? 'Save Changes' : 'Add Transaction'),
-            ),
+            if (blocked)
+              FilledButton.icon(
+                onPressed: () => context.push('/contribute'),
+                icon: const Icon(Icons.favorite_rounded),
+                label: const Text('Contribute to unlock'),
+              )
+            else
+              FilledButton(
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(_isEditing ? 'Save Changes' : 'Add Transaction'),
+              ),
           ],
         ),
       ),
@@ -208,8 +249,24 @@ class _AddEditTransactionScreenState extends ConsumerState<AddEditTransactionScr
       ref.invalidate(dashboardSummaryProvider);
       Navigator.of(context).pop();
     } else {
+      final err = ref.read(transactionActionsProvider);
+      final failure = err is AsyncError && err.error is AppFailure
+          ? err.error as AppFailure
+          : null;
+      final isLimit = failure?.code == 'daily-limit';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not save transaction. Please try again.')),
+        SnackBar(
+          content: Text(
+            failure?.message ??
+                'Could not save transaction. Please try again.',
+          ),
+          action: isLimit
+              ? SnackBarAction(
+                  label: 'Contribute',
+                  onPressed: () => context.push('/contribute'),
+                )
+              : null,
+        ),
       );
     }
   }
@@ -236,4 +293,48 @@ class _AddEditTransactionScreenState extends ConsumerState<AddEditTransactionScr
 
 extension _FirstOrNull<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
+}
+
+class _LimitBanner extends StatelessWidget {
+  final String message;
+  final int used;
+  final int limit;
+
+  const _LimitBanner({
+    required this.message,
+    required this.used,
+    required this.limit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.lock_outline_rounded, color: scheme.error),
+              const SizedBox(width: 8),
+              Text(
+                'Daily limit reached ($used/$limit)',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: scheme.error,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(message),
+        ],
+      ),
+    );
+  }
 }
