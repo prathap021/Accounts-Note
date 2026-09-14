@@ -7,12 +7,26 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'firebase_options.dart';
 
+void _configEasyLoading() {
+  EasyLoading.instance
+    ..displayDuration = const Duration(milliseconds: 2000)
+    ..indicatorType = EasyLoadingIndicatorType.fadingCircle
+    ..loadingStyle = EasyLoadingStyle.dark
+    ..indicatorSize = 45.0
+    ..radius = 16.0
+    ..maskType = EasyLoadingMaskType.black
+    ..userInteractions = false
+    ..dismissOnTap = false;
+}
+
 Future<void> main() async {
+  _configEasyLoading();
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
 
@@ -69,6 +83,7 @@ class IncomeExpenseTrackerApp extends ConsumerWidget {
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,
       routerConfig: router,
+      builder: EasyLoading.init(),
     );
   }
 }

@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/result.dart';
+import '../../core/utils/snackbar_helper.dart';
 import '../../core/utils/user_facing_error.dart';
 import '../../providers/contribution_provider.dart';
 import 'contribution_dialogs.dart';
@@ -70,19 +71,13 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
 
     final amount = _amount;
     if (amount == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid amount.')),
-      );
+      SnackbarHelper.showError(context, 'Enter a valid amount.');
       return;
     }
 
     final featureNote = _featureController.text.trim();
     if (kind == _SupportKind.sponsor && featureNote.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Describe the feature you\'d like to sponsor.'),
-        ),
-      );
+      SnackbarHelper.showError(context, 'Describe the feature you\'d like to sponsor.');
       return;
     }
 
@@ -109,8 +104,7 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
         final err = next.error;
         final message =
             err is AppFailure ? err.userMessage : userFacingError(err);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(message)));
+        SnackbarHelper.showError(context, message);
       }
     });
 

@@ -5,7 +5,6 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
@@ -18,16 +17,13 @@ import '../../models/app_user_model.dart';
 class AuthRepository {
   final fb.FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
-  final FirebaseStorage _storage;
   Future<void>? _googleSignInReady;
 
   AuthRepository({
     fb.FirebaseAuth? auth,
     FirebaseFirestore? firestore,
-    FirebaseStorage? storage,
   })  : _auth = auth ?? fb.FirebaseAuth.instance,
-        _firestore = firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+        _firestore = firestore ?? FirebaseFirestore.instance;
 
   /// Prefer [userChanges] so displayName / photoURL updates refresh the UI.
   Stream<fb.User?> authStateChanges() => _auth.userChanges();
@@ -192,35 +188,25 @@ class AuthRepository {
     }
   }
 
-  /// Uploads a profile photo to Storage and updates Auth + Firestore.
+  /// Uploads a profile photo as Base64 and updates Auth + Firestore.
   Future<Result<void>> updateProfilePhoto(File imageFile) async {
     final user = _auth.currentUser;
     if (user == null) {
       return Result.failure(const AppFailure('No signed-in user.', code: 'no-user'));
     }
     try {
-      final ref = _storage.ref('users/${user.uid}/profile/avatar.jpg');
-      await ref.putFile(
-        imageFile,
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
-      final url = await ref.getDownloadURL();
-      await user.updatePhotoURL(url);
+      final bytes = await imageFile.readAsBytes();
+      final base64String = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+
+      // We only save Base64 to Firestore. Firebase Auth photoURL may reject large data URIs.
       await _firestore.collection(FirestoreCollections.users).doc(user.uid).set(
-        {'photoUrl': url},
+        {'photoUrl': base64String},
         SetOptions(merge: true),
       );
       await user.reload();
       return Result.success(null);
     } on fb.FirebaseAuthException catch (e) {
       return Result.failure(AppFailure(_mapAuthError(e), code: e.code));
-    } on FirebaseException catch (e) {
-      final message = e.code == 'object-not-found' ||
-              e.code == 'bucket-not-found' ||
-              (e.message?.toLowerCase().contains('storage') ?? false)
-          ? 'Photo storage is not enabled yet. Open Firebase Console → Storage → Get Started, then try again.'
-          : (e.message ?? 'Could not upload photo. Please try again.');
-      return Result.failure(AppFailure(message, code: e.code));
     } catch (e) {
       return Result.failure(AppFailure.fromException(e));
     }

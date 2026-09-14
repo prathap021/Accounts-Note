@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/avatar_provider.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/contribution_provider.dart';
@@ -13,21 +14,53 @@ import '../../providers/transaction_provider.dart';
 import '../../widgets/summary_card.dart';
 import '../../widgets/transaction_tile.dart';
 
-class DashboardScreen extends ConsumerWidget {
+import 'dart:io';
+import 'package:in_app_update/in_app_update.dart';
+
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    if (Platform.isAndroid) {
+      _checkForUpdate();
+    }
+  }
+
+  Future<void> _checkForUpdate() async {
+    try {
+      final info = await InAppUpdate.checkForUpdate();
+      if (info.updateAvailability == UpdateAvailability.updateAvailable) {
+        if (info.immediateUpdateAllowed) {
+          await InAppUpdate.performImmediateUpdate();
+        } else if (info.flexibleUpdateAllowed) {
+          await InAppUpdate.startFlexibleUpdate();
+          await InAppUpdate.completeFlexibleUpdate();
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final summaryAsync = ref.watch(dashboardSummaryProvider);
     final recentAsync = ref.watch(transactionsStreamProvider);
     final user = ref.watch(authStateProvider).asData?.value;
     final profile = ref.watch(userProfileProvider).asData?.value;
-    final name = user?.displayName?.trim().isNotEmpty == true
-        ? user!.displayName!
-        : (profile?.displayName?.trim().isNotEmpty == true
-            ? profile!.displayName!
+    final name = profile?.displayName?.trim().isNotEmpty == true
+        ? profile!.displayName!
+        : (user?.displayName?.trim().isNotEmpty == true
+            ? user!.displayName!
             : (user?.email ?? 'You'));
-    final photoUrl = user?.photoURL ?? profile?.photoUrl;
+    final photoUrl = profile?.photoUrl ?? user?.photoURL;
     final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
     final scheme = Theme.of(context).colorScheme;
 
@@ -74,9 +107,7 @@ class DashboardScreen extends ConsumerWidget {
                     icon: CircleAvatar(
                       radius: 16,
                       backgroundColor: scheme.primary,
-                      backgroundImage: photoUrl != null && photoUrl.isNotEmpty
-                          ? NetworkImage(photoUrl)
-                          : null,
+                      backgroundImage: getAvatarProvider(photoUrl),
                       child: photoUrl != null && photoUrl.isNotEmpty
                           ? null
                           : Text(

@@ -7,8 +7,12 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:flutter_easyloading/flutter_easyloading.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/avatar_provider.dart';
+import '../../core/utils/snackbar_helper.dart';
 import '../../core/utils/user_facing_error.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/contribution_provider.dart';
@@ -17,12 +21,11 @@ class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   Future<void> _openUrl(BuildContext context, String url) async {
+    final messenger = ScaffoldMessenger.of(context);
     final uri = Uri.parse(url);
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(userFacingError())),
-      );
+      SnackbarHelper.showErrorMessenger(messenger, userFacingError());
     }
   }
 
@@ -31,34 +34,11 @@ class SettingsScreen extends ConsumerWidget {
     WidgetRef ref,
     String current,
   ) async {
-    final controller = TextEditingController(text: current);
+    final messenger = ScaffoldMessenger.of(context);
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Edit name'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          maxLength: 60,
-          decoration: const InputDecoration(
-            labelText: 'Display name',
-            hintText: 'Your name',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+      builder: (ctx) => _EditNameDialog(currentName: current),
     );
-    controller.dispose();
     if (name == null || name.isEmpty || !context.mounted) return;
 
     final result =
@@ -66,19 +46,16 @@ class SettingsScreen extends ConsumerWidget {
     if (!context.mounted) return;
     result.when(
       success: (_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Name updated')),
-        );
+        SnackbarHelper.showSuccessMessenger(messenger, 'Name updated');
       },
       failure: (f) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(f.userMessage)),
-        );
+        SnackbarHelper.showErrorMessenger(messenger, f.userMessage);
       },
     );
   }
 
   Future<void> _changePhoto(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -104,9 +81,9 @@ class SettingsScreen extends ConsumerWidget {
 
     final picked = await ImagePicker().pickImage(
       source: source,
-      maxWidth: 1024,
-      maxHeight: 1024,
-      imageQuality: 85,
+      maxWidth: 256,
+      maxHeight: 256,
+      imageQuality: 70,
     );
     if (picked == null || !context.mounted) return;
 
@@ -116,14 +93,10 @@ class SettingsScreen extends ConsumerWidget {
     if (!context.mounted) return;
     result.when(
       success: (_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile photo updated')),
-        );
+        SnackbarHelper.showSuccessMessenger(messenger, 'Profile photo updated');
       },
       failure: (f) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(f.userMessage)),
-        );
+        SnackbarHelper.showErrorMessenger(messenger, f.userMessage);
       },
     );
   }
@@ -141,7 +114,7 @@ class SettingsScreen extends ConsumerWidget {
         : (profile?.displayName?.trim().isNotEmpty == true
             ? profile!.displayName!
             : (user?.email ?? 'Signed in user'));
-    final photoUrl = user?.photoURL ?? profile?.photoUrl;
+    final photoUrl = profile?.photoUrl ?? user?.photoURL;
     final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
     final saving = actionState.isLoading;
 
@@ -192,10 +165,7 @@ class SettingsScreen extends ConsumerWidget {
                         child: CircleAvatar(
                           radius: 32,
                           backgroundColor: Colors.white.withValues(alpha: 0.2),
-                          backgroundImage:
-                              photoUrl != null && photoUrl.isNotEmpty
-                                  ? NetworkImage(photoUrl)
-                                  : null,
+                          backgroundImage: getAvatarProvider(photoUrl),
                           child: photoUrl != null && photoUrl.isNotEmpty
                               ? null
                               : Text(
@@ -425,8 +395,73 @@ class SettingsScreen extends ConsumerWidget {
       builder: (ctx) => const _DeleteAccountDialog(),
     );
     if (confirmed == true) {
-      await actions.deleteAccount();
+      EasyLoading.show(status: 'Deleting...');
+      final result = await actions.deleteAccount();
+      if (!context.mounted) {
+        EasyLoading.dismiss();
+        return;
+      }
+      result.when(
+        success: (_) {
+          EasyLoading.showSuccess('Account deleted');
+        },
+        failure: (f) {
+          EasyLoading.dismiss();
+          SnackbarHelper.showError(context, f.userMessage);
+        },
+      );
     }
+  }
+}
+
+class _EditNameDialog extends StatefulWidget {
+  final String currentName;
+  const _EditNameDialog({required this.currentName});
+
+  @override
+  State<_EditNameDialog> createState() => _EditNameDialogState();
+}
+
+class _EditNameDialogState extends State<_EditNameDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.currentName);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit name'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.words,
+        maxLength: 60,
+        decoration: const InputDecoration(
+          labelText: 'Display name',
+          hintText: 'Your name',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text.trim()),
+          child: const Text('Save'),
+        ),
+      ],
+    );
   }
 }
 

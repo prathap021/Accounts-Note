@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/services/app_review_service.dart';
 import '../data/repositories/transaction_repository.dart';
 import '../models/transaction_model.dart';
 import 'auth_provider.dart';
@@ -51,6 +52,7 @@ class TransactionActionsNotifier extends Notifier<AsyncValue<void>> {
     return result.when(
       success: (_) {
         state = const AsyncData(null);
+        AppReviewService.checkAndAskForReview();
         return true;
       },
       failure: (f) {

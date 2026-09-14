@@ -100,7 +100,15 @@ class AuthActionsNotifier extends Notifier<AsyncValue<void>> {
         return Result.success(null);
       });
 
-  Future<void> deleteAccount() => _run(() => _repo.deleteAccount());
+  Future<Result<void>> deleteAccount() async {
+    state = const AsyncLoading();
+    final result = await _repo.deleteAccount();
+    result.when(
+      success: (_) => state = const AsyncData(null),
+      failure: (f) => state = AsyncError(f, StackTrace.current),
+    );
+    return result;
+  }
 }
 
 final authActionsProvider =

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/result.dart';
+import '../../core/utils/snackbar_helper.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_logo.dart';
 
@@ -56,14 +57,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         final message =
             err is AppFailure ? err.userMessage : 'Something went wrong. Please try again.';
         final messenger = ScaffoldMessenger.of(context);
-        messenger.clearSnackBars();
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(message),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
+        SnackbarHelper.showErrorMessenger(messenger, message);
       }
     });
 

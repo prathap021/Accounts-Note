@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../core/utils/snackbar_helper.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/transaction_provider.dart';
 
@@ -271,9 +272,7 @@ class ReportsScreen extends ConsumerWidget {
           ShareParams(files: [XFile(file.path)], text: 'Transaction export'),
         );
       },
-      failure: (f) => messenger.showSnackBar(
-        SnackBar(content: Text(f.userMessage)),
-      ),
+      failure: (f) => SnackbarHelper.showErrorMessenger(messenger, f.userMessage),
     );
   }
 }

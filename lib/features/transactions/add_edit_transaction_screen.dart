@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/result.dart';
+import '../../core/utils/snackbar_helper.dart';
 import '../../models/category_model.dart';
 import '../../models/transaction_model.dart';
 import '../../providers/category_provider.dart';
@@ -236,14 +237,8 @@ class _AddEditTransactionScreenState
       final failure = err is AsyncError && err.error is AppFailure
           ? err.error as AppFailure
           : null;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            failure?.userMessage ??
-                'Something went wrong. Please try again.',
-          ),
-        ),
-      );
+      final msg = failure?.userMessage ?? 'Something went wrong. Please try again.';
+      SnackbarHelper.showError(context, msg);
     }
   }
 
