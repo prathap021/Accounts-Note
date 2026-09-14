@@ -19,27 +19,38 @@ class AppLogo extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.brand, AppColors.brandDeep],
-        ),
+        color: Colors.transparent,
         borderRadius: rounded ? BorderRadius.circular(size * 0.25) : null,
         boxShadow: rounded
             ? [
                 BoxShadow(
-                  color: AppColors.brandDeep.withValues(alpha: 0.3),
+                  color: AppColors.brandDeep.withValues(alpha: 0.15),
                   blurRadius: size * 0.25,
                   offset: Offset(0, size * 0.1),
                 )
               ]
             : null,
       ),
-      child: Center(
-        child: Icon(
-          Icons.currency_exchange_outlined,
-          color: Colors.white,
-          size: size * 0.55,
+      child: ClipRRect(
+        borderRadius: rounded ? BorderRadius.circular(size * 0.25) : BorderRadius.zero,
+        child: Image.asset(
+          'assets/branding/app_logo.png',
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            // Fallback just in case the image is missing
+            return Container(
+              width: size,
+              height: size,
+              color: AppColors.brand,
+              child: Icon(
+                Icons.account_balance_wallet,
+                color: Colors.white,
+                size: size * 0.5,
+              ),
+            );
+          },
         ),
       ),
     );
