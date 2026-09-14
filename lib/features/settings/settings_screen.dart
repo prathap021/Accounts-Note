@@ -13,6 +13,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/avatar_provider.dart';
 import '../../core/utils/snackbar_helper.dart';
+import '../../core/utils/backup_service.dart';
 import '../../core/utils/user_facing_error.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/contribution_provider.dart';
@@ -276,16 +277,6 @@ class SettingsScreen extends ConsumerWidget {
                 title: 'Theme',
                 subtitle: 'Follows system',
               ),
-              const _SettingsTile(
-                icon: Icons.notifications_none_rounded,
-                title: 'Notifications',
-                subtitle: 'Budget alerts & summaries',
-              ),
-              const _SettingsTile(
-                icon: Icons.tune_rounded,
-                title: 'Budget & transaction preferences',
-                subtitle: 'Customize behavior',
-              ),
             ],
           ),
           const SizedBox(height: 20),
@@ -392,11 +383,26 @@ class SettingsScreen extends ConsumerWidget {
     BuildContext context,
     AuthActionsNotifier actions,
   ) async {
-    final confirmed = await showDialog<bool>(
+    final action = await showDialog<String>(
       context: context,
       builder: (ctx) => const _DeleteAccountDialog(),
     );
-    if (confirmed == true) {
+    
+    if (action == 'backup_delete' || action == 'delete') {
+      if (action == 'backup_delete') {
+        EasyLoading.show(status: 'Backing up to Downloads...');
+        try {
+          final path = await BackupService.backupTransactionsToExcel();
+          if (path != null) {
+            EasyLoading.showSuccess('Saved to Downloads!');
+            await Future.delayed(const Duration(seconds: 2));
+          }
+        } catch (e) {
+          EasyLoading.showError('Backup failed, continuing delete...');
+          await Future.delayed(const Duration(seconds: 2));
+        }
+      }
+    
       EasyLoading.show(status: 'Deleting...');
       final result = await actions.deleteAccount();
       result.when(
@@ -583,24 +589,41 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
     return AlertDialog(
       title: const Text('Delete your account?'),
       content: const Text(
-        'This permanently deletes your profile, transactions, budgets, and categories. This cannot be undone.',
+        'This permanently deletes your profile, transactions, budgets, and categories. This cannot be undone.\n\nYou can download a backup of your transactions in Excel format before deleting.',
       ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context, false),
+          onPressed: () => Navigator.pop(context, null),
           child: const Text('Cancel'),
         ),
-        FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-          onPressed:
-              _secondsLeft > 0 ? null : () => Navigator.pop(context, true),
-          child: Text(
-            _secondsLeft > 0
-                ? 'Delete everything ($_secondsLeft)'
-                : 'Delete everything',
-          ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FilledButton.icon(
+              icon: const Icon(Icons.download_rounded, size: 18),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+              ),
+              onPressed:
+                  _secondsLeft > 0 ? null : () => Navigator.pop(context, 'backup_delete'),
+              label: Text(
+                _secondsLeft > 0
+                    ? 'Backup & Delete ($_secondsLeft)'
+                    : 'Backup & Delete',
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+              ),
+              onPressed:
+                  _secondsLeft > 0 ? null : () => Navigator.pop(context, 'delete'),
+              child: const Text('Delete without backup'),
+            ),
+          ],
         ),
       ],
     );
