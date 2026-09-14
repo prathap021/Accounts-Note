@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
@@ -16,13 +17,28 @@ import 'firebase_options.dart';
 void _configEasyLoading() {
   EasyLoading.instance
     ..displayDuration = const Duration(milliseconds: 2000)
-    ..indicatorType = EasyLoadingIndicatorType.fadingCircle
-    ..loadingStyle = EasyLoadingStyle.dark
-    ..indicatorSize = 45.0
-    ..radius = 16.0
-    ..maskType = EasyLoadingMaskType.black
+    ..loadingStyle = EasyLoadingStyle.custom
+    ..backgroundColor = Colors.white
+    ..indicatorColor = AppColors.brand
+    ..textColor = AppColors.ink
+    ..maskColor = AppColors.brandDeep.withValues(alpha: 0.2)
+    ..maskType = EasyLoadingMaskType.custom
+    ..indicatorSize = 40.0
+    ..radius = 20.0
+    ..boxShadow = [
+      BoxShadow(
+        color: AppColors.brandDeep.withValues(alpha: 0.15),
+        blurRadius: 32,
+        spreadRadius: 4,
+        offset: const Offset(0, 16),
+      )
+    ]
     ..userInteractions = false
-    ..dismissOnTap = false;
+    ..dismissOnTap = false
+    ..indicatorWidget = const SpinKitWave(
+      color: AppColors.brand,
+      size: 30.0,
+    );
 }
 
 Future<void> main() async {

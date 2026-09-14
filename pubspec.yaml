@@ -67,6 +67,7 @@ dependencies:
   in_app_update: ^5.0.0
   in_app_review: ^2.0.12
   flutter_easyloading: ^4.0.2
+  flutter_spinkit: ^5.2.2
 
 dev_dependencies:
   flutter_test:
