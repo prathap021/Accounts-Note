@@ -15,37 +15,37 @@ class AppLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = rounded ? BorderRadius.circular(size * 0.22) : BorderRadius.zero;
+
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: rounded ? BorderRadius.circular(size * 0.25) : null,
+        borderRadius: radius,
         boxShadow: rounded
             ? [
                 BoxShadow(
-                  color: AppColors.brandDeep.withValues(alpha: 0.15),
-                  blurRadius: size * 0.25,
-                  offset: Offset(0, size * 0.1),
-                )
+                  color: AppColors.brandDeep.withValues(alpha: 0.22),
+                  blurRadius: size * 0.22,
+                  offset: Offset(0, size * 0.08),
+                ),
               ]
             : null,
       ),
       child: ClipRRect(
-        borderRadius: rounded ? BorderRadius.circular(size * 0.25) : BorderRadius.zero,
+        borderRadius: radius,
         child: Image.asset(
           'assets/branding/app_logo.png',
           width: size,
           height: size,
-          fit: BoxFit.cover,
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          filterQuality: FilterQuality.high,
           errorBuilder: (context, error, stackTrace) {
-            // Fallback just in case the image is missing
-            return Container(
-              width: size,
-              height: size,
+            return ColoredBox(
               color: AppColors.brand,
               child: Icon(
-                Icons.account_balance_wallet,
+                Icons.account_balance_wallet_rounded,
                 color: Colors.white,
                 size: size * 0.5,
               ),

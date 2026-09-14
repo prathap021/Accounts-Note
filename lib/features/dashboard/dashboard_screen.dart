@@ -277,7 +277,7 @@ class _ExpensePieChart extends StatelessWidget {
   const _ExpensePieChart({required this.data});
 
   static const _palette = [
-    Color(0xFF0F766E),
+    Color(0xFF279698),
     Color(0xFF0284C7),
     Color(0xFFE11D48),
     Color(0xFFD97706),

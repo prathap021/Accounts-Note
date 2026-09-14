@@ -436,11 +436,11 @@ class SettingsScreen extends ConsumerWidget {
         }
       }
     
-      EasyLoading.show(status: 'Deleting...');
+      EasyLoading.show(status: 'Confirming identity...');
       final result = await actions.deleteAccount();
       result.when(
         success: (_) {
-          EasyLoading.showSuccess('Account deleted');
+          EasyLoading.showSuccess('Account and cloud data deleted');
         },
         failure: (f) {
           if (context.mounted) {
@@ -622,7 +622,7 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
     return AlertDialog(
       title: const Text('Delete your account?'),
       content: const Text(
-        'This permanently deletes your profile, transactions, budgets, and categories. This cannot be undone.\n\nYou can download a backup of your transactions in Excel format before deleting.',
+        'This permanently deletes your profile, transactions, budgets, and categories. This cannot be undone.\n\nYou will be asked to confirm with Google (or Apple) before deletion.\n\nYou can download a backup of your transactions in Excel format before deleting.',
       ),
       actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [

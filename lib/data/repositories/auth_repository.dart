@@ -219,26 +219,102 @@ class AuthRepository {
     ]);
   }
 
-  /// Deletes the Firebase Auth account AND the user's Firestore data.
-  /// Re-authentication may be required by Firebase for recent-login
-  /// security; callers should catch `requires-recent-login` and prompt
-  /// the user to sign in again before retrying.
+  /// Deletes the account in this order:
+  /// 1. Re-authenticate (Firebase requires a recent login for Auth delete)
+  /// 2. Delete all Firestore cloud data for the user
+  /// 3. Delete the Firebase Auth user account
   Future<Result<void>> deleteAccount() async {
     final user = _auth.currentUser;
     if (user == null) {
       return Result.failure(const AppFailure('No signed-in user.', code: 'no-user'));
     }
+    final uid = user.uid;
     try {
-      await _deleteUserDataRecursively(user.uid);
-      await user.delete();
+      // Step 0: fresh credential so Auth delete in step 2 cannot fail mid-way.
+      await _reauthenticateForSensitiveAction(user);
+
+      // Step 1: remove all cloud data first (subcollections + user doc).
+      await _deleteUserDataRecursively(uid);
+
+      // Step 2: remove Auth account after cloud data is gone.
+      final latest = _auth.currentUser;
+      if (latest == null) {
+        return Result.failure(
+          const AppFailure(
+            'Signed out during deletion. Cloud data was removed; sign in again if the account still appears.',
+            code: 'no-user',
+          ),
+        );
+      }
+      await latest.delete();
+      await GoogleSignIn.instance.signOut().catchError((_) => null);
       return Result.success(null);
     } on fb.FirebaseAuthException catch (e) {
       return Result.failure(AppFailure(_mapAuthError(e), code: e.code));
+    } on GoogleSignInException catch (e) {
+      return Result.failure(
+        AppFailure(_mapGoogleSignInError(e), code: e.code.name),
+      );
     } catch (e) {
       return Result.failure(AppFailure.fromException(e));
     }
   }
 
+  /// Firebase rejects account deletion unless the session is recent.
+  Future<void> _reauthenticateForSensitiveAction(fb.User user) async {
+    final providers = user.providerData.map((p) => p.providerId).toSet();
+
+    if (providers.contains('google.com')) {
+      await _ensureGoogleSignInInitialized();
+      final googleUser = await GoogleSignIn.instance.authenticate();
+      final idToken = googleUser.authentication.idToken;
+      if (idToken == null) {
+        throw fb.FirebaseAuthException(
+          code: 'missing-id-token',
+          message: 'Google re-authentication did not return an ID token.',
+        );
+      }
+      final authz = await googleUser.authorizationClient
+          .authorizationForScopes(['email', 'profile']);
+      final credential = fb.GoogleAuthProvider.credential(
+        accessToken: authz?.accessToken,
+        idToken: idToken,
+      );
+      await user.reauthenticateWithCredential(credential);
+      return;
+    }
+
+    if (providers.contains('apple.com')) {
+      final rawNonce = _generateNonce();
+      final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: hashedNonce,
+      );
+      final credential = fb.OAuthProvider('apple.com').credential(
+        idToken: appleCredential.identityToken,
+        rawNonce: rawNonce,
+      );
+      await user.reauthenticateWithCredential(credential);
+      return;
+    }
+
+    if (providers.contains('password')) {
+      // Email/password needs the password interactively; ask user to re-login.
+      throw fb.FirebaseAuthException(
+        code: 'requires-recent-login',
+        message: 'Please sign out and sign in again, then retry delete.',
+      );
+    }
+
+    // Unknown provider — still attempt; Auth may accept a fresh session.
+  }
+
+  /// Firestore batch writes are capped at 500 ops; delete in pages of 400.
+  /// Order: every user subcollection, then the parent users/{uid} document.
   Future<void> _deleteUserDataRecursively(String uid) async {
     final userRef = _firestore.collection(FirestoreCollections.users).doc(uid);
     for (final sub in [
@@ -246,15 +322,26 @@ class AuthRepository {
       FirestoreCollections.categories,
       FirestoreCollections.budgets,
       FirestoreCollections.recurringTransactions,
+      FirestoreCollections.settings,
+      FirestoreCollections.notifications,
     ]) {
-      final snap = await userRef.collection(sub).get();
+      await _deleteCollectionInChunks(userRef.collection(sub));
+    }
+    // Parent user profile document last (after all nested cloud data).
+    await userRef.delete();
+  }
+
+  Future<void> _deleteCollectionInChunks(CollectionReference<Map<String, dynamic>> ref) async {
+    const chunkSize = 400;
+    while (true) {
+      final snap = await ref.limit(chunkSize).get();
+      if (snap.docs.isEmpty) break;
       final batch = _firestore.batch();
       for (final doc in snap.docs) {
         batch.delete(doc.reference);
       }
       await batch.commit();
     }
-    await userRef.delete();
   }
 
   Future<void> _ensureUserDocument(
@@ -350,9 +437,13 @@ class AuthRepository {
       case 'invalid-email':
         return 'Please enter a valid email address.';
       case 'requires-recent-login':
-        return 'Please sign in again to confirm this action.';
+        return 'Please confirm your identity, then try deleting again.';
+      case 'missing-id-token':
+        return 'Google confirmation failed. Check SHA fingerprints in Firebase and try again.';
       case 'network-request-failed':
         return 'Network error. Check your connection and try again.';
+      case 'canceled':
+        return 'Account deletion was canceled.';
       default:
         return 'Authentication failed. Please try again.';
     }

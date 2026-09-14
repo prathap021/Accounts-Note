@@ -4,9 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// Accounts Note visual language — teal ledger, soft mist surfaces, no purple.
 class AppColors {
-  static const brand = Color(0xFF0F766E);
-  static const brandDeep = Color(0xFF134E4A);
-  static const brandSoft = Color(0xFFCCFBF1);
+  static const brand = Color(0xFF279698);
+  static const brandDeep = Color(0xFF1A6B6D);
+  static const brandSoft = Color(0xFFD5F5F6);
   static const income = Color(0xFF059669);
   static const expense = Color(0xFFE11D48);
   static const warning = Color(0xFFD97706);
@@ -208,7 +208,7 @@ class SoftMeshBackground extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: dark
-              ? const [Color(0xFF0B1416), Color(0xFF134E4A), Color(0xFF0B1416)]
+              ? const [Color(0xFF0B1416), Color(0xFF1A6B6D), Color(0xFF0B1416)]
               : const [Color(0xFFF0FDFA), Color(0xFFE0F2FE), Color(0xFFF8FAFC)],
         ),
       ),

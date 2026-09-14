@@ -38,8 +38,9 @@ class AppFailure implements Exception {
 
   const AppFailure(this.message, {this.code, this.cause});
 
-  /// Safe copy for toasts / on-screen errors — never expose backend details.
-  String get userMessage => 'Something went wrong. Please try again.';
+  /// Safe copy for toasts / on-screen errors.
+  /// Repositories put user-facing text in [message]; [fromException] stays generic.
+  String get userMessage => message;
 
   factory AppFailure.fromException(Object e) {
     return AppFailure(

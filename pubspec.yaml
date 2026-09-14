@@ -90,17 +90,16 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: assets/branding/app_logo.png
-  adaptive_icon_background: "#0F766E"
-  adaptive_icon_foreground: assets/branding/app_logo.png
+  image_path: assets/branding/app_icon_generated.png
+  adaptive_icon_background: "#279698"
+  adaptive_icon_foreground: assets/branding/app_icon_generated.png
   remove_alpha_ios: true
   min_sdk_android: 21
 
-
 flutter_native_splash:
   color: "#ffffff"
-  image: "assets/branding/app_logo.png"
+  image: "assets/branding/app_icon_generated.png"
   android_12:
-    image: "assets/branding/app_logo.png"
-    icon_background_color: "#0F766E"
+    image: "assets/branding/app_icon_generated.png"
+    icon_background_color: "#279698"
     color: "#ffffff"
