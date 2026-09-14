@@ -56,8 +56,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         final err = next.error;
         final message =
             err is AppFailure ? err.userMessage : 'Something went wrong. Please try again.';
-        final messenger = ScaffoldMessenger.of(context);
-        SnackbarHelper.showErrorMessenger(messenger, message);
+        SnackbarHelper.showError(context, message);
       }
     });
 

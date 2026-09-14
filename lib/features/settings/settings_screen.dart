@@ -21,11 +21,10 @@ class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   Future<void> _openUrl(BuildContext context, String url) async {
-    final messenger = ScaffoldMessenger.of(context);
     final uri = Uri.parse(url);
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && context.mounted) {
-      SnackbarHelper.showErrorMessenger(messenger, userFacingError());
+      SnackbarHelper.showError(context, userFacingError());
     }
   }
 
@@ -34,7 +33,6 @@ class SettingsScreen extends ConsumerWidget {
     WidgetRef ref,
     String current,
   ) async {
-    final messenger = ScaffoldMessenger.of(context);
     final name = await showDialog<String>(
       context: context,
       builder: (ctx) => _EditNameDialog(currentName: current),
@@ -46,16 +44,15 @@ class SettingsScreen extends ConsumerWidget {
     if (!context.mounted) return;
     result.when(
       success: (_) {
-        SnackbarHelper.showSuccessMessenger(messenger, 'Name updated');
+        SnackbarHelper.showSuccess(context, 'Name updated');
       },
       failure: (f) {
-        SnackbarHelper.showErrorMessenger(messenger, f.userMessage);
+        SnackbarHelper.showError(context, f.userMessage);
       },
     );
   }
 
   Future<void> _changePhoto(BuildContext context, WidgetRef ref) async {
-    final messenger = ScaffoldMessenger.of(context);
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -93,10 +90,10 @@ class SettingsScreen extends ConsumerWidget {
     if (!context.mounted) return;
     result.when(
       success: (_) {
-        SnackbarHelper.showSuccessMessenger(messenger, 'Profile photo updated');
+        SnackbarHelper.showSuccess(context, 'Profile photo updated');
       },
       failure: (f) {
-        SnackbarHelper.showErrorMessenger(messenger, f.userMessage);
+        SnackbarHelper.showError(context, f.userMessage);
       },
     );
   }

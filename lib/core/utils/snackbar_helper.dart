@@ -2,22 +2,15 @@ import 'package:flutter/material.dart';
 
 class SnackbarHelper {
   static void showSuccess(BuildContext context, String message) {
-    _show(ScaffoldMessenger.of(context), message, Colors.green.shade600);
+    _show(context, message, Colors.green.shade600);
   }
 
   static void showError(BuildContext context, String message) {
-    _show(ScaffoldMessenger.of(context), message, Colors.red.shade600);
+    _show(context, message, Colors.red.shade600);
   }
 
-  static void showSuccessMessenger(ScaffoldMessengerState messenger, String message) {
-    _show(messenger, message, Colors.green.shade600);
-  }
-
-  static void showErrorMessenger(ScaffoldMessengerState messenger, String message) {
-    _show(messenger, message, Colors.red.shade600);
-  }
-
-  static void _show(ScaffoldMessengerState messenger, String message, Color color) {
+  static void _show(BuildContext context, String message, Color color) {
+    final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
       SnackBar(

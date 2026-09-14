@@ -242,10 +242,10 @@ class ReportsScreen extends ConsumerWidget {
     String uid,
     DateTimeRange range,
   ) async {
-    final messenger = ScaffoldMessenger.of(context);
     final result = await ref
         .read(transactionRepositoryProvider)
         .fetchPage(uid: uid, pageSize: 1000);
+    if (!context.mounted) return;
     result.when(
       success: (all) async {
         final txs = all
@@ -272,7 +272,7 @@ class ReportsScreen extends ConsumerWidget {
           ShareParams(files: [XFile(file.path)], text: 'Transaction export'),
         );
       },
-      failure: (f) => SnackbarHelper.showErrorMessenger(messenger, f.userMessage),
+      failure: (f) => SnackbarHelper.showError(context, f.userMessage),
     );
   }
 }
