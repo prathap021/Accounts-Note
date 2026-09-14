@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/settings_provider.dart';
@@ -47,6 +48,9 @@ Future<void> main() async {
   _configEasyLoading();
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
 
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
