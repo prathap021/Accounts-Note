@@ -16,6 +16,7 @@ import '../../core/utils/snackbar_helper.dart';
 import '../../core/utils/backup_service.dart';
 import '../../core/utils/user_facing_error.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../providers/contribution_provider.dart';
 import '../../widgets/app_logo.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -117,6 +118,7 @@ class SettingsScreen extends ConsumerWidget {
     final photoUrl = profile?.photoUrl ?? user?.photoURL;
     final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
     final saving = actionState.isLoading;
+    final settings = ref.watch(settingsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -267,15 +269,46 @@ class SettingsScreen extends ConsumerWidget {
                 title: 'Manage categories',
                 onTap: () => context.push('/categories'),
               ),
-              const _SettingsTile(
+              _SettingsTile(
                 icon: Icons.currency_rupee_rounded,
                 title: 'Currency',
-                subtitle: 'INR (₹)',
+                subtitle: settings.currency,
+                onTap: () async {
+                  final cur = await showDialog<String>(
+                    context: context,
+                    builder: (ctx) => SimpleDialog(
+                      title: const Text('Select Currency'),
+                      children: ['INR', 'USD', 'EUR', 'GBP'].map((c) => SimpleDialogOption(
+                        onPressed: () => Navigator.pop(ctx, c),
+                        child: Text(c),
+                      )).toList(),
+                    ),
+                  );
+                  if (cur != null) {
+                    ref.read(settingsProvider.notifier).setCurrency(cur);
+                  }
+                },
               ),
-              const _SettingsTile(
+              _SettingsTile(
                 icon: Icons.dark_mode_outlined,
                 title: 'Theme',
-                subtitle: 'Follows system',
+                subtitle: settings.themeMode == ThemeMode.system ? 'Follows system' : (settings.themeMode == ThemeMode.light ? 'Light' : 'Dark'),
+                onTap: () async {
+                  final mode = await showDialog<ThemeMode>(
+                    context: context,
+                    builder: (ctx) => SimpleDialog(
+                      title: const Text('Select Theme'),
+                      children: [
+                        SimpleDialogOption(onPressed: () => Navigator.pop(ctx, ThemeMode.system), child: const Text('Follows system')),
+                        SimpleDialogOption(onPressed: () => Navigator.pop(ctx, ThemeMode.light), child: const Text('Light')),
+                        SimpleDialogOption(onPressed: () => Navigator.pop(ctx, ThemeMode.dark), child: const Text('Dark')),
+                      ],
+                    ),
+                  );
+                  if (mode != null) {
+                    ref.read(settingsProvider.notifier).setThemeMode(mode);
+                  }
+                },
               ),
             ],
           ),

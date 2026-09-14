@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/avatar_provider.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../providers/contribution_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/transaction_provider.dart';
@@ -51,6 +52,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = ref.watch(settingsProvider);
     final summaryAsync = ref.watch(dashboardSummaryProvider);
     final recentAsync = ref.watch(transactionsStreamProvider);
     final user = ref.watch(authStateProvider).asData?.value;
@@ -168,7 +170,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         child: Column(
                           children: [
                             for (var i = 0; i < recent.length; i++) ...[
-                              TransactionTile(
+                              TransactionTile(currency: settings.currency, 
                                 transaction: recent[i],
                                 onTap: () => context.push(
                                   '/transaction/edit',

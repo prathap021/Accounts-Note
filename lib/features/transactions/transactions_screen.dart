@@ -1,3 +1,4 @@
+import '../../providers/settings_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -32,6 +33,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = ref.watch(settingsProvider);
     final txsAsync = ref.watch(transactionsStreamProvider);
     final filter = ref.watch(transactionFilterProvider);
     final scheme = Theme.of(context).colorScheme;
@@ -134,7 +136,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                           color: scheme.outlineVariant.withValues(alpha: 0.3),
                         ),
                       ),
-                      child: TransactionTile(
+                      child: TransactionTile(currency: settings.currency, 
                         transaction: tx,
                         onTap: () =>
                             context.push('/transaction/edit', extra: tx),
