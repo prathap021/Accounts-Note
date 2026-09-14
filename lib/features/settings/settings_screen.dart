@@ -10,8 +10,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 
 import '../../core/constants/app_constants.dart';
-import '../../core/theme/app_theme.dart';
-import '../../core/utils/avatar_provider.dart';
 import '../../core/utils/snackbar_helper.dart';
 import '../../core/utils/user_facing_error.dart';
 import '../../providers/auth_provider.dart';
@@ -113,8 +111,6 @@ class SettingsScreen extends ConsumerWidget {
         : (profile?.displayName?.trim().isNotEmpty == true
             ? profile!.displayName!
             : (user?.email ?? 'Signed in user'));
-    final photoUrl = profile?.photoUrl ?? user?.photoURL;
-    final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
     final saving = actionState.isLoading;
 
     return Scaffold(
@@ -132,138 +128,66 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
         children: [
+          // Account & Profile
           Text(
-            'Profile & settings',
+            'Account & Profile',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: scheme.onSurfaceVariant,
                 ),
           ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [AppColors.brandDeep, AppColors.brand],
-              ),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Row(
-              children: [
-                Stack(
-                  children: [
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: saving ? null : () => _changePhoto(context, ref),
-                        customBorder: const CircleBorder(),
-                        child: CircleAvatar(
-                          radius: 32,
-                          backgroundColor: Colors.white.withValues(alpha: 0.2),
-                          backgroundImage: getAvatarProvider(photoUrl),
-                          child: photoUrl != null && photoUrl.isNotEmpty
-                              ? null
-                              : Text(
-                                  initial,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 24,
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Material(
-                        color: Colors.white,
-                        shape: const CircleBorder(),
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap:
-                              saving ? null : () => _changePhoto(context, ref),
-                          child: const Padding(
-                            padding: EdgeInsets.all(5),
-                            child: Icon(
-                              Icons.camera_alt_rounded,
-                              size: 14,
-                              color: AppColors.brandDeep,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                      ),
-                      if (user?.email != null)
-                        Text(
-                          user!.email!,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.8),
-                                  ),
-                        ),
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        onPressed: saving
-                            ? null
-                            : () => _editName(context, ref, name),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.zero,
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        icon: const Icon(Icons.edit_outlined, size: 16),
-                        label: const Text('Edit name'),
-                      ),
-                    ],
-                  ),
-                ),
-                if (saving)
-                  const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  ),
-              ],
-            ),
-          ),
           const SizedBox(height: 12),
+          _SettingsGroup(
+            children: [
+              _SettingsTile(
+                icon: Icons.person_outline_rounded,
+                title: 'Profile / Edit name',
+                subtitle: name,
+                onTap: saving ? null : () => _editName(context, ref, name),
+              ),
+              _SettingsTile(
+                icon: Icons.camera_alt_outlined,
+                title: 'Profile photo',
+                subtitle: 'Tap to update',
+                onTap: saving ? null : () => _changePhoto(context, ref),
+              ),
+              _SettingsTile(
+                icon: Icons.email_outlined,
+                title: 'Account information',
+                subtitle: user?.email ?? 'Not available',
+              ),
+              _SettingsTile(
+                icon: Icons.logout_rounded,
+                title: 'Log out',
+                onTap: () => actions.signOut(),
+              ),
+              _SettingsTile(
+                icon: Icons.delete_forever_rounded,
+                title: 'Delete account',
+                subtitle: 'Removes all financial data',
+                destructive: true,
+                onTap: () => _confirmDelete(context, actions),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // App Preferences
           Text(
-            'Preference',
+            'App Preferences',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: scheme.onSurfaceVariant,
-            ),
+                  fontWeight: FontWeight.w700,
+                  color: scheme.onSurfaceVariant,
+                ),
           ),
           const SizedBox(height: 12),
           _SettingsGroup(
             children: [
               _SettingsTile(
                 icon: Icons.category_outlined,
-                title: 'Manage categories',
+                title: 'Categories',
                 onTap: () => context.push('/categories'),
               ),
               const _SettingsTile(
@@ -281,11 +205,18 @@ class SettingsScreen extends ConsumerWidget {
                 title: 'Notifications',
                 subtitle: 'Budget alerts & summaries',
               ),
+              const _SettingsTile(
+                icon: Icons.tune_rounded,
+                title: 'Budget & transaction preferences',
+                subtitle: 'Customize behavior',
+              ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
+
+          // About & Support
           Text(
-            'Open source',
+            'About & Support',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: scheme.onSurfaceVariant,
@@ -321,31 +252,6 @@ class SettingsScreen extends ConsumerWidget {
                     ? 'Thank you for your support'
                     : 'donations & sponsorships',
                 onTap: () => context.push('/contribute'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Preference',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _SettingsGroup(
-            children: [
-              _SettingsTile(
-                icon: Icons.logout_rounded,
-                title: 'Log out',
-                onTap: () => actions.signOut(),
-              ),
-              _SettingsTile(
-                icon: Icons.delete_forever_rounded,
-                title: 'Delete account',
-                subtitle: 'Removes all financial data',
-                destructive: true,
-                onTap: () => _confirmDelete(context, actions),
               ),
             ],
           ),
