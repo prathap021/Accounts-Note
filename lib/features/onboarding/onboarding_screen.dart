@@ -113,7 +113,7 @@ class _IntroScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Your simple, elegant, and secure financial ledger.\n\nKeep track of your daily expenses, manage your budgets, and monitor your categories effortlessly.',
+            'A beautifully crafted, 100% open-source financial ledger designed entirely around your needs.\n\nEasily log your daily income and expenses, seamlessly export full backups to your local storage, and securely sync your data directly to your own Google account without any hidden trackers or ads.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: scheme.onSurfaceVariant,
