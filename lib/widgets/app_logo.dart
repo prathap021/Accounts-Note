@@ -35,55 +35,12 @@ class AppLogo extends StatelessWidget {
               ]
             : null,
       ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Main Notebook Icon
-          Positioned(
-            left: size * 0.2,
-            child: Icon(
-              Icons.menu_book_rounded,
-              color: Colors.white.withValues(alpha: 0.95),
-              size: size * 0.55,
-            ),
-          ),
-          // Up Arrow (Income)
-          Positioned(
-            right: size * 0.15,
-            top: size * 0.2,
-            child: Container(
-              padding: EdgeInsets.all(size * 0.04),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.arrow_upward_rounded,
-                color: AppColors.income,
-                size: size * 0.22,
-                weight: 700,
-              ),
-            ),
-          ),
-          // Down Arrow (Expense)
-          Positioned(
-            right: size * 0.15,
-            bottom: size * 0.2,
-            child: Container(
-              padding: EdgeInsets.all(size * 0.04),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.arrow_downward_rounded,
-                color: AppColors.expense,
-                size: size * 0.22,
-                weight: 700,
-              ),
-            ),
-          ),
-        ],
+      child: Center(
+        child: Icon(
+          Icons.currency_exchange_outlined,
+          color: Colors.white,
+          size: size * 0.55,
+        ),
       ),
     );
   }
