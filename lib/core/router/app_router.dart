@@ -15,10 +15,13 @@ import '../../features/transactions/add_edit_transaction_screen.dart';
 import '../../features/transactions/transactions_screen.dart';
 import '../../models/transaction_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/settings_provider.dart';
+import '../../features/onboarding/onboarding_screen.dart';
 import '../../widgets/app_scaffold.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
+  final hasSeenOnboarding = ref.watch(settingsProvider).hasSeenOnboarding;
 
   return GoRouter(
     initialLocation: '/splash',
@@ -28,13 +31,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
 
       if (isLoading) return loc == '/splash' ? null : '/splash';
-      if (!isLoggedIn) return loc == '/login' ? null : '/login';
-      if (isLoggedIn && (loc == '/login' || loc == '/splash')) return '/dashboard';
+      if (!isLoggedIn) {
+        if (!hasSeenOnboarding && loc != '/onboarding') {
+          return '/onboarding';
+        }
+        if (hasSeenOnboarding && loc != '/login') {
+          return '/login';
+        }
+        return null;
+      }
+      if (isLoggedIn && (loc == '/login' || loc == '/splash' || loc == '/onboarding')) return '/dashboard';
       return null;
     },
     refreshListenable: GoRouterRefreshStream(ref),
     routes: [
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
+      GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       ShellRoute(
         builder: (context, state, child) => AppScaffold(child: child),

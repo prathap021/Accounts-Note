@@ -9,19 +9,23 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
 class AppSettings {
   final ThemeMode themeMode;
   final String currency;
+  final bool hasSeenOnboarding;
 
   const AppSettings({
     required this.themeMode,
     required this.currency,
+    required this.hasSeenOnboarding,
   });
 
   AppSettings copyWith({
     ThemeMode? themeMode,
     String? currency,
+    bool? hasSeenOnboarding,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
       currency: currency ?? this.currency,
+      hasSeenOnboarding: hasSeenOnboarding ?? this.hasSeenOnboarding,
     );
   }
 }
@@ -29,12 +33,14 @@ class AppSettings {
 class SettingsNotifier extends Notifier<AppSettings> {
   static const _themeKey = 'app_theme_mode';
   static const _currencyKey = 'app_currency';
+  static const _onboardingKey = 'app_has_seen_onboarding';
 
   @override
   AppSettings build() {
     final prefs = ref.watch(sharedPreferencesProvider);
     final themeStr = prefs.getString(_themeKey) ?? 'system';
     final currency = prefs.getString(_currencyKey) ?? 'INR';
+    final hasSeenOnboarding = prefs.getBool(_onboardingKey) ?? false;
 
     ThemeMode mode;
     switch (themeStr) {
@@ -48,7 +54,11 @@ class SettingsNotifier extends Notifier<AppSettings> {
         mode = ThemeMode.system;
     }
 
-    return AppSettings(themeMode: mode, currency: currency);
+    return AppSettings(
+      themeMode: mode,
+      currency: currency,
+      hasSeenOnboarding: hasSeenOnboarding,
+    );
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
@@ -61,6 +71,12 @@ class SettingsNotifier extends Notifier<AppSettings> {
     final prefs = ref.read(sharedPreferencesProvider);
     await prefs.setString(_currencyKey, currency);
     state = state.copyWith(currency: currency);
+  }
+
+  Future<void> setHasSeenOnboarding(bool value) async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.setBool(_onboardingKey, value);
+    state = state.copyWith(hasSeenOnboarding: value);
   }
 }
 
