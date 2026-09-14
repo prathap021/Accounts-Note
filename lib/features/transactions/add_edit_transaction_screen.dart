@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:number_to_words/number_to_words.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/result.dart';
@@ -119,13 +121,38 @@ class _AddEditTransactionScreenState
                   fontSize: 28, fontWeight: FontWeight.bold, color: color),
               decoration:
                   const InputDecoration(prefixText: '₹ ', labelText: 'Amount'),
+              onChanged: (_) => setState(() {}),
               validator: (v) {
                 final val = double.tryParse(v ?? '');
                 if (val == null || val <= 0) return 'Enter a valid amount';
                 return null;
               },
             ),
-            const SizedBox(height: 16),
+            Builder(
+              builder: (context) {
+                final amountText = _amountController.text.trim();
+                final amount = int.tryParse(amountText.split('.').first);
+                if (amount != null && amount > 0) {
+                  try {
+                    final words = NumberToWord().convert('en-in', amount).trim();
+                    if (words.isNotEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 8, left: 4),
+                        child: Text(
+                          '${words[0].toUpperCase()}${words.substring(1)} rupees',
+                          style: TextStyle(
+                            color: color.withValues(alpha: 0.9),
+                            fontWeight: FontWeight.w500,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      );
+                    }
+                  } catch (_) {}
+                }
+                return const SizedBox(height: 16);
+              },
+            ),
             categoriesAsync.when(
               data: (categories) => DropdownButtonFormField<CategoryModel>(
                 initialValue: _selectedCategory,
