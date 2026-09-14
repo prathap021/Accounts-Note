@@ -399,17 +399,17 @@ class SettingsScreen extends ConsumerWidget {
     if (confirmed == true) {
       EasyLoading.show(status: 'Deleting...');
       final result = await actions.deleteAccount();
-      if (!context.mounted) {
-        EasyLoading.dismiss();
-        return;
-      }
       result.when(
         success: (_) {
           EasyLoading.showSuccess('Account deleted');
         },
         failure: (f) {
-          EasyLoading.dismiss();
-          SnackbarHelper.showError(context, f.userMessage);
+          if (context.mounted) {
+            EasyLoading.dismiss();
+            SnackbarHelper.showError(context, f.userMessage);
+          } else {
+            EasyLoading.showError(f.userMessage);
+          }
         },
       );
     }
