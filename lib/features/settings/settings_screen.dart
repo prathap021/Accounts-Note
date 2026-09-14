@@ -16,6 +16,8 @@ import '../../core/utils/snackbar_helper.dart';
 import '../../core/utils/user_facing_error.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/contribution_provider.dart';
+import '../../widgets/app_logo.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -248,29 +250,17 @@ class SettingsScreen extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
+          Text(
+            'Preference',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
           _SettingsGroup(
             children: [
-              _SettingsTile(
-                icon: Icons.person_outline_rounded,
-                title: 'Edit profile photo',
-                subtitle: 'Camera or gallery',
-                onTap: saving ? null : () => _changePhoto(context, ref),
-              ),
-              _SettingsTile(
-                icon: Icons.badge_outlined,
-                title: 'Edit display name',
-                subtitle: name,
-                onTap: saving ? null : () => _editName(context, ref, name),
-              ),
-              _SettingsTile(
-                icon: Icons.favorite_rounded,
-                title: 'Support Accounts Note',
-                subtitle: isContributor
-                    ? 'Thank you for your support'
-                    : 'Optional donations & sponsorships',
-                onTap: () => context.push('/contribute'),
-              ),
               _SettingsTile(
                 icon: Icons.category_outlined,
                 title: 'Manage categories',
@@ -301,15 +291,6 @@ class SettingsScreen extends ConsumerWidget {
                   color: scheme.onSurfaceVariant,
                 ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Accounts Note is free and open source. View the code, report issues, '
-            'or contribute on GitHub.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  height: 1.35,
-                ),
-          ),
           const SizedBox(height: 12),
           _SettingsGroup(
             children: [
@@ -333,9 +314,25 @@ class SettingsScreen extends ConsumerWidget {
                 title: 'License',
                 subtitle: '${AppLinks.license} · Free to use, fork, and share',
               ),
+              _SettingsTile(
+                icon: Icons.favorite_rounded,
+                title: 'Support Accounts Note',
+                subtitle: isContributor
+                    ? 'Thank you for your support'
+                    : 'donations & sponsorships',
+                onTap: () => context.push('/contribute'),
+              ),
             ],
           ),
           const SizedBox(height: 14),
+          Text(
+            'Preference',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
           _SettingsGroup(
             children: [
               _SettingsTile(
@@ -352,31 +349,34 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          Text(
-            'Accounts Note · Open source · ${AppLinks.license}',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-          ),
-          const SizedBox(height: 6),
-          InkWell(
-            onTap: () => _openUrl(context, AppLinks.githubRepo),
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Text(
-                AppLinks.githubRepo.replaceFirst('https://', ''),
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.primary,
-                      fontWeight: FontWeight.w600,
-                      decoration: TextDecoration.underline,
-                      decorationColor: scheme.primary.withValues(alpha: 0.4),
-                    ),
-              ),
-            ),
+          const SizedBox(height: 48),
+          FutureBuilder<PackageInfo>(
+            future: PackageInfo.fromPlatform(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const SizedBox();
+              final info = snapshot.data!;
+              return Column(
+                children: [
+                  const AppLogo(size: 48, rounded: true),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Accounts Note',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: scheme.onSurface,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Version ${info.version} (${info.buildNumber})',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                  ),
+                  const SizedBox(height: 32),
+                ],
+              );
+            },
           ),
         ],
       ),
