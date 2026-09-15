@@ -8,12 +8,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/settings_provider.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 import 'core/router/app_router.dart';
+import 'core/sync/background_sync.dart';
 import 'core/theme/app_theme.dart';
 import 'firebase_options.dart';
 
@@ -58,6 +60,10 @@ Future<void> main() async {
       DeviceOrientation.portraitUp,
     ]);
 
+    // Local database first: the UI is served from Hive, so it must be ready
+    // before the first frame. This is a local disk open — no network.
+    await Hive.initFlutter();
+
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
     // Firestore offline persistence: reads/writes work with no network and
@@ -84,6 +90,10 @@ Future<void> main() async {
         return true;
       };
     }
+
+    // Registers the background isolate entry point. Cheap, and must happen
+    // before any task is scheduled.
+    await BackgroundSync.initialize();
 
     await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(!kDebugMode);
     final prefs = await SharedPreferences.getInstance();

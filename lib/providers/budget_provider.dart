@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../data/repositories/budget_repository.dart';
 import '../models/budget_model.dart';
 import 'auth_provider.dart';
+import 'sync_provider.dart';
 import 'transaction_provider.dart';
 
 final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
@@ -25,15 +26,15 @@ final budgetsStreamProvider = StreamProvider<List<BudgetModel>>((ref) {
 /// Combines budgets with actual spend-per-category for this period so the
 /// Budgets screen can render progress bars without duplicating math.
 final budgetProgressProvider = FutureProvider<Map<String, double>>((ref) async {
-  final uid = ref.watch(currentUidProvider);
-  if (uid == null) return {};
+  // Computed from Hive, so budgets track correctly with no network and
+  // update the moment a transaction is saved.
+  ref.watch(transactionsStreamProvider);
   final now = DateTime.now();
   final start = DateTime(now.year, now.month, 1);
   final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
-  final result = await ref
-      .watch(transactionRepositoryProvider)
-      .categoryBreakdown(uid, start: start, end: end);
-  return result.when(success: (data) => data, failure: (_) => {});
+  return ref
+      .watch(offlineTransactionRepositoryProvider)
+      .categoryBreakdown(start: start, end: end);
 });
 
 class BudgetActionsNotifier extends Notifier<AsyncValue<void>> {

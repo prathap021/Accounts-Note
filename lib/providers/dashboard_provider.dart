@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants/app_constants.dart';
-import 'auth_provider.dart';
+import 'sync_provider.dart';
 import 'transaction_provider.dart';
 
 class DashboardSummary {
@@ -30,25 +30,27 @@ class DashboardSummary {
 /// stream) to avoid re-summing on every keystroke elsewhere; screens can
 /// call `ref.invalidate(dashboardSummaryProvider)` after a transaction
 /// write to refresh it, or pull-to-refresh.
-final dashboardSummaryProvider = FutureProvider<DashboardSummary>((ref) async {
-  final uid = ref.watch(currentUidProvider);
-  if (uid == null) return DashboardSummary.empty;
+/// Computed over the local Hive store and recomputed whenever it changes, so
+/// the dashboard is correct offline and updates the instant a transaction is
+/// saved — no cloud round-trip in the path.
+final dashboardSummaryProvider = Provider<DashboardSummary>((ref) {
+  // Depend on the local list so this recomputes on every local write.
+  final ready = ref.watch(localStoreReadyProvider).asData?.value ?? false;
+  final transactions =
+      ref.watch(transactionsStreamProvider).asData?.value ?? const [];
+  if (!ready && transactions.isEmpty) return DashboardSummary.empty;
 
   final now = DateTime.now();
   final start = DateTime(now.year, now.month, 1);
   final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
 
-  final repo = ref.watch(transactionRepositoryProvider);
-  final sumsResult = await repo.sumByType(uid, start: start, end: end);
-  final breakdownResult = await repo.categoryBreakdown(
-    uid,
+  final repo = ref.watch(offlineTransactionRepositoryProvider);
+  final sums = repo.sumByType(start: start, end: end);
+  final breakdown = repo.categoryBreakdown(
     start: start,
     end: end,
     type: TransactionType.expense,
   );
-
-  final sums = sumsResult.when(success: (d) => d, failure: (_) => {});
-  final breakdown = breakdownResult.when(success: (d) => d, failure: (_) => <String, double>{});
 
   final income = sums[TransactionType.income] ?? 0;
   final expense = sums[TransactionType.expense] ?? 0;

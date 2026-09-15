@@ -12,6 +12,7 @@ import '../../providers/category_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../widgets/add_transaction_sheet.dart';
+import '../../widgets/sync_status_chip.dart';
 import '../../widgets/transaction_tile.dart';
 
 /// One calendar day of transactions plus that day's net movement.
@@ -104,7 +105,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           AppSliverHeader(
             title: 'Activity',
             eyebrow: 'Your ledger',
-            actions: [_FilterButton(active: hasFilters, onTap: _showFilterSheet)],
+            actions: [
+              const Padding(
+                padding: EdgeInsets.only(right: AppSpacing.sm),
+                child: Center(child: SyncStatusChip()),
+              ),
+              _FilterButton(active: hasFilters, onTap: _showFilterSheet),
+            ],
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(
@@ -117,6 +124,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const SyncFailureBanner(),
                   TextField(
                     controller: _searchController,
                     textInputAction: TextInputAction.search,

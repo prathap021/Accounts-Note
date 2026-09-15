@@ -11,9 +11,9 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
-import '../../core/utils/snackbar_helper.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../providers/sync_provider.dart';
 import '../../providers/transaction_provider.dart';
 
 enum ReportRange { week, month, year }
@@ -66,6 +66,16 @@ class ReportsScreen extends ConsumerWidget {
     final dateRange = _rangeFor(range);
     final dateFormat = DateFormat('MMM d');
 
+    // Totals from the local store: correct offline, and refreshed the moment
+    // a transaction is saved.
+    ref.watch(transactionsStreamProvider);
+    final sums = ref.watch(offlineTransactionRepositoryProvider).sumByType(
+          start: dateRange.start,
+          end: dateRange.end,
+        );
+    final income = (sums[TransactionType.income] ?? 0).toDouble();
+    final expense = (sums[TransactionType.expense] ?? 0).toDouble();
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -114,45 +124,21 @@ class ReportsScreen extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.xl),
                 if (uid == null)
                   const SizedBox.shrink()
+                else if (income == 0 && expense == 0)
+                  const AppCard(
+                    padding: EdgeInsets.zero,
+                    child: EmptyState(
+                      icon: Icons.insights_outlined,
+                      title: 'Nothing to report yet',
+                      message:
+                          'Once you log transactions in this period, your totals and chart appear here.',
+                    ),
+                  )
                 else
-                  FutureBuilder(
-                    future: ref.read(transactionRepositoryProvider).sumByType(
-                          uid,
-                          start: dateRange.start,
-                          end: dateRange.end,
-                        ),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return const _ReportsSkeleton();
-                      }
-                      final sums = snapshot.data!.when(
-                        success: (d) => d,
-                        failure: (_) => <TransactionType, double>{},
-                      );
-                      // Firestore/num maps can surface ints; normalize for chart widgets.
-                      final income =
-                          (sums[TransactionType.income] ?? 0).toDouble();
-                      final expense =
-                          (sums[TransactionType.expense] ?? 0).toDouble();
-
-                      if (income == 0 && expense == 0) {
-                        return const AppCard(
-                          padding: EdgeInsets.zero,
-                          child: EmptyState(
-                            icon: Icons.insights_outlined,
-                            title: 'Nothing to report yet',
-                            message:
-                                'Once you log transactions in this period, your totals and chart appear here.',
-                          ),
-                        );
-                      }
-
-                      return _ReportBody(
-                        income: income,
-                        expense: expense,
-                        currency: currency,
-                      );
-                    },
+                  _ReportBody(
+                    income: income,
+                    expense: expense,
+                    currency: currency,
                   ),
               ]),
             ),
@@ -168,12 +154,10 @@ class ReportsScreen extends ConsumerWidget {
     String uid,
     DateTimeRange range,
   ) async {
-    final result = await ref
-        .read(transactionRepositoryProvider)
-        .fetchPage(uid: uid, pageSize: 1000);
+    final all =
+        ref.read(offlineTransactionRepositoryProvider).currentTransactions();
     if (!context.mounted) return;
-    result.when(
-      success: (all) async {
+    await () async {
         final txs = all
             .where((t) =>
                 !t.date.isBefore(range.start) && !t.date.isAfter(range.end))
@@ -197,9 +181,7 @@ class ReportsScreen extends ConsumerWidget {
         await SharePlus.instance.share(
           ShareParams(files: [XFile(file.path)], text: 'Transaction export'),
         );
-      },
-      failure: (f) => SnackbarHelper.showError(context, f.userMessage),
-    );
+    }();
   }
 }
 
@@ -475,29 +457,6 @@ class _StatTile extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ReportsSkeleton extends StatelessWidget {
-  const _ReportsSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Column(
-      children: [
-        Row(
-          children: [
-            Expanded(child: SkeletonBox(height: 116, radius: AppRadii.card)),
-            SizedBox(width: AppSpacing.md),
-            Expanded(child: SkeletonBox(height: 116, radius: AppRadii.card)),
-          ],
-        ),
-        SizedBox(height: AppSpacing.md),
-        SkeletonBox(height: 96, radius: AppRadii.card),
-        SizedBox(height: AppSpacing.xxl),
-        SkeletonBox(height: 260, radius: AppRadii.card),
-      ],
     );
   }
 }

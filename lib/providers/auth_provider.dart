@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/utils/result.dart';
 import '../data/repositories/auth_repository.dart';
+import 'sync_provider.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository();
@@ -96,12 +97,23 @@ class AuthActionsNotifier extends Notifier<AsyncValue<void>> {
   }
 
   Future<void> signOut() => _run(() async {
+        // Flush anything still queued before the box closes, so a sign-out
+        // does not strand the user's last few entries on the device.
+        final sync = ref.read(syncManagerProvider);
+        if (await sync.isOnline()) {
+          await sync.syncNow();
+        }
+        await sync.stop();
+        // Wipe the local ledger: the next account must not see this one's.
+        await ref.read(transactionLocalStoreProvider).clear();
         await _repo.signOut();
         return Result.success(null);
       });
 
   Future<Result<void>> deleteAccount() async {
     state = const AsyncLoading();
+    await ref.read(syncManagerProvider).stop();
+    await ref.read(transactionLocalStoreProvider).clear();
     final result = await _repo.deleteAccount();
     result.when(
       success: (_) => state = const AsyncData(null),

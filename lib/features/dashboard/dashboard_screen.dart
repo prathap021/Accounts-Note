@@ -13,6 +13,7 @@ import '../../data/repositories/transaction_repository.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../providers/sync_provider.dart';
 import '../../providers/contribution_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/transaction_provider.dart';
@@ -58,7 +59,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
-    final summaryAsync = ref.watch(dashboardSummaryProvider);
+    final summary = ref.watch(dashboardSummaryProvider);
+    final storeReady = ref.watch(localStoreReadyProvider);
     final recentAsync = ref.watch(transactionsStreamProvider);
     final user = ref.watch(authStateProvider).asData?.value;
     final profile = ref.watch(userProfileProvider).asData?.value;
@@ -81,9 +83,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ),
       body: RefreshIndicator(
         color: AppColors.brand,
-        onRefresh: () async {
-          ref.invalidate(dashboardSummaryProvider);
-        },
+        onRefresh: () => ref.read(syncManagerProvider).syncNow(),
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
@@ -103,15 +103,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  summaryAsync.when(
-                    data: (summary) => _SummarySection(
+                  // Skeleton only while the local box opens (milliseconds);
+                  // after that the summary is computed from Hive, so it is
+                  // correct with or without a network.
+                  storeReady.when(
+                    data: (_) => _SummarySection(
                       summary: summary,
                       currency: settings.currency,
                     ),
                     loading: () => const _SummarySkeleton(),
                     error: (e, _) => AppErrorState(
-                      message: "We couldn't load this month's summary.",
-                      onRetry: () => ref.invalidate(dashboardSummaryProvider),
+                      message: "We couldn't open your local ledger.",
+                      onRetry: () => ref.invalidate(localStoreReadyProvider),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xxl),

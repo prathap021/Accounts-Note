@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/contribute/contribution_dialogs.dart';
+import '../core/sync/background_sync.dart';
 import '../providers/contribution_provider.dart';
+import '../providers/sync_provider.dart';
 
 /// Persistent bottom navigation for top-level tabs (ShellRoute).
 /// Also hosts the optional contribution prompt (never blocks transactions).
@@ -16,7 +18,8 @@ class AppScaffold extends ConsumerStatefulWidget {
   ConsumerState<AppScaffold> createState() => _AppScaffoldState();
 }
 
-class _AppScaffoldState extends ConsumerState<AppScaffold> {
+class _AppScaffoldState extends ConsumerState<AppScaffold>
+    with WidgetsBindingObserver {
   static const _tabs = [
     ('/dashboard', Icons.home_outlined, Icons.home_rounded, 'Home'),
     (
@@ -32,6 +35,37 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
 
   bool _promptInFlight = false;
   bool _promptScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    BackgroundSync.setAppInForeground(true);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    BackgroundSync.setAppInForeground(false);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Coming back to the app is a good moment to flush anything that piled up
+    // while it was in the background.
+    final resumed = state == AppLifecycleState.resumed;
+    // Tells the background isolate whether the UI is live, so the two never
+    // hold the same Hive box open at once.
+    BackgroundSync.setAppInForeground(resumed);
+    if (resumed) {
+      ref.read(syncManagerProvider).syncNow();
+    } else {
+      // Leaving the app: hand anything still queued to the OS scheduler.
+      final sync = ref.read(syncManagerProvider);
+      if (sync.state.hasWork) BackgroundSync.scheduleWhenOnline();
+    }
+  }
 
   int _currentIndex(String location) {
     final index = _tabs.indexWhere((t) => location.startsWith(t.$1));

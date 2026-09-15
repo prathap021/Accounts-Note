@@ -109,6 +109,51 @@ class TransactionRepository {
     }
   }
 
+  // ---- Sync-facing API -------------------------------------------------
+  // These are what SyncManager drives. They throw on failure (rather than
+  // returning a Result) so the manager can mark the record failed and retry.
+
+  /// Writes the record at its own client-generated id, merging.
+  ///
+  /// This is what makes the queue safe to replay: pushing the same record
+  /// twice updates one document instead of creating two, so a timeout or a
+  /// mid-push crash cannot duplicate the user's ledger.
+  Future<void> upsertTransaction(String uid, TransactionModel tx) async {
+    await _col(uid).doc(tx.id).set(tx.toMap(), SetOptions(merge: true));
+  }
+
+  /// Deleting an id that is already gone is a no-op, which keeps replaying a
+  /// delete safe.
+  Future<void> deleteTransactionRaw(String uid, String txId) async {
+    await _col(uid).doc(txId).delete();
+  }
+
+  /// Full pull used to reconcile the local store with the cloud.
+  Future<Result<List<TransactionModel>>> fetchAllForSync(
+    String uid, {
+    int limit = 2000,
+  }) async {
+    try {
+      final snap = await _col(uid)
+          .orderBy('date', descending: true)
+          .limit(limit)
+          .get(const GetOptions(source: Source.server));
+      return Result.success(snap.docs.map(TransactionModel.fromDoc).toList());
+    } catch (e) {
+      return Result.failure(AppFailure.fromException(e));
+    }
+  }
+
+  /// Bumps the lifetime counter used by the optional contribution prompt.
+  /// Best-effort: a failure here must never cost the user their transaction.
+  Future<void> incrementLifetimeCount(String uid) async {
+    try {
+      await _userRef(uid).update({'lifetimeTxnCount': FieldValue.increment(1)});
+    } catch (_) {
+      // Counter drift is acceptable; the ledger is what matters.
+    }
+  }
+
   /// Creates a transaction and increments lifetime count for contribution prompts.
   /// Never blocks income/expense — contribution is optional and separate.
   Future<Result<TransactionModel>> addTransaction(
