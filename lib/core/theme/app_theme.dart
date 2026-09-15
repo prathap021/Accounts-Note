@@ -512,11 +512,17 @@ class AppSliverHeader extends StatelessWidget {
                 letterSpacing: 0.2,
               ),
             ),
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.headlineSmall,
+          // Scale down rather than ellipsize: a long display name should stay
+          // fully readable instead of being cut to "Prathap Kum…".
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              title,
+              maxLines: 1,
+              softWrap: false,
+              style: theme.textTheme.headlineSmall,
+            ),
           ),
         ],
       ),
@@ -573,10 +579,20 @@ class HeaderAction extends StatelessWidget {
 }
 
 /// Hero balance panel on the dashboard.
+///
+/// Deliberately a light surface rather than a saturated slab: the amount is
+/// the loudest thing on the screen, and colour is reserved for the small
+/// status pill that says whether the month is up or down.
 class BalanceHeroCard extends StatelessWidget {
   final String label;
   final String amount;
   final String? subtitle;
+
+  /// e.g. "September 2026" — shown as a quiet chip beside the label.
+  final String? periodLabel;
+
+  /// Drives the status pill and the amount colour.
+  final bool isPositive;
   final Widget? footer;
 
   const BalanceHeroCard({
@@ -584,120 +600,135 @@ class BalanceHeroCard extends StatelessWidget {
     required this.label,
     required this.amount,
     this.subtitle,
+    this.periodLabel,
+    this.isPositive = true,
     this.footer,
   });
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final accent = isPositive ? AppColors.income : AppColors.expense;
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppRadii.hero),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.brandDeep, AppColors.brand, Color(0xFF14B8A6)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.brand.withValues(alpha: 0.24),
-            blurRadius: 28,
-            offset: const Offset(0, 12),
+    return AppCard(
+      elevated: true,
+      radius: AppRadii.hero,
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                label.toUpperCase(),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                ),
+              ),
+              const Spacer(),
+              if (periodLabel != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(AppRadii.pill),
+                  ),
+                  child: Text(
+                    periodLabel!,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
           ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadii.hero),
-        child: Stack(
-          children: [
-            // Faint concentric wash so the panel reads as a surface, not a slab.
-            Positioned(
-              right: -50,
-              top: -70,
-              child: _Blob(
-                size: 190,
-                color: Colors.white.withValues(alpha: 0.10),
-              ),
-            ),
-            Positioned(
-              right: 40,
-              bottom: -80,
-              child: _Blob(
-                size: 150,
-                color: Colors.white.withValues(alpha: 0.07),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.92, end: 1),
+                  duration: const Duration(milliseconds: 600),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, child) => Opacity(
+                    opacity: value.clamp(0.0, 1.0),
+                    child: Transform.translate(
+                      offset: Offset(0, (1 - value) * 12),
+                      child: child,
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(AppRadii.pill),
-                    ),
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
                     child: Text(
-                      label,
-                      style: textTheme.labelMedium?.copyWith(
-                        color: Colors.white,
-                        letterSpacing: 0.6,
+                      amount,
+                      maxLines: 1,
+                      style: theme.textTheme.displaySmall?.copyWith(
+                        color: isPositive ? scheme.onSurface : AppColors.expense,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1.5,
+                        height: 1.1,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppRadii.pill),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isPositive
+                          ? Icons.trending_up_rounded
+                          : Icons.trending_down_rounded,
+                      size: 15,
+                      color: accent,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      isPositive ? 'Saved' : 'Over',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: accent,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.92, end: 1),
-                    duration: const Duration(milliseconds: 600),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, child) => Opacity(
-                      opacity: value.clamp(0.0, 1.0),
-                      child: Transform.translate(
-                        offset: Offset(0, (1 - value) * 12),
-                        child: child,
-                      ),
-                    ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        amount,
-                        maxLines: 1,
-                        style: textTheme.displaySmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -1.5,
-                          height: 1.1,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      subtitle!,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
                   ],
-                  if (footer != null) ...[
-                    const SizedBox(height: AppSpacing.xl),
-                    footer!,
-                  ],
-                ],
+                ),
+              ),
+            ],
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              subtitle!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.4,
               ),
             ),
           ],
-        ),
+          if (footer != null) ...[
+            const SizedBox(height: AppSpacing.xl),
+            footer!,
+          ],
+        ],
       ),
     );
   }

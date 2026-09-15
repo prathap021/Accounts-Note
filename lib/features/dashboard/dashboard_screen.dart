@@ -8,6 +8,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/avatar_provider.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../core/utils/greeting.dart';
 import '../../data/repositories/transaction_repository.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -53,13 +54,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
-  static String _greeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  }
-
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
@@ -74,9 +68,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             : (user?.email ?? 'You'));
     final photoUrl = profile?.photoUrl ?? user?.photoURL;
     final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
-    // Greet by first name only — "Good morning, Prathap" reads better than the
-    // full display name or an email address.
-    final shortName = name.contains('@') ? name.split('@').first : name.split(' ').first;
+    final displayGreetingName = greetingName(name);
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
@@ -94,8 +86,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             AppSliverHeader(
-              eyebrow: _greeting(),
-              title: shortName,
+              eyebrow: greetingFor(DateTime.now()),
+              title: displayGreetingName,
               actions: [
                 _ProfileButton(photoUrl: photoUrl, initial: initial),
               ],
@@ -254,7 +246,9 @@ class _SummarySection extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         BalanceHeroCard(
-          label: monthLabel.toUpperCase(),
+          label: 'Net balance',
+          periodLabel: monthLabel,
+          isPositive: summary.balance >= 0,
           amount: CurrencyFormatter.format(
             summary.balance,
             currencyCode: currency,
