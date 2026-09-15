@@ -2,10 +2,17 @@ import 'package:intl/intl.dart';
 import 'package:number_to_indian_words/number_to_indian_words.dart';
 
 class CurrencyFormatter {
-  static String format(num amount, {String currencyCode = 'INR'}) {
+  /// Set [spacedSymbol] to separate the symbol from the digits ("₹ 1,605.00").
+  /// Used where the amount is set large enough that a tight symbol crowds it,
+  /// such as the dashboard balance.
+  static String format(
+    num amount, {
+    String currencyCode = 'INR',
+    bool spacedSymbol = false,
+  }) {
     final symbol = symbolFor(currencyCode);
     final formatter = NumberFormat.currency(
-      symbol: symbol,
+      symbol: spacedSymbol && !symbol.endsWith(' ') ? '$symbol ' : symbol,
       decimalDigits: 2,
       locale: currencyCode == 'INR' ? 'en_IN' : 'en_US',
     );

@@ -255,6 +255,7 @@ class _SummarySection extends ConsumerWidget {
           amount: CurrencyFormatter.format(
             summary.balance,
             currencyCode: currency,
+            spacedSymbol: true,
           ),
           subtitle: CurrencyFormatter.supportsWords(currency)
               ? CurrencyFormatter.inWords(summary.balance)
