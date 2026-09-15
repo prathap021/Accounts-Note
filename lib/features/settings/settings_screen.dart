@@ -12,6 +12,7 @@ import 'package:flutter_easyloading/flutter_easyloading.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/avatar_provider.dart';
+import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/snackbar_helper.dart';
 import '../../core/utils/backup_service.dart';
 import '../../core/utils/user_facing_error.dart';
@@ -20,6 +21,26 @@ import '../../providers/settings_provider.dart';
 import '../../providers/contribution_provider.dart';
 import '../../widgets/app_logo.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+
+/// Currencies the app can display, with the symbol shown in the picker.
+const _currencies = <String, String>{
+  'INR': 'Indian Rupee',
+  'USD': 'US Dollar',
+  'EUR': 'Euro',
+  'GBP': 'British Pound',
+};
+
+String _themeLabel(ThemeMode mode) => switch (mode) {
+      ThemeMode.system => 'Follows system',
+      ThemeMode.light => 'Light',
+      ThemeMode.dark => 'Dark',
+    };
+
+IconData _themeIcon(ThemeMode mode) => switch (mode) {
+      ThemeMode.system => Icons.brightness_auto_rounded,
+      ThemeMode.light => Icons.light_mode_rounded,
+      ThemeMode.dark => Icons.dark_mode_rounded,
+    };
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -62,7 +83,20 @@ class SettingsScreen extends ConsumerWidget {
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                0,
+                AppSpacing.xl,
+                AppSpacing.md,
+              ),
+              child: Text(
+                'Profile photo',
+                style: Theme.of(ctx).textTheme.titleLarge,
+              ),
+            ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
               title: const Text('Choose from gallery'),
@@ -73,7 +107,7 @@ class SettingsScreen extends ConsumerWidget {
               title: const Text('Take a photo'),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.md),
           ],
         ),
       ),
@@ -102,6 +136,86 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _pickCurrency(
+    BuildContext context,
+    WidgetRef ref,
+    String current,
+  ) async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                0,
+                AppSpacing.xl,
+                AppSpacing.md,
+              ),
+              child: Text('Currency', style: Theme.of(ctx).textTheme.titleLarge),
+            ),
+            for (final entry in _currencies.entries)
+              _ChoiceTile(
+                leadingText: CurrencyFormatter.symbolFor(entry.key),
+                title: entry.value,
+                subtitle: entry.key,
+                selected: entry.key == current,
+                onTap: () => Navigator.pop(ctx, entry.key),
+              ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+        ),
+      ),
+    );
+    if (picked != null) {
+      ref.read(settingsProvider.notifier).setCurrency(picked);
+    }
+  }
+
+  Future<void> _pickTheme(
+    BuildContext context,
+    WidgetRef ref,
+    ThemeMode current,
+  ) async {
+    final picked = await showModalBottomSheet<ThemeMode>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                0,
+                AppSpacing.xl,
+                AppSpacing.md,
+              ),
+              child: Text(
+                'Appearance',
+                style: Theme.of(ctx).textTheme.titleLarge,
+              ),
+            ),
+            for (final mode in ThemeMode.values)
+              _ChoiceTile(
+                icon: _themeIcon(mode),
+                title: _themeLabel(mode),
+                selected: mode == current,
+                onTap: () => Navigator.pop(ctx, mode),
+              ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+        ),
+      ),
+    );
+    if (picked != null) {
+      ref.read(settingsProvider.notifier).setThemeMode(picked);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authStateProvider).asData?.value;
@@ -109,21 +223,23 @@ class SettingsScreen extends ConsumerWidget {
     final actionState = ref.watch(authActionsProvider);
     final actions = ref.read(authActionsProvider.notifier);
     final isContributor = profile?.isContributor ?? false;
-    final scheme = Theme.of(context).colorScheme;
-    final name = user?.displayName?.trim().isNotEmpty == true
-        ? user!.displayName!
-        : (profile?.displayName?.trim().isNotEmpty == true
-            ? profile!.displayName!
+    final settings = ref.watch(settingsProvider);
+    // Resolved the same way as the dashboard greeting so one name is shown
+    // for the user everywhere in the app.
+    final name = profile?.displayName?.trim().isNotEmpty == true
+        ? profile!.displayName!
+        : (user?.displayName?.trim().isNotEmpty == true
+            ? user!.displayName!
             : (user?.email ?? 'Signed in user'));
     final photoUrl = profile?.photoUrl ?? user?.photoURL;
     final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
     final saving = actionState.isLoading;
-    final settings = ref.watch(settingsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('You'),
+        title: const Text('Profile & settings'),
         leading: IconButton(
+          tooltip: 'Back',
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () {
             if (context.canPop()) {
@@ -135,194 +251,60 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.gutter,
+          AppSpacing.sm,
+          AppSpacing.gutter,
+          AppSpacing.xxl,
+        ),
         children: [
-          Text(
-            'Profile & settings',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: scheme.onSurfaceVariant,
-                ),
+          _ProfileCard(
+            name: name,
+            email: user?.email,
+            initial: initial,
+            photoUrl: photoUrl,
+            isContributor: isContributor,
+            saving: saving,
+            onEditName: saving ? null : () => _editName(context, ref, name),
+            onChangePhoto: saving ? null : () => _changePhoto(context, ref),
           ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [AppColors.brandDeep, AppColors.brand],
-              ),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Row(
-              children: [
-                Stack(
-                  children: [
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: saving ? null : () => _changePhoto(context, ref),
-                        customBorder: const CircleBorder(),
-                        child: CircleAvatar(
-                          radius: 32,
-                          backgroundColor: Colors.white.withValues(alpha: 0.2),
-                          backgroundImage: getAvatarProvider(photoUrl),
-                          child: photoUrl != null && photoUrl.isNotEmpty
-                              ? null
-                              : Text(
-                                  initial,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 24,
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Material(
-                        color: Colors.white,
-                        shape: const CircleBorder(),
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap:
-                              saving ? null : () => _changePhoto(context, ref),
-                          child: const Padding(
-                            padding: EdgeInsets.all(5),
-                            child: Icon(
-                              Icons.camera_alt_rounded,
-                              size: 14,
-                              color: AppColors.brandDeep,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                      ),
-                      if (user?.email != null)
-                        Text(
-                          user!.email!,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.8),
-                                  ),
-                        ),
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        onPressed: saving
-                            ? null
-                            : () => _editName(context, ref, name),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.zero,
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        icon: const Icon(Icons.edit_outlined, size: 16),
-                        label: const Text('Edit name'),
-                      ),
-                    ],
-                  ),
-                ),
-                if (saving)
-                  const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'App Preferences',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.xxl),
+          const SectionLabel('Preferences'),
           _SettingsGroup(
             children: [
               _SettingsTile(
                 icon: Icons.category_outlined,
                 title: 'Manage categories',
+                subtitle: 'Income and expense categories',
                 onTap: () => context.push('/categories'),
               ),
               _SettingsTile(
-                icon: Icons.currency_rupee_rounded,
+                icon: Icons.payments_outlined,
                 title: 'Currency',
-                subtitle: settings.currency,
-                onTap: () async {
-                  final cur = await showDialog<String>(
-                    context: context,
-                    builder: (ctx) => SimpleDialog(
-                      title: const Text('Select Currency'),
-                      children: ['INR', 'USD', 'EUR', 'GBP'].map((c) => SimpleDialogOption(
-                        onPressed: () => Navigator.pop(ctx, c),
-                        child: Text(c),
-                      )).toList(),
-                    ),
-                  );
-                  if (cur != null) {
-                    ref.read(settingsProvider.notifier).setCurrency(cur);
-                  }
-                },
+                subtitle:
+                    '${_currencies[settings.currency] ?? settings.currency} · ${CurrencyFormatter.symbolFor(settings.currency)}',
+                onTap: () => _pickCurrency(context, ref, settings.currency),
               ),
               _SettingsTile(
-                icon: Icons.dark_mode_outlined,
-                title: 'Theme',
-                subtitle: settings.themeMode == ThemeMode.system ? 'Follows system' : (settings.themeMode == ThemeMode.light ? 'Light' : 'Dark'),
-                onTap: () async {
-                  final mode = await showDialog<ThemeMode>(
-                    context: context,
-                    builder: (ctx) => SimpleDialog(
-                      title: const Text('Select Theme'),
-                      children: [
-                        SimpleDialogOption(onPressed: () => Navigator.pop(ctx, ThemeMode.system), child: const Text('Follows system')),
-                        SimpleDialogOption(onPressed: () => Navigator.pop(ctx, ThemeMode.light), child: const Text('Light')),
-                        SimpleDialogOption(onPressed: () => Navigator.pop(ctx, ThemeMode.dark), child: const Text('Dark')),
-                      ],
-                    ),
-                  );
-                  if (mode != null) {
-                    ref.read(settingsProvider.notifier).setThemeMode(mode);
-                  }
-                },
+                icon: _themeIcon(settings.themeMode),
+                title: 'Appearance',
+                subtitle: _themeLabel(settings.themeMode),
+                onTap: () => _pickTheme(context, ref, settings.themeMode),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          Text(
-            'About & Support',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: scheme.onSurfaceVariant,
-                ),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.xl),
+          const SectionLabel('About & support'),
           _SettingsGroup(
             children: [
+              _SettingsTile(
+                icon: Icons.favorite_rounded,
+                title: 'Support Accounts Note',
+                subtitle: isContributor
+                    ? 'Thank you for your support'
+                    : 'Donations & sponsorships',
+                onTap: () => context.push('/contribute'),
+              ),
               _SettingsTile(
                 icon: Icons.code_rounded,
                 title: 'Source code',
@@ -333,41 +315,24 @@ class SettingsScreen extends ConsumerWidget {
                 icon: Icons.bug_report_outlined,
                 title: 'Report an issue',
                 subtitle: 'Bugs, ideas, and feedback',
-                onTap: () => _openUrl(
-                  context,
-                  '${AppLinks.githubRepo}/issues',
-                ),
+                onTap: () => _openUrl(context, '${AppLinks.githubRepo}/issues'),
               ),
               const _SettingsTile(
                 icon: Icons.balance_outlined,
                 title: 'License',
                 subtitle: '${AppLinks.license} · Free to use, fork, and share',
               ),
-              _SettingsTile(
-                icon: Icons.favorite_rounded,
-                title: 'Support Accounts Note',
-                subtitle: isContributor
-                    ? 'Thank you for your support'
-                    : 'donations & sponsorships',
-                onTap: () => context.push('/contribute'),
-              ),
             ],
           ),
-          const SizedBox(height: 14),
-          Text(
-            'Preference',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.xl),
+          const SectionLabel('Account'),
           _SettingsGroup(
             children: [
               _SettingsTile(
                 icon: Icons.logout_rounded,
                 title: 'Log out',
-                onTap: () => actions.signOut(),
+                subtitle: 'Sign out on this device',
+                onTap: () => _confirmSignOut(context, actions),
               ),
               _SettingsTile(
                 icon: Icons.delete_forever_rounded,
@@ -378,38 +343,37 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 48),
-          FutureBuilder<PackageInfo>(
-            future: PackageInfo.fromPlatform(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) return const SizedBox();
-              final info = snapshot.data!;
-              return Column(
-                children: [
-                  const AppLogo(size: 48, rounded: true),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Accounts Note',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: scheme.onSurface,
-                        ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Version ${info.version} (${info.buildNumber})',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                  ),
-                  const SizedBox(height: 32),
-                ],
-              );
-            },
+          const SizedBox(height: AppSpacing.xxl),
+          const _VersionFooter(),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmSignOut(
+    BuildContext context,
+    AuthActionsNotifier actions,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text(
+          'Your data stays safely synced — you can sign back in anytime.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Log out'),
           ),
         ],
       ),
     );
+    if (confirmed == true) await actions.signOut();
   }
 
   Future<void> _confirmDelete(
@@ -420,7 +384,7 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => const _DeleteAccountDialog(),
     );
-    
+
     if (action == 'backup_delete' || action == 'delete') {
       if (action == 'backup_delete') {
         EasyLoading.show(status: 'Backing up to Downloads...');
@@ -435,7 +399,7 @@ class SettingsScreen extends ConsumerWidget {
           await Future.delayed(const Duration(seconds: 2));
         }
       }
-    
+
       EasyLoading.show(status: 'Confirming identity...');
       final result = await actions.deleteAccount();
       result.when(
@@ -452,6 +416,280 @@ class SettingsScreen extends ConsumerWidget {
         },
       );
     }
+  }
+}
+
+class _ProfileCard extends StatelessWidget {
+  final String name;
+  final String? email;
+  final String initial;
+  final String? photoUrl;
+  final bool isContributor;
+  final bool saving;
+  final VoidCallback? onEditName;
+  final VoidCallback? onChangePhoto;
+
+  const _ProfileCard({
+    required this.name,
+    required this.email,
+    required this.initial,
+    required this.photoUrl,
+    required this.isContributor,
+    required this.saving,
+    required this.onEditName,
+    required this.onChangePhoto,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasPhoto = photoUrl != null && photoUrl!.isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.brandDeep, AppColors.brand],
+        ),
+        borderRadius: BorderRadius.circular(AppRadii.hero),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.brand.withValues(alpha: 0.22),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            children: [
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onChangePhoto,
+                  customBorder: const CircleBorder(),
+                  child: CircleAvatar(
+                    radius: 32,
+                    backgroundColor: Colors.white.withValues(alpha: 0.2),
+                    backgroundImage: getAvatarProvider(photoUrl),
+                    child: hasPhoto
+                        ? null
+                        : Text(
+                            initial,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 24,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Material(
+                  color: Colors.white,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: onChangePhoto,
+                    child: const Padding(
+                      padding: EdgeInsets.all(5),
+                      child: Icon(
+                        Icons.camera_alt_rounded,
+                        size: 14,
+                        color: AppColors.brandDeep,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: AppSpacing.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (email != null)
+                  Text(
+                    email!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.85),
+                    ),
+                  ),
+                if (isContributor) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(AppRadii.pill),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.favorite_rounded,
+                            size: 12, color: Colors.white),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Contributor',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.sm),
+                TextButton.icon(
+                  onPressed: onEditName,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('Edit name'),
+                ),
+              ],
+            ),
+          ),
+          if (saving)
+            const Padding(
+              padding: EdgeInsets.only(left: AppSpacing.sm),
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VersionFooter extends StatelessWidget {
+  const _VersionFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox(height: 80);
+        final info = snapshot.data!;
+        return Column(
+          children: [
+            const AppLogo(size: 44, rounded: true),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Accounts Note',
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: scheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Version ${info.version} (${info.buildNumber})',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xxl),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ChoiceTile extends StatelessWidget {
+  final IconData? icon;
+  final String? leadingText;
+  final String title;
+  final String? subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ChoiceTile({
+    this.icon,
+    this.leadingText,
+    required this.title,
+    this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return ListTile(
+      onTap: onTap,
+      leading: Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: (selected ? scheme.primary : scheme.onSurfaceVariant)
+              .withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: icon != null
+            ? Icon(
+                icon,
+                size: 19,
+                color: selected ? scheme.primary : scheme.onSurfaceVariant,
+              )
+            : Text(
+                leadingText ?? '',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                ),
+              ),
+      ),
+      title: Text(
+        title,
+        style: theme.textTheme.bodyLarge?.copyWith(
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        ),
+      ),
+      subtitle: subtitle == null ? null : Text(subtitle!),
+      trailing: selected
+          ? Icon(Icons.check_circle_rounded, color: scheme.primary)
+          : null,
+    );
   }
 }
 
@@ -513,25 +751,15 @@ class _SettingsGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surfaceContainer,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(22),
-        side: BorderSide(
-          color: scheme.outlineVariant.withValues(alpha: 0.35),
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
+
+    return AppCard(
+      padding: EdgeInsets.zero,
       child: Column(
         children: [
           for (var i = 0; i < children.length; i++) ...[
             children[i],
             if (i != children.length - 1)
-              Divider(
-                height: 1,
-                indent: 56,
-                color: scheme.outlineVariant.withValues(alpha: 0.35),
-              ),
+              Divider(height: 1, indent: 68, color: scheme.outlineVariant),
           ],
         ],
       ),
@@ -556,34 +784,51 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = destructive ? scheme.error : scheme.onSurface;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final accent = destructive ? scheme.error : scheme.primary;
 
     return ListTile(
       onTap: onTap,
+      shape: const RoundedRectangleBorder(),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.xs,
+      ),
       leading: Container(
-        padding: const EdgeInsets.all(10),
+        width: 38,
+        height: 38,
         decoration: BoxDecoration(
-          color: (destructive ? scheme.error : scheme.primary)
-              .withValues(alpha: 0.1),
+          color: accent.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(
-          icon,
-          size: 20,
-          color: destructive ? scheme.error : scheme.primary,
-        ),
+        child: Icon(icon, size: 19, color: accent),
       ),
       title: Text(
         title,
-        style: TextStyle(color: color, fontWeight: FontWeight.w600),
+        style: theme.textTheme.bodyLarge?.copyWith(
+          color: destructive ? scheme.error : scheme.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       subtitle: subtitle == null
           ? null
-          : Text(subtitle!, style: TextStyle(color: scheme.onSurfaceVariant)),
+          : Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                subtitle!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
       trailing: onTap == null
           ? null
-          : Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+          : Icon(
+              Icons.chevron_right_rounded,
+              color: scheme.onSurfaceVariant,
+              size: 20,
+            ),
     );
   }
 }
@@ -619,42 +864,47 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return AlertDialog(
+      icon: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: scheme.error.withValues(alpha: 0.1),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(Icons.warning_amber_rounded, color: scheme.error, size: 26),
+      ),
       title: const Text('Delete your account?'),
       content: const Text(
         'This permanently deletes your profile, transactions, budgets, and categories. This cannot be undone.\n\nYou will be asked to confirm with Google (or Apple) before deletion.\n\nYou can download a backup of your transactions in Excel format before deleting.',
       ),
-      actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, null),
-          child: const Text('Cancel'),
-        ),
         Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
             FilledButton.icon(
               icon: const Icon(Icons.download_rounded, size: 18),
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-              ),
-              onPressed:
-                  _secondsLeft > 0 ? null : () => Navigator.pop(context, 'backup_delete'),
+              onPressed: _secondsLeft > 0
+                  ? null
+                  : () => Navigator.pop(context, 'backup_delete'),
               label: Text(
                 _secondsLeft > 0
                     ? 'Backup & Delete ($_secondsLeft)'
                     : 'Backup & Delete',
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.error,
-              ),
+              style: TextButton.styleFrom(foregroundColor: scheme.error),
               onPressed:
                   _secondsLeft > 0 ? null : () => Navigator.pop(context, 'delete'),
               child: const Text('Delete without backup'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text('Cancel'),
             ),
           ],
         ),

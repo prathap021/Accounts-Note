@@ -18,19 +18,25 @@ import 'core/theme/app_theme.dart';
 import 'firebase_options.dart';
 
 void _configEasyLoading() {
+  // Overlay colours are fixed at startup, before a theme exists, so the
+  // loader uses a dark scrim that reads correctly in light and dark mode.
   EasyLoading.instance
     ..displayDuration = const Duration(milliseconds: 2000)
     ..loadingStyle = EasyLoadingStyle.custom
-    ..backgroundColor = Colors.white
+    ..backgroundColor = AppColors.ink
     ..indicatorColor = AppColors.brand
-    ..textColor = AppColors.ink
-    ..maskColor = AppColors.brandDeep.withValues(alpha: 0.2)
+    ..textColor = Colors.white
+    ..maskColor = AppColors.ink.withValues(alpha: 0.35)
     ..maskType = EasyLoadingMaskType.custom
     ..indicatorSize = 40.0
-    ..radius = 20.0
+    ..radius = AppRadii.card
+    ..contentPadding = const EdgeInsets.symmetric(
+      horizontal: AppSpacing.xl,
+      vertical: AppSpacing.xl,
+    )
     ..boxShadow = [
       BoxShadow(
-        color: AppColors.brandDeep.withValues(alpha: 0.15),
+        color: AppColors.ink.withValues(alpha: 0.2),
         blurRadius: 32,
         spreadRadius: 4,
         offset: const Offset(0, 16),

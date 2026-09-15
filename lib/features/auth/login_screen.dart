@@ -75,12 +75,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.xl),
                       const Align(
                         alignment: Alignment.centerLeft,
-                        child: AppLogo(size: 84),
+                        child: AppLogo(size: 76),
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: AppSpacing.xl),
                       Text(
                         'Accounts Note',
                         style:
@@ -90,15 +90,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   height: 1.05,
                                 ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: AppSpacing.md),
                       Text(
-                        'Track every rupee with a calm, modern ledger that syncs wherever you go.',
+                        'A calm, modern ledger for your income and expenses — synced wherever you go.',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                               color: scheme.onSurfaceVariant,
                               height: 1.45,
                             ),
                       ),
-                      const SizedBox(height: 36),
+                      const SizedBox(height: AppSpacing.xxl),
                       AnimatedSwitcher(
                         duration: const Duration(milliseconds: 280),
                         switchInCurve: Curves.easeOutCubic,
@@ -158,7 +158,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         ),
                               ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.xl),
+                      Text(
+                        'Your data stays in your own account. No ads, no trackers.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
                     ],
                   ),
                 ),
@@ -191,66 +199,78 @@ class _AuthOptions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    Widget socialButton({
+      required String action,
+      required IconData icon,
+      required double iconSize,
+      required String label,
+      required VoidCallback onPressed,
+    }) {
+      return FilledButton(
+        onPressed: _anyBusy ? null : onPressed,
+        child: busyAction == action
+            ? SizedBox(
+                height: 22,
+                width: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: scheme.onPrimary,
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: iconSize),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(label),
+                ],
+              ),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (!isIOS)
-          FilledButton(
-            onPressed: _anyBusy ? null : onGoogle,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
-            ),
-            child: busyAction == 'google'
-                ? SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: onPrimary,
-                    ),
-                  )
-                : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.g_mobiledata_rounded, size: 28),
-                      SizedBox(width: 8),
-                      Text('Continue with Google'),
-                    ],
-                  ),
-          ),
         if (isIOS)
-          FilledButton(
-            onPressed: _anyBusy ? null : onApple,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
+          socialButton(
+            action: 'apple',
+            icon: Icons.apple,
+            iconSize: 22,
+            label: 'Continue with Apple',
+            onPressed: onApple,
+          )
+        else
+          socialButton(
+            action: 'google',
+            icon: Icons.g_mobiledata_rounded,
+            iconSize: 30,
+            label: 'Continue with Google',
+            onPressed: onGoogle,
+          ),
+        const SizedBox(height: AppSpacing.xl),
+        Row(
+          children: [
+            Expanded(child: Divider(color: scheme.outlineVariant)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              child: Text(
+                'or',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
             ),
-            child: busyAction == 'apple'
-                ? SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: onPrimary,
-                    ),
-                  )
-                : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.apple),
-                      SizedBox(width: 8),
-                      Text('Continue with Apple'),
-                    ],
-                  ),
-          ),
-        const SizedBox(height: 12),
-        OutlinedButton(
+            Expanded(child: Divider(color: scheme.outlineVariant)),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        OutlinedButton.icon(
           onPressed: onEmail,
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(52),
-          ),
-          child: const Text('Continue with Email'),
+          icon: const Icon(Icons.mail_outline_rounded, size: 20),
+          label: const Text('Continue with Email'),
         ),
       ],
     );
@@ -285,13 +305,30 @@ class _EmailForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+    final theme = Theme.of(context);
+    final onPrimary = theme.colorScheme.onPrimary;
 
     return Form(
       key: formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Row(
+            children: [
+              IconButton(
+                tooltip: 'Back',
+                onPressed: onBack,
+                icon: const Icon(Icons.arrow_back_rounded),
+                visualDensity: VisualDensity.compact,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                isSignUp ? 'Create your account' : 'Sign in with email',
+                style: theme.textTheme.titleMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
           TextFormField(
             controller: email,
             enabled: !isLoading,
@@ -325,12 +362,9 @@ class _EmailForm extends StatelessWidget {
                 ? 'Password must be at least 6 characters'
                 : null,
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: AppSpacing.xl),
           FilledButton(
             onPressed: isLoading ? null : onSubmit,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
-            ),
             child: isLoading
                 ? SizedBox(
                     height: 22,
@@ -342,6 +376,7 @@ class _EmailForm extends StatelessWidget {
                   )
                 : Text(isSignUp ? 'Create account' : 'Sign in'),
           ),
+          const SizedBox(height: AppSpacing.sm),
           TextButton(
             onPressed: isLoading ? null : onToggleMode,
             child: Text(
@@ -349,10 +384,6 @@ class _EmailForm extends StatelessWidget {
                   ? 'Already have an account? Sign in'
                   : "Don't have an account? Sign up",
             ),
-          ),
-          TextButton(
-            onPressed: onBack,
-            child: const Text('Back'),
           ),
         ],
       ),

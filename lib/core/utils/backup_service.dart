@@ -41,8 +41,8 @@ class BackupService {
     final transactions = txSnap.docs.map(TransactionModel.fromDoc).toList();
 
     // Create Excel
-    var excel = Excel.createExcel();
-    var sheet = excel['Transactions'];
+    final excel = Excel.createExcel();
+    final sheet = excel['Transactions'];
     
     sheet.appendRow([
       TextCellValue('Date'),

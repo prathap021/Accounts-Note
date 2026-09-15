@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
 
+/// Compact income / expense stat tile. Tapping one drills into the matching
+/// filtered list, so the number on the dashboard is a way in, not a dead end.
 class SummaryCard extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
   final Color color;
+  final String? caption;
+  final VoidCallback? onTap;
 
   const SummaryCard({
     super.key,
@@ -14,55 +18,72 @@ class SummaryCard extends StatelessWidget {
     required this.value,
     required this.icon,
     required this.color,
+    this.caption,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).shadowColor.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return AppCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 18, color: color),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, size: 16, color: color),
+              ),
+              const Spacer(),
+              if (onTap != null)
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: scheme.onSurfaceVariant,
+                ),
+            ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.md),
           Text(
             label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.muted,
-                  fontWeight: FontWeight.w500,
-                ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xs),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
               value,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3,
-                  ),
+              maxLines: 1,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+              ),
             ),
           ),
+          if (caption != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              caption!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         ],
       ),
     );

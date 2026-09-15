@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -83,26 +84,37 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
 
     return Scaffold(
       body: widget.child,
-      bottomNavigationBar: Container(
+      bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(
           color: scheme.surfaceContainer,
-          border: Border(
-            top: BorderSide(
-              color: scheme.outlineVariant.withValues(alpha: 0.35),
+          border: Border(top: BorderSide(color: scheme.outlineVariant)),
+          boxShadow: [
+            BoxShadow(
+              color: Theme.of(context).shadowColor.withValues(alpha: 0.05),
+              blurRadius: 20,
+              offset: const Offset(0, -6),
             ),
-          ),
-        ),
-        child: NavigationBar(
-          selectedIndex: currentIndex,
-          onDestinationSelected: (i) => context.go(_tabs[i].$1),
-          destinations: [
-            for (final tab in _tabs)
-              NavigationDestination(
-                icon: Icon(tab.$2),
-                selectedIcon: Icon(tab.$3),
-                label: tab.$4,
-              ),
           ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: NavigationBar(
+            selectedIndex: currentIndex,
+            onDestinationSelected: (i) {
+              if (i == currentIndex) return;
+              HapticFeedback.selectionClick();
+              context.go(_tabs[i].$1);
+            },
+            destinations: [
+              for (final tab in _tabs)
+                NavigationDestination(
+                  icon: Icon(tab.$2),
+                  selectedIcon: Icon(tab.$3),
+                  label: tab.$4,
+                  tooltip: tab.$4,
+                ),
+            ],
+          ),
         ),
       ),
     );

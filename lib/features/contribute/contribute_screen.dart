@@ -133,17 +133,29 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.gutter,
+          AppSpacing.sm,
+          AppSpacing.gutter,
+          AppSpacing.xxl,
+        ),
         children: [
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(AppSpacing.xl),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [AppColors.brandDeep, AppColors.brand, Color(0xFF14B8A6)],
               ),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(AppRadii.hero),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.brand.withValues(alpha: 0.22),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,10 +310,13 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
             FilledButton(
               onPressed: actionState.isLoading ? null : _startCheckout,
               child: actionState.isLoading
-                  ? const SizedBox(
+                  ? SizedBox(
                       height: 20,
                       width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: scheme.onPrimary,
+                      ),
                     )
                   : Text(_continueLabel),
             ),
@@ -344,11 +359,9 @@ class _SupportOptionCard extends StatelessWidget {
           ? scheme.primary.withValues(alpha: 0.1)
           : scheme.surfaceContainer,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppRadii.card),
         side: BorderSide(
-          color: selected
-              ? scheme.primary
-              : scheme.outlineVariant.withValues(alpha: 0.4),
+          color: selected ? scheme.primary : scheme.outlineVariant,
           width: selected ? 1.5 : 1,
         ),
       ),
@@ -356,7 +369,7 @@ class _SupportOptionCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -412,18 +425,16 @@ class _AmountChip extends StatelessWidget {
       color: selected
           ? scheme.primary.withValues(alpha: 0.12)
           : scheme.surfaceContainer,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppRadii.control),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadii.control),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppRadii.control),
             border: Border.all(
-              color: selected
-                  ? scheme.primary
-                  : scheme.outlineVariant.withValues(alpha: 0.4),
+              color: selected ? scheme.primary : scheme.outlineVariant,
               width: selected ? 1.5 : 1,
             ),
           ),

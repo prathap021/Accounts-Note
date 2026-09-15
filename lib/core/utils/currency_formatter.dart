@@ -3,7 +3,7 @@ import 'package:number_to_indian_words/number_to_indian_words.dart';
 
 class CurrencyFormatter {
   static String format(num amount, {String currencyCode = 'INR'}) {
-    final symbol = _symbolFor(currencyCode);
+    final symbol = symbolFor(currencyCode);
     final formatter = NumberFormat.currency(
       symbol: symbol,
       decimalDigits: 2,
@@ -11,6 +11,21 @@ class CurrencyFormatter {
     );
     return formatter.format(amount);
   }
+
+  /// Same as [format] but without the trailing decimals — used where space is
+  /// tight (chart labels, compact stat rows).
+  static String formatCompact(num amount, {String currencyCode = 'INR'}) {
+    final formatter = NumberFormat.currency(
+      symbol: symbolFor(currencyCode),
+      decimalDigits: 0,
+      locale: currencyCode == 'INR' ? 'en_IN' : 'en_US',
+    );
+    return formatter.format(amount);
+  }
+
+  /// Amount-in-words is Indian-numbering specific (lakh / crore), so it is
+  /// only meaningful for INR.
+  static bool supportsWords(String currencyCode) => currencyCode == 'INR';
 
   /// Amount in Indian words via [number_to_indian_words].
   /// Example: 125000 → "One Lakh Twenty Five Thousand rupees"
@@ -30,7 +45,7 @@ class CurrencyFormatter {
     return '$prefix$words';
   }
 
-  static String _symbolFor(String code) {
+  static String symbolFor(String code) {
     switch (code) {
       case 'INR':
         return '₹';
