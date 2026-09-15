@@ -21,12 +21,13 @@ class _DayGroup {
 
   _DayGroup(this.day, this.items);
 
-  double get net => items.fold<double>(
-        0,
-        (sum, t) => t.type == TransactionType.income
-            ? sum + t.amount
-            : sum - t.amount,
-      );
+  double get income => items
+      .where((t) => t.type == TransactionType.income)
+      .fold<double>(0, (sum, t) => sum + t.amount);
+
+  double get expense => items
+      .where((t) => t.type == TransactionType.expense)
+      .fold<double>(0, (sum, t) => sum + t.amount);
 }
 
 class TransactionsScreen extends ConsumerStatefulWidget {
@@ -192,26 +193,14 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                   AppSpacing.scrollBottom,
                 ),
                 sliver: SliverList.builder(
-                  itemCount: groups.length + 1,
-                  itemBuilder: (context, i) {
-                    if (i == 0) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-                        child: _ResultSummary(
-                          transactions: txs,
-                          currency: settings.currency,
-                        ),
-                      );
-                    }
-                    final group = groups[i - 1];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-                      child: _DaySection(
-                        group: group,
-                        currency: settings.currency,
-                      ),
-                    );
-                  },
+                  itemCount: groups.length,
+                  itemBuilder: (context, i) => Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+                    child: _DaySection(
+                      group: groups[i],
+                      currency: settings.currency,
+                    ),
+                  ),
                 ),
               );
             },
@@ -397,70 +386,39 @@ class _RemovableChip extends StatelessWidget {
   }
 }
 
-class _ResultSummary extends StatelessWidget {
-  final List<TransactionModel> transactions;
+/// One side of a day's totals — money in, or money out.
+class _DayTotal extends StatelessWidget {
+  final double amount;
+  final bool isIncome;
   final String currency;
 
-  const _ResultSummary({required this.transactions, required this.currency});
+  const _DayTotal({
+    required this.amount,
+    required this.isIncome,
+    required this.currency,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final color = isIncome ? AppColors.income : AppColors.expense;
 
-    final income = transactions
-        .where((t) => t.type == TransactionType.income)
-        .fold<double>(0, (sum, t) => sum + t.amount);
-    final expense = transactions
-        .where((t) => t.type == TransactionType.expense)
-        .fold<double>(0, (sum, t) => sum + t.amount);
-    final net = income - expense;
-
-    return AppCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${transactions.length} ${transactions.length == 1 ? 'transaction' : 'transactions'}',
-                  style: theme.textTheme.titleSmall,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Showing your latest activity',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                'Net',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          isIncome ? Icons.south_west_rounded : Icons.north_east_rounded,
+          size: 13,
+          color: color,
+        ),
+        const SizedBox(width: 3),
+        Text(
+          CurrencyFormatter.format(amount, currencyCode: currency),
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: color,
               ),
-              Text(
-                CurrencyFormatter.format(net, currencyCode: currency),
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: net >= 0 ? AppColors.income : AppColors.expense,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -488,7 +446,8 @@ class _DaySection extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final categories = ref.watch(categoryLookupProvider);
-    final net = group.net;
+    final income = group.income;
+    final expense = group.expense;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -504,18 +463,41 @@ class _DaySection extends ConsumerWidget {
               Expanded(
                 child: Text(
                   _dayLabel(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
               ),
-              Text(
-                '${net >= 0 ? '+' : '−'}'
-                '${CurrencyFormatter.format(net.abs(), currencyCode: currency)}',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: net >= 0 ? AppColors.income : AppColors.expense,
+              const SizedBox(width: AppSpacing.sm),
+              // Money in and money out for the day, kept separate rather than
+              // collapsed into one net figure. Scales down so two large
+              // amounts never overflow the row.
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (income > 0)
+                        _DayTotal(
+                          amount: income,
+                          isIncome: true,
+                          currency: currency,
+                        ),
+                      if (income > 0 && expense > 0)
+                        const SizedBox(width: AppSpacing.md),
+                      if (expense > 0)
+                        _DayTotal(
+                          amount: expense,
+                          isIncome: false,
+                          currency: currency,
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ],
