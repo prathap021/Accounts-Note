@@ -16,6 +16,15 @@ final categoriesStreamProvider =
   return ref.watch(categoryRepositoryProvider).watchCategories(uid, type: type);
 });
 
+/// Categories keyed by id, so transaction lists can render each row with its
+/// own category icon and colour without a lookup per row. Archived categories
+/// are absent, and callers fall back to a generic icon for those.
+final categoryLookupProvider = Provider<Map<String, CategoryModel>>((ref) {
+  final categories =
+      ref.watch(categoriesStreamProvider(null)).asData?.value ?? const [];
+  return {for (final c in categories) c.id: c};
+});
+
 class CategoryActionsNotifier extends Notifier<AsyncValue<void>> {
   late CategoryRepository _repo;
   String? _uid;

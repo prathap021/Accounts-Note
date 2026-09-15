@@ -2,43 +2,51 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../core/constants/app_constants.dart';
+import '../core/constants/category_icons.dart';
 import '../core/theme/app_theme.dart';
 import '../core/utils/currency_formatter.dart';
+import '../models/category_model.dart';
 import '../models/transaction_model.dart';
 
 class TransactionTile extends StatelessWidget {
   final TransactionModel transaction;
   final String currency;
+
+  /// The transaction's category, when it could be resolved. Supplies the row
+  /// icon and colour; a missing category falls back to a direction arrow.
+  final CategoryModel? category;
+
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
 
   /// Grouped lists already print the day above the row, so they turn the date
-  /// off and the secondary line falls back to time / note / payment method.
+  /// off and the meta line shows just the time.
   final bool showDate;
 
   const TransactionTile({
     super.key,
     required this.transaction,
     this.currency = 'INR',
+    this.category,
     this.onTap,
     this.onDelete,
     this.showDate = true,
   });
 
-  String _secondaryLine() {
-    final note = transaction.note?.trim();
+  bool get _isIncome => transaction.type == TransactionType.income;
+
+  /// Time / date plus payment method — the quiet third line.
+  String _metaLine() {
     final parts = <String>[
       if (showDate)
-        DateFormat('MMM d, yyyy').format(transaction.date)
+        DateFormat('MMM d, yyyy · h:mm a').format(transaction.date)
       else
         DateFormat('h:mm a').format(transaction.date),
-      if (note != null && note.isNotEmpty)
-        note
-      else if (transaction.paymentMethod != null &&
+      if (transaction.paymentMethod != null &&
           transaction.paymentMethod!.isNotEmpty)
         transaction.paymentMethod!,
     ];
-    return parts.join(' · ');
+    return parts.join('  ·  ');
   }
 
   Future<bool> _confirmDelete(BuildContext context) async {
@@ -74,9 +82,10 @@ class TransactionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isIncome = transaction.type == TransactionType.income;
-    final color = isIncome ? AppColors.income : AppColors.expense;
-    final sign = isIncome ? '+' : '−';
+    final amountColor = _isIncome ? AppColors.income : AppColors.expense;
+    final sign = _isIncome ? '+' : '−';
+    final note = transaction.note?.trim();
+    final hasNote = note != null && note.isNotEmpty;
 
     return Dismissible(
       key: ValueKey(transaction.id),
@@ -119,68 +128,74 @@ class TransactionTile extends StatelessWidget {
               vertical: AppSpacing.md,
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    isIncome
-                        ? Icons.south_west_rounded
-                        : Icons.north_east_rounded,
-                    color: color,
-                    size: 20,
-                  ),
+                _CategoryAvatar(
+                  category: category,
+                  isIncome: _isIncome,
+                  fallbackColor: amountColor,
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        transaction.categoryName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall,
+                      // Name and amount share the top line; the description
+                      // below then gets the row's full width.
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              transaction.categoryName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleSmall,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Text(
+                            '$sign${CurrencyFormatter.format(transaction.amount, currencyCode: currency)}',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: amountColor,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        _secondaryLine(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
+                      if (hasNote) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          note,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurface.withValues(alpha: 0.75),
+                            height: 1.35,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '$sign${CurrencyFormatter.format(transaction.amount, currencyCode: currency)}',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: color,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    if (transaction.pendingSync)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 3),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
+                      ],
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _metaLine(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          if (transaction.pendingSync) ...[
+                            const SizedBox(width: AppSpacing.sm),
                             Icon(
                               Icons.cloud_sync_outlined,
                               size: 12,
                               color: scheme.onSurfaceVariant,
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 3),
                             Text(
                               'Syncing',
                               style: theme.textTheme.labelSmall?.copyWith(
@@ -188,14 +203,80 @@ class TransactionTile extends StatelessWidget {
                               ),
                             ),
                           ],
-                        ),
+                        ],
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Category icon in the category's own colour, with a small corner badge
+/// showing whether money came in or went out.
+class _CategoryAvatar extends StatelessWidget {
+  final CategoryModel? category;
+  final bool isIncome;
+  final Color fallbackColor;
+
+  const _CategoryAvatar({
+    required this.category,
+    required this.isIncome,
+    required this.fallbackColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = category != null ? Color(category!.color) : fallbackColor;
+    final icon = category != null
+        ? iconFor(category!.icon)
+        : (isIncome ? Icons.south_west_rounded : Icons.north_east_rounded);
+    final badgeColor = isIncome ? AppColors.income : AppColors.expense;
+
+    return SizedBox(
+      width: 46,
+      height: 46,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: color, size: 21),
+          ),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              width: 17,
+              height: 17,
+              decoration: BoxDecoration(
+                color: badgeColor,
+                shape: BoxShape.circle,
+                // Ring in the surface colour so the badge reads as separate
+                // from the tile behind it.
+                border: Border.all(color: scheme.surfaceContainer, width: 2),
+              ),
+              child: Icon(
+                isIncome
+                    ? Icons.south_west_rounded
+                    : Icons.north_east_rounded,
+                size: 9,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

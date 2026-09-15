@@ -487,6 +487,7 @@ class _DaySection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final categories = ref.watch(categoryLookupProvider);
     final net = group.net;
 
     return Column(
@@ -531,6 +532,7 @@ class _DaySection extends ConsumerWidget {
                 TransactionTile(
                   currency: currency,
                   transaction: group.items[i],
+                  category: categories[group.items[i].categoryId],
                   showDate: false,
                   onTap: () => context.push(
                     '/transaction/edit',

@@ -11,6 +11,7 @@ import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/greeting.dart';
 import '../../data/repositories/transaction_repository.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/category_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/contribution_provider.dart';
 import '../../providers/dashboard_provider.dart';
@@ -69,6 +70,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final photoUrl = profile?.photoUrl ?? user?.photoURL;
     final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
     final displayGreetingName = greetingName(name);
+    final categories = ref.watch(categoryLookupProvider);
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
@@ -146,6 +148,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               TransactionTile(
                                 currency: settings.currency,
                                 transaction: recent[i],
+                                category: categories[recent[i].categoryId],
                                 onTap: () => context.push(
                                   '/transaction/edit',
                                   extra: recent[i],

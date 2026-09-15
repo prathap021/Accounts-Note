@@ -2,22 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:income_expense_tracker/core/constants/app_constants.dart';
 import 'package:income_expense_tracker/core/theme/app_theme.dart';
+import 'package:income_expense_tracker/models/category_model.dart';
 import 'package:income_expense_tracker/models/transaction_model.dart';
 import 'package:income_expense_tracker/widgets/summary_card.dart';
 import 'package:income_expense_tracker/widgets/transaction_tile.dart';
 
-TransactionModel _tx(TransactionType type) => TransactionModel(
+TransactionModel _tx(TransactionType type, {String? note = 'Weekly shop'}) =>
+    TransactionModel(
       id: 'tx-${type.name}',
       type: type,
       amount: 1234.5,
       categoryId: 'c1',
       categoryName: 'Groceries',
-      note: 'Weekly shop',
+      note: note,
       date: DateTime(2026, 9, 15, 10, 30),
       paymentMethod: 'UPI',
       createdAt: DateTime(2026, 9, 15),
       updatedAt: DateTime(2026, 9, 15),
     );
+
+final _category = CategoryModel(
+  id: 'c1',
+  name: 'Groceries',
+  icon: 'restaurant',
+  color: 0xFFEF6C00,
+  type: TransactionType.expense,
+  createdAt: DateTime(2026, 9, 1),
+);
 
 Widget _host(Widget child, ThemeData theme) => MaterialApp(
       theme: theme,
@@ -72,9 +83,19 @@ void main() {
         padding: const EdgeInsets.all(AppSpacing.sm),
         child: Column(
           children: [
-            TransactionTile(transaction: _tx(TransactionType.income)),
+            // Resolved category: icon and colour come from the category.
             TransactionTile(
-              transaction: _tx(TransactionType.expense),
+              transaction: _tx(TransactionType.income),
+              category: _category,
+            ),
+            // Unresolved category falls back to a direction arrow, and a long
+            // note must wrap to two lines rather than overflow.
+            TransactionTile(
+              transaction: _tx(
+                TransactionType.expense,
+                note: 'Dinner chapathi with the team after the sprint review, '
+                    'split four ways and settled over UPI',
+              ),
               showDate: false,
             ),
           ],
