@@ -45,13 +45,13 @@ void main() {
     });
 
     test('uses the local part of an email', () {
-      expect(greetingName('selflearner021@gmail.com'), 'selflearner021');
+      expect(greetingName('a.person@example.com'), 'a.person');
     });
 
     test('falls back when there is nothing to greet', () {
       expect(greetingName(''), 'there');
       expect(greetingName('   '), 'there');
-      expect(greetingName('@gmail.com'), 'there');
+      expect(greetingName('@example.com'), 'there');
     });
 
     test('trims surrounding whitespace', () {

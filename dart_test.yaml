@@ -1,0 +1,8 @@
+# Test suite configuration.
+#
+# The `tools` tag marks files that are generators rather than regression
+# tests. They are skipped by default so a normal `flutter test` run stays a
+# trustworthy pass/fail signal, and are run deliberately when needed.
+tags:
+  tools:
+    skip: "Generator, not a regression test. Run: flutter test --run-skipped --update-goldens test/tools"

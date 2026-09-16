@@ -1,7 +1,15 @@
+@Tags(['tools'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:income_expense_tracker/widgets/app_logo.dart';
 
+/// Regenerates assets/branding/app_icon_generated.png from [AppLogo].
+///
+/// This is a build tool, not a regression test: it compares the rendered
+/// logo against the committed PNG and only passes right after a
+/// regeneration. Tagged `tools` so it is skipped by default.
 void main() {
   testWidgets('Generate App Logo PNG', (WidgetTester tester) async {
     const double size = 1024.0;
@@ -23,7 +31,7 @@ void main() {
 
     await expectLater(
       find.byType(AppLogo),
-      matchesGoldenFile('../assets/branding/app_icon_generated.png'),
+      matchesGoldenFile('../../assets/branding/app_icon_generated.png'),
     );
   });
 }
