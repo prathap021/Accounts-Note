@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
+import '../core/theme/responsive.dart';
 
 /// Compact income / expense stat tile. Tapping one drills into the matching
 /// filtered list, so the number on the dashboard is a way in, not a dead end.
@@ -41,13 +42,13 @@ class SummaryCard extends StatelessWidget {
                   color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, size: 16, color: color),
+                child: Icon(icon, size: 16.rr, color: color),
               ),
               const Spacer(),
               if (onTap != null)
                 Icon(
                   Icons.chevron_right_rounded,
-                  size: 18,
+                  size: 18.rr,
                   color: scheme.onSurfaceVariant,
                 ),
             ],

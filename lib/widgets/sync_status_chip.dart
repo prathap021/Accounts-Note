@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/sync/sync_manager.dart';
 import '../core/theme/app_theme.dart';
+import '../core/theme/responsive.dart';
 import '../providers/sync_provider.dart';
 
 /// Compact Synced / Syncing / Pending / Failed indicator.
@@ -53,15 +54,15 @@ class SyncStatusChip extends ConsumerWidget {
               children: [
                 if (state.phase == SyncPhase.syncing)
                   SizedBox(
-                    width: 12,
-                    height: 12,
+                    width: 12.rr,
+                    height: 12.rr,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       color: color,
                     ),
                   )
                 else
-                  Icon(icon, size: 14, color: color),
+                  Icon(icon, size: 14.rr, color: color),
                 const SizedBox(width: 6),
                 Text(
                   label,
@@ -100,8 +101,8 @@ class SyncFailureBanner extends ConsumerWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.error_outline_rounded,
-                color: AppColors.expense, size: 20),
+            Icon(Icons.error_outline_rounded,
+                color: AppColors.expense, size: 20.rr),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Text(

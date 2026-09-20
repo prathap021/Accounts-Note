@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/settings_provider.dart';
@@ -17,6 +18,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'core/router/app_router.dart';
 import 'core/sync/background_sync.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/responsive.dart';
 import 'firebase_options.dart';
 
 void _configEasyLoading() {
@@ -123,14 +125,23 @@ class IncomeExpenseTrackerApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final settings = ref.watch(settingsProvider);
 
-    return MaterialApp.router(
-      title: 'Accounts Note',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
-      themeMode: settings.themeMode,
-      routerConfig: router,
-      builder: EasyLoading.init(),
+    // Establishes the scale factors before any theme or screen is built, so
+    // sizes are proportional to the device rather than fixed to one phone.
+    return ScreenUtilInit(
+      designSize: Responsive.designSize,
+      // Text scales by the smaller axis, so it grows on big screens without
+      // overflowing tall, narrow ones.
+      minTextAdapt: true,
+      splitScreenMode: true,
+      builder: (context, _) => MaterialApp.router(
+        title: 'Accounts Note',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light(),
+        darkTheme: AppTheme.dark(),
+        themeMode: settings.themeMode,
+        routerConfig: router,
+        builder: EasyLoading.init(),
+      ),
     );
   }
 }

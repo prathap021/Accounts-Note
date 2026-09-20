@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/responsive.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../models/budget_model.dart';
 import '../../providers/budget_provider.dart';
@@ -245,7 +246,7 @@ class _BudgetOverview extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppRadii.pill),
             child: LinearProgressIndicator(
               value: ratio.toDouble(),
-              minHeight: 8,
+              minHeight: 8.rh,
               backgroundColor: scheme.surfaceContainerHighest,
               color: over ? AppColors.expense : AppColors.brand,
             ),
@@ -319,8 +320,8 @@ class _BudgetCard extends ConsumerWidget {
           Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 40.rr,
+                height: 40.rr,
                 decoration: BoxDecoration(
                   color: status.color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
@@ -379,7 +380,7 @@ class _BudgetCard extends ConsumerWidget {
             borderRadius: BorderRadius.circular(AppRadii.pill),
             child: LinearProgressIndicator(
               value: status.ratio.clamp(0.0, 1.0).toDouble(),
-              minHeight: 9,
+              minHeight: 9.rh,
               backgroundColor: scheme.surfaceContainerHighest,
               color: status.color,
             ),

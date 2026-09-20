@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'responsive.dart';
+
 /// Accounts Note visual language — teal ledger, soft mist surfaces, no purple.
 class AppColors {
   static const brand = Color(0xFF279698);
@@ -98,12 +100,59 @@ class AppTheme {
     );
   }
 
+  /// Multiplies every font size by [factor], leaving styles that declare no
+  /// size untouched.
+  static TextTheme _scaleTextTheme(TextTheme base, double factor) {
+    if (factor == 1.0) return base;
+
+    TextStyle? scale(TextStyle? style) {
+      final size = style?.fontSize;
+      if (style == null || size == null) return style;
+      return style.copyWith(fontSize: size * factor);
+    }
+
+    return base.copyWith(
+      displayLarge: scale(base.displayLarge),
+      displayMedium: scale(base.displayMedium),
+      displaySmall: scale(base.displaySmall),
+      headlineLarge: scale(base.headlineLarge),
+      headlineMedium: scale(base.headlineMedium),
+      headlineSmall: scale(base.headlineSmall),
+      titleLarge: scale(base.titleLarge),
+      titleMedium: scale(base.titleMedium),
+      titleSmall: scale(base.titleSmall),
+      bodyLarge: scale(base.bodyLarge),
+      bodyMedium: scale(base.bodyMedium),
+      bodySmall: scale(base.bodySmall),
+      labelLarge: scale(base.labelLarge),
+      labelMedium: scale(base.labelMedium),
+      labelSmall: scale(base.labelSmall),
+    );
+  }
+
   static ThemeData _base({
     required ColorScheme scheme,
     required Color scaffold,
   }) {
+    // One factor scales every text style in the app, so type stays in
+    // proportion on a small phone and a large one alike.
+    //
+    // Note: TextTheme.apply(fontSizeFactor:) cannot be used here. It asserts
+    // that every style carries an explicit fontSize, and this text theme has
+    // styles that do not — which crashes on the first frame at any scale
+    // other than 1.0. _scaleTextTheme skips those instead.
+    //
+    // Material's own 2021 typography is the base because it declares an
+    // explicit fontSize for every style. `ThemeData(...).textTheme` leaves
+    // them null and resolves sizes later, which would make the scaling below
+    // a silent no-op.
+    final typography = Typography.material2021();
+    final sized = typography.englishLike.merge(
+      scheme.brightness == Brightness.dark ? typography.white : typography.black,
+    );
+
     final textTheme = GoogleFonts.plusJakartaSansTextTheme(
-      ThemeData(brightness: scheme.brightness).textTheme,
+      _scaleTextTheme(sized, Responsive.textScale),
     ).apply(
       bodyColor: scheme.onSurface,
       displayColor: scheme.onSurface,
@@ -187,7 +236,7 @@ class AppTheme {
           borderRadius: BorderRadius.circular(AppRadii.control),
           borderSide: BorderSide(color: scheme.error, width: 1.6),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16.rw, vertical: 18.rh),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -195,8 +244,8 @@ class AppTheme {
           // Height only. `Size.fromHeight` would set an INFINITE minimum
           // width, which asserts wherever width is unbounded (a Row, dialog
           // actions); 64 is Material's own default minimum width.
-          minimumSize: const Size(64, 52),
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          minimumSize: Size(64.rw, 52.rh),
+          padding: EdgeInsets.symmetric(vertical: 16.rh, horizontal: 24.rw),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.control),
           ),
@@ -205,8 +254,8 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(64, 52),
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          minimumSize: Size(64.rw, 52.rh),
+          padding: EdgeInsets.symmetric(vertical: 16.rh, horizontal: 24.rw),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.control),
           ),
@@ -268,7 +317,7 @@ class AppTheme {
         indicatorColor: scheme.primary.withValues(alpha: 0.14),
         indicatorShape: const StadiumBorder(),
         elevation: 0,
-        height: 72,
+        height: 72.rh,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
@@ -281,7 +330,7 @@ class AppTheme {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
             color: selected ? scheme.primary : scheme.onSurfaceVariant,
-            size: 24,
+            size: 24.rr,
           );
         }),
       ),
@@ -378,7 +427,7 @@ class SoftMeshBackground extends StatelessWidget {
             top: -80,
             right: -40,
             child: _Blob(
-              size: 220,
+              size: 220.rr,
               color: (dark ? const Color(0xFF2DD4BF) : AppColors.brand)
                   .withValues(alpha: dark ? 0.12 : 0.14),
             ),
@@ -387,7 +436,7 @@ class SoftMeshBackground extends StatelessWidget {
             bottom: 80,
             left: -60,
             child: _Blob(
-              size: 180,
+              size: 180.rr,
               color: const Color(0xFF38BDF8).withValues(alpha: dark ? 0.1 : 0.12),
             ),
           ),
@@ -493,7 +542,7 @@ class AppSliverHeader extends StatelessWidget {
     final theme = Theme.of(context);
     return SliverAppBar(
       floating: true,
-      toolbarHeight: 76,
+      toolbarHeight: 76.rh,
       automaticallyImplyLeading: false,
       titleSpacing: AppSpacing.gutter,
       leading: leading,
@@ -833,12 +882,12 @@ class EmptyState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(20.rr),
             decoration: BoxDecoration(
               color: scheme.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 32, color: scheme.primary),
+            child: Icon(icon, size: 32.rr, color: scheme.primary),
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(title, textAlign: TextAlign.center, style: theme.textTheme.titleMedium),

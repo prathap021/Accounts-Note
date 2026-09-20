@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../core/constants/app_constants.dart';
 import '../core/constants/category_icons.dart';
 import '../core/theme/app_theme.dart';
+import '../core/theme/responsive.dart';
 import '../core/utils/currency_formatter.dart';
 import '../models/category_model.dart';
 import '../models/transaction_model.dart';
@@ -192,7 +193,7 @@ class TransactionTile extends StatelessWidget {
                             const SizedBox(width: AppSpacing.sm),
                             Icon(
                               Icons.cloud_sync_outlined,
-                              size: 12,
+                              size: 12.rr,
                               color: scheme.onSurfaceVariant,
                             ),
                             const SizedBox(width: 3),
@@ -240,38 +241,38 @@ class _CategoryAvatar extends StatelessWidget {
     final badgeColor = isIncome ? AppColors.income : AppColors.expense;
 
     return SizedBox(
-      width: 46,
-      height: 46,
+      width: 46.rr,
+      height: 46.rr,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 44.rr,
+            height: 44.rr,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(14.rr),
             ),
-            child: Icon(icon, color: color, size: 21),
+            child: Icon(icon, color: color, size: 21.rr),
           ),
           Positioned(
             right: 0,
             bottom: 0,
             child: Container(
-              width: 17,
-              height: 17,
+              width: 17.rr,
+              height: 17.rr,
               decoration: BoxDecoration(
                 color: badgeColor,
                 shape: BoxShape.circle,
                 // Ring in the surface colour so the badge reads as separate
                 // from the tile behind it.
-                border: Border.all(color: scheme.surfaceContainer, width: 2),
+                border: Border.all(color: scheme.surfaceContainer, width: 2.rr),
               ),
               child: Icon(
                 isIncome
                     ? Icons.south_west_rounded
                     : Icons.north_east_rounded,
-                size: 9,
+                size: 9.rr,
                 color: Colors.white,
               ),
             ),

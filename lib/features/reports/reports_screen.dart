@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/responsive.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -306,7 +307,7 @@ class _ReportBody extends StatelessWidget {
             AppSpacing.md,
           ),
           child: SizedBox(
-            height: 230,
+            height: 230.rh,
             child: BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
@@ -330,7 +331,7 @@ class _ReportBody extends StatelessWidget {
                     BarChartRodData(
                       toY: income,
                       color: AppColors.income,
-                      width: 44,
+                      width: 44.rw,
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(12),
                       ),
@@ -340,7 +341,7 @@ class _ReportBody extends StatelessWidget {
                     BarChartRodData(
                       toY: expense,
                       color: AppColors.expense,
-                      width: 44,
+                      width: 44.rw,
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(12),
                       ),

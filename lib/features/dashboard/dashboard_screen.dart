@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/responsive.dart';
 import '../../core/utils/avatar_provider.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/greeting.dart';
@@ -372,21 +373,21 @@ class _ExpenseBreakdown extends StatelessWidget {
     return Column(
       children: [
         SizedBox(
-          height: 180,
+          height: 180.rh,
           child: Stack(
             alignment: Alignment.center,
             children: [
               PieChart(
                 PieChartData(
                   sectionsSpace: 2,
-                  centerSpaceRadius: 58,
+                  centerSpaceRadius: 58.rr,
                   startDegreeOffset: -90,
                   sections: [
                     for (final slice in slices)
                       PieChartSectionData(
                         value: slice.$2,
                         color: slice.$3,
-                        radius: 22,
+                        radius: 22.rr,
                         showTitle: false,
                       ),
                   ],
@@ -404,7 +405,7 @@ class _ExpenseBreakdown extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   SizedBox(
-                    width: 104,
+                    width: 104.rw,
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
@@ -430,8 +431,8 @@ class _ExpenseBreakdown extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: 10,
-                  height: 10,
+                  width: 10.rr,
+                  height: 10.rr,
                   decoration: BoxDecoration(
                     color: slice.$3,
                     borderRadius: BorderRadius.circular(3),
@@ -459,7 +460,7 @@ class _ExpenseBreakdown extends StatelessWidget {
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 SizedBox(
-                  width: 40,
+                  width: 40.rw,
                   child: Text(
                     '${(slice.$2 / total * 100).toStringAsFixed(0)}%',
                     textAlign: TextAlign.right,
