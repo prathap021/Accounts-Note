@@ -37,7 +37,7 @@ final dashboardSummaryProvider = Provider<DashboardSummary>((ref) {
   // Depend on the local list so this recomputes on every local write.
   final ready = ref.watch(localStoreReadyProvider).asData?.value ?? false;
   final transactions =
-      ref.watch(transactionsStreamProvider).asData?.value ?? const [];
+      ref.watch(allTransactionsStreamProvider).asData?.value ?? const [];
   if (!ready && transactions.isEmpty) return DashboardSummary.empty;
 
   final now = DateTime.now();

@@ -11,6 +11,7 @@ import '../../core/utils/avatar_provider.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/greeting.dart';
 import '../../data/repositories/transaction_repository.dart';
+import '../../models/transaction_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -24,6 +25,66 @@ import '../../widgets/transaction_tile.dart';
 
 import 'dart:io';
 import 'package:in_app_update/in_app_update.dart';
+
+/// One wedge of the dashboard donut.
+typedef ExpenseSlice = ({String label, double amount, Color color});
+
+/// Label for the wedge that rolls up everything past [kMaxDonutSlices].
+///
+/// Deliberately not "Other": that is a real default category, and using the
+/// same word meant the legend could list "Other" twice with different values.
+const kOtherSlicesLabel = 'Everything else';
+
+/// How many categories get their own wedge before the rest are combined.
+const kMaxDonutSlices = 6;
+
+/// Builds the donut wedges, largest first, rolling the tail into one wedge so
+/// the chart stays readable when a user has many categories.
+List<ExpenseSlice> buildExpenseSlices(
+  Map<String, double> byCategory, {
+  required List<Color> palette,
+  int maxSlices = kMaxDonutSlices,
+}) {
+  final entries = byCategory.entries.where((e) => e.value > 0).toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+  if (entries.isEmpty) return const [];
+
+  final visible = entries.take(maxSlices).toList();
+  final restTotal =
+      entries.skip(maxSlices).fold<double>(0, (sum, e) => sum + e.value);
+
+  return [
+    for (var i = 0; i < visible.length; i++)
+      (
+        label: visible[i].key,
+        amount: visible[i].value,
+        color: palette[i % palette.length],
+      ),
+    if (restTotal > 0)
+      (
+        label: kOtherSlicesLabel,
+        amount: restTotal,
+        color: palette[maxSlices % palette.length],
+      ),
+  ];
+}
+
+/// The entries the dashboard lists: today's only, newest first, capped.
+///
+/// The dashboard answers "what have I done today"; the Activity tab is where
+/// history lives. [now] is injected so the day boundary can be tested without
+/// depending on the wall clock.
+List<TransactionModel> todaysActivity(
+  List<TransactionModel> all, {
+  required DateTime now,
+  int limit = 5,
+}) {
+  final startOfDay = DateTime(now.year, now.month, now.day);
+  return all
+      .where((t) => !t.date.isBefore(startOfDay))
+      .take(limit)
+      .toList();
+}
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -62,7 +123,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final settings = ref.watch(settingsProvider);
     final summary = ref.watch(dashboardSummaryProvider);
     final storeReady = ref.watch(localStoreReadyProvider);
-    final recentAsync = ref.watch(transactionsStreamProvider);
+    final recentAsync = ref.watch(allTransactionsStreamProvider);
     final user = ref.watch(authStateProvider).asData?.value;
     final profile = ref.watch(userProfileProvider).asData?.value;
     final name = profile?.displayName?.trim().isNotEmpty == true
@@ -120,22 +181,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                   const SizedBox(height: AppSpacing.xxl),
                   SectionHeader(
-                    title: 'Recent activity',
+                    title: "Today's activity",
+                    subtitle: DateFormat('EEEE, MMM d').format(DateTime.now()),
                     actionLabel: 'See all',
                     onAction: () => context.go('/transactions'),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   recentAsync.when(
                     data: (txs) {
-                      final recent = txs.take(5).toList();
+                      final recent =
+                          todaysActivity(txs, now: DateTime.now());
+
                       if (recent.isEmpty) {
+                        // An empty day and an empty ledger need different
+                        // copy: telling someone with months of history that
+                        // they have "no transactions yet" would be wrong.
+                        final hasHistory = txs.isNotEmpty;
                         return AppCard(
                           padding: EdgeInsets.zero,
                           child: EmptyState(
-                            icon: Icons.receipt_long_outlined,
-                            title: 'No transactions yet',
-                            message:
-                                'Log your first income or expense and your balance will build from here.',
+                            icon: hasHistory
+                                ? Icons.event_available_outlined
+                                : Icons.receipt_long_outlined,
+                            title: hasHistory
+                                ? 'Nothing logged today'
+                                : 'No transactions yet',
+                            message: hasHistory
+                                ? "Anything you add today shows up here. Earlier entries are under See all."
+                                : 'Log your first income or expense and your balance will build from here.',
                             actionLabel: 'Add transaction',
                             onAction: () => showAddTransactionSheet(context),
                           ),
@@ -153,6 +226,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 currency: settings.currency,
                                 transaction: recent[i],
                                 category: categories[recent[i].categoryId],
+                                // Every row is from today, so the date would
+                                // repeat on each one; the time is enough.
+                                showDate: false,
                                 onTap: () => context.push(
                                   '/transaction/edit',
                                   extra: recent[i],
@@ -173,7 +249,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     loading: () => const _ListSkeleton(),
                     error: (e, _) => AppErrorState(
                       message: "We couldn't load your recent activity.",
-                      onRetry: () => ref.invalidate(transactionsStreamProvider),
+                      onRetry: () => ref.invalidate(allTransactionsStreamProvider),
                     ),
                   ),
                 ]),
@@ -346,9 +422,7 @@ class _ExpenseBreakdown extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
-    final entries = data.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final total = entries.fold<double>(0, (sum, e) => sum + e.value);
+    final total = data.values.fold<double>(0, (sum, v) => sum + v);
     if (total <= 0) {
       return const EmptyState(
         icon: Icons.pie_chart_outline_rounded,
@@ -357,18 +431,7 @@ class _ExpenseBreakdown extends StatelessWidget {
       );
     }
 
-    // Keep the donut readable: top 6 categories, everything else rolled up.
-    const maxSlices = 6;
-    final visible = entries.take(maxSlices).toList();
-    final restTotal = entries
-        .skip(maxSlices)
-        .fold<double>(0, (sum, e) => sum + e.value);
-    final slices = [
-      for (var i = 0; i < visible.length; i++)
-        (visible[i].key, visible[i].value, palette[i % palette.length]),
-      if (restTotal > 0)
-        ('Other', restTotal, palette[maxSlices % palette.length]),
-    ];
+    final slices = buildExpenseSlices(data, palette: palette);
 
     return Column(
       children: [
@@ -385,8 +448,8 @@ class _ExpenseBreakdown extends StatelessWidget {
                   sections: [
                     for (final slice in slices)
                       PieChartSectionData(
-                        value: slice.$2,
-                        color: slice.$3,
+                        value: slice.amount,
+                        color: slice.color,
                         radius: 22.rr,
                         showTitle: false,
                       ),
@@ -434,14 +497,14 @@ class _ExpenseBreakdown extends StatelessWidget {
                   width: 10.rr,
                   height: 10.rr,
                   decoration: BoxDecoration(
-                    color: slice.$3,
+                    color: slice.color,
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Text(
-                    slice.$1,
+                    slice.label,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w600,
@@ -451,7 +514,7 @@ class _ExpenseBreakdown extends StatelessWidget {
                 const SizedBox(width: AppSpacing.sm),
                 Text(
                   CurrencyFormatter.formatCompact(
-                    slice.$2,
+                    slice.amount,
                     currencyCode: currency,
                   ),
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -462,7 +525,7 @@ class _ExpenseBreakdown extends StatelessWidget {
                 SizedBox(
                   width: 40.rw,
                   child: Text(
-                    '${(slice.$2 / total * 100).toStringAsFixed(0)}%',
+                    '${(slice.amount / total * 100).toStringAsFixed(0)}%',
                     textAlign: TextAlign.right,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,

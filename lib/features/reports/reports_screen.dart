@@ -69,7 +69,7 @@ class ReportsScreen extends ConsumerWidget {
 
     // Totals from the local store: correct offline, and refreshed the moment
     // a transaction is saved.
-    ref.watch(transactionsStreamProvider);
+    ref.watch(allTransactionsStreamProvider);
     final sums = ref.watch(offlineTransactionRepositoryProvider).sumByType(
           start: dateRange.start,
           end: dateRange.end,

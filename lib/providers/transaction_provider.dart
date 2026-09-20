@@ -25,8 +25,22 @@ final transactionFilterProvider =
   _TransactionFilterNotifier.new,
 );
 
+/// Every transaction, ignoring the Activity screen's filter.
+///
+/// The filter belongs to Activity alone. Anything else that shows totals or a
+/// summary — the dashboard, budgets, reports — must not change because the
+/// user narrowed a list on another tab.
+final allTransactionsStreamProvider =
+    StreamProvider<List<TransactionModel>>((ref) {
+  final ready = ref.watch(localStoreReadyProvider).asData?.value ?? false;
+  if (!ready) return Stream.value(const []);
+  return ref.watch(offlineTransactionRepositoryProvider).watchTransactions();
+});
+
 /// Live list of transactions honouring the active filter, read from the local
 /// Hive store so it is available on the first frame with no network.
+///
+/// Only the Activity screen should use this.
 final transactionsStreamProvider = StreamProvider<List<TransactionModel>>((ref) {
   final ready = ref.watch(localStoreReadyProvider).asData?.value ?? false;
   if (!ready) return Stream.value(const []);

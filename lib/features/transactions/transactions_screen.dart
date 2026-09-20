@@ -481,32 +481,31 @@ class _DaySection extends ConsumerWidget {
               ),
               const SizedBox(width: AppSpacing.sm),
               // Money in and money out for the day, kept separate rather than
-              // collapsed into one net figure. Scales down so two large
-              // amounts never overflow the row.
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (income > 0)
-                        _DayTotal(
-                          amount: income,
-                          isIncome: true,
-                          currency: currency,
-                        ),
-                      if (income > 0 && expense > 0)
-                        const SizedBox(width: AppSpacing.md),
-                      if (expense > 0)
-                        _DayTotal(
-                          amount: expense,
-                          isIncome: false,
-                          currency: currency,
-                        ),
-                    ],
-                  ),
-                ),
+              // collapsed into one net figure.
+              //
+              // Laid out at natural size with no FittedBox: scaling to fit
+              // made the type shrink on days that had both totals and stay
+              // full size on days that had one, so the column read as two
+              // different sizes. The label above takes all the slack, which
+              // keeps these flush right.
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (income > 0)
+                    _DayTotal(
+                      amount: income,
+                      isIncome: true,
+                      currency: currency,
+                    ),
+                  if (income > 0 && expense > 0)
+                    const SizedBox(width: AppSpacing.md),
+                  if (expense > 0)
+                    _DayTotal(
+                      amount: expense,
+                      isIncome: false,
+                      currency: currency,
+                    ),
+                ],
               ),
             ],
           ),

@@ -28,7 +28,7 @@ final budgetsStreamProvider = StreamProvider<List<BudgetModel>>((ref) {
 final budgetProgressProvider = FutureProvider<Map<String, double>>((ref) async {
   // Computed from Hive, so budgets track correctly with no network and
   // update the moment a transaction is saved.
-  ref.watch(transactionsStreamProvider);
+  ref.watch(allTransactionsStreamProvider);
   final now = DateTime.now();
   final start = DateTime(now.year, now.month, 1);
   final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
