@@ -83,14 +83,14 @@
 		<key>UIStatusBarHidden</key>
 		<false/>
 		<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-		<string>processing</string>
-	</array>
-	<key>BGTaskSchedulerPermittedIdentifiers</key>
-	<array>
-		<string>com.accountsnote.sync.refresh</string>
-		<string>com.accountsnote.sync.processing</string>
-	</array>
-</dict>
+		<array>
+			<string>fetch</string>
+			<string>processing</string>
+		</array>
+		<key>BGTaskSchedulerPermittedIdentifiers</key>
+		<array>
+			<string>com.accountsnote.sync.refresh</string>
+			<string>com.accountsnote.sync.processing</string>
+		</array>
+	</dict>
 </plist>

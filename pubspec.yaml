@@ -103,14 +103,24 @@ flutter_launcher_icons:
   ios: true
   image_path: assets/branding/app_icon_generated.png
   adaptive_icon_background: "#279698"
-  adaptive_icon_foreground: assets/branding/app_icon_generated.png
+  # Transparent, mark only. A full tile here covers the adaptive background
+  # and gets clipped by the device's icon mask.
+  adaptive_icon_foreground: assets/branding/app_adaptive_foreground.png
   remove_alpha_ios: true
   min_sdk_android: 21
 
+# Splash assets are generated into android/ and ios/ and committed, so the
+# generator is NOT a dependency: its Android module compiles against
+# compileSdk 31 and breaks the build. To regenerate after a branding change:
+#   dart pub add -d flutter_native_splash && dart run flutter_native_splash:create
+#   dart pub remove flutter_native_splash
 flutter_native_splash:
   color: "#ffffff"
   image: "assets/branding/app_icon_generated.png"
   android_12:
-    image: "assets/branding/app_icon_generated.png"
+    # Android 12 masks this image to a circle and paints its own background,
+    # so it gets the mark on transparency rather than the full tile. Handing
+    # it the tile clipped both the corners and the mark itself.
+    image: "assets/branding/app_splash_icon.png"
     icon_background_color: "#279698"
     color: "#ffffff"

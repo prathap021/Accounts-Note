@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:income_expense_tracker/core/constants/app_constants.dart';
 
 import '../../features/auth/login_screen.dart';
+import '../../features/auth/verify_email_screen.dart';
 import '../../features/budgets/budgets_screen.dart';
 import '../../features/categories/categories_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
@@ -22,6 +23,9 @@ import '../../widgets/app_scaffold.dart';
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
   final hasSeenOnboarding = ref.watch(settingsProvider).hasSeenOnboarding;
+  // Only email/password accounts are gated; Google and Apple verify the
+  // address themselves.
+  final needsVerification = ref.watch(needsEmailVerificationProvider);
 
   return GoRouter(
     initialLocation: '/splash',
@@ -40,6 +44,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         }
         return null;
       }
+      // Signed in but the address is unconfirmed: hold here until it is.
+      if (needsVerification) {
+        return loc == '/verify-email' ? null : '/verify-email';
+      }
+      // Verified (or a provider that never needed it) — never strand the user
+      // on the verification screen.
+      if (loc == '/verify-email') return '/dashboard';
+
       if (isLoggedIn && (loc == '/login' || loc == '/splash' || loc == '/onboarding')) return '/dashboard';
       return null;
     },
@@ -48,6 +60,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
       GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+      GoRoute(
+        path: '/verify-email',
+        builder: (_, _) => const VerifyEmailScreen(),
+      ),
       ShellRoute(
         builder: (context, state, child) => AppScaffold(child: child),
         routes: [

@@ -9,6 +9,7 @@ import '../../core/utils/result.dart';
 import '../../core/utils/snackbar_helper.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_logo.dart';
+import 'forgot_password_sheet.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -120,6 +121,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ? null
                                     : () =>
                                         setState(() => _showEmailForm = false),
+                                onForgotPassword: isBusy
+                                    ? null
+                                    : () => showForgotPasswordSheet(
+                                          context,
+                                          initialEmail: _email.text.trim(),
+                                        ),
                                 onSubmit: () {
                                   if (!_formKey.currentState!.validate()) {
                                     return;
@@ -287,6 +294,7 @@ class _EmailForm extends StatelessWidget {
   final VoidCallback onToggleObscure;
   final VoidCallback onToggleMode;
   final VoidCallback? onBack;
+  final VoidCallback? onForgotPassword;
   final VoidCallback onSubmit;
 
   const _EmailForm({
@@ -300,6 +308,7 @@ class _EmailForm extends StatelessWidget {
     required this.onToggleObscure,
     required this.onToggleMode,
     required this.onBack,
+    required this.onForgotPassword,
     required this.onSubmit,
   });
 
@@ -362,7 +371,18 @@ class _EmailForm extends StatelessWidget {
                 ? 'Password must be at least 6 characters'
                 : null,
           ),
-          const SizedBox(height: AppSpacing.xl),
+          if (!isSignUp)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: onForgotPassword,
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+                child: const Text('Forgot password?'),
+              ),
+            ),
+          const SizedBox(height: AppSpacing.lg),
           FilledButton(
             onPressed: isLoading ? null : onSubmit,
             child: isLoading

@@ -7,14 +7,15 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:flutter_easyloading/flutter_easyloading.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/responsive.dart';
 import '../../core/utils/avatar_provider.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/snackbar_helper.dart';
 import '../../core/utils/backup_service.dart';
+import 'delete_account_progress.dart';
 import '../../core/utils/user_facing_error.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -384,38 +385,77 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => const _DeleteAccountDialog(),
     );
+    if (action != 'backup_delete' && action != 'delete') return;
+    if (!context.mounted) return;
 
-    if (action == 'backup_delete' || action == 'delete') {
-      if (action == 'backup_delete') {
-        EasyLoading.show(status: 'Backing up to Downloads...');
-        try {
-          final path = await BackupService.backupTransactionsToExcel();
-          if (path != null) {
-            EasyLoading.showSuccess('Saved to Downloads!');
-            await Future.delayed(const Duration(seconds: 2));
-          }
-        } catch (e) {
-          EasyLoading.showError('Backup failed, continuing delete...');
-          await Future.delayed(const Duration(seconds: 2));
-        }
-      }
+    final wantsBackup = action == 'backup_delete';
+    final stage = ValueNotifier<DeleteStage>(
+      wantsBackup ? DeleteStage.backup : DeleteStage.data,
+    );
+    final router = GoRouter.of(context);
+    final messenger = ScaffoldMessenger.of(context);
 
-      EasyLoading.show(status: 'Confirming identity...');
-      final result = await actions.deleteAccount();
-      result.when(
-        success: (_) {
-          EasyLoading.showSuccess('Account and cloud data deleted');
-        },
-        failure: (f) {
-          if (context.mounted) {
-            EasyLoading.dismiss();
-            SnackbarHelper.showError(context, f.userMessage);
-          } else {
-            EasyLoading.showError(f.userMessage);
-          }
-        },
-      );
+    // Progress is shown in its own dialog rather than a toast, because this
+    // runs for several seconds and cannot be cancelled once started.
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => DeleteAccountProgress(
+        stage: stage,
+        includesBackup: wantsBackup,
+      ),
+    );
+
+    void closeProgress() {
+      if (router.canPop()) router.pop();
     }
+
+    if (wantsBackup) {
+      try {
+        await BackupService.backupTransactionsToExcel();
+      } catch (_) {
+        // A failed backup must not block the delete the user asked for; they
+        // are told about it after the account is closed.
+      }
+      stage.value = DeleteStage.data;
+    }
+
+    // The repository removes cloud data first, then the account itself.
+    stage.value = DeleteStage.data;
+    final result = await actions.deleteAccount();
+
+    await result.when(
+      success: (_) async {
+        stage.value = DeleteStage.done;
+        // Let the finished state register before the dialog disappears.
+        await Future<void>.delayed(const Duration(milliseconds: 900));
+        closeProgress();
+        // The auth stream also redirects here, but say it explicitly so the
+        // user never lands on a screen belonging to an account that is gone.
+        router.go('/login');
+        messenger.showSnackBar(
+          const SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text('Your account and data have been deleted'),
+          ),
+        );
+      },
+      failure: (f) async {
+        closeProgress();
+        messenger.showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: AppColors.expense,
+            content: Text(
+              f.userMessage,
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        );
+      },
+    );
+
+    stage.dispose();
   }
 }
 
@@ -443,49 +483,48 @@ class _ProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final hasPhoto = photoUrl != null && photoUrl!.isNotEmpty;
 
-    return Container(
+    // A light surface like every other card on the screen. Colour is spent on
+    // the avatar ring and the contributor badge, not a full slab, so the
+    // user's name and address stay the loudest thing here.
+    return AppCard(
       padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.brandDeep, AppColors.brand],
-        ),
-        borderRadius: BorderRadius.circular(AppRadii.hero),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.brand.withValues(alpha: 0.22),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Stack(
             children: [
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: onChangePhoto,
-                  customBorder: const CircleBorder(),
-                  child: CircleAvatar(
-                    radius: 32,
-                    backgroundColor: Colors.white.withValues(alpha: 0.2),
-                    backgroundImage: getAvatarProvider(photoUrl),
-                    child: hasPhoto
-                        ? null
-                        : Text(
-                            initial,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 24,
+              Container(
+                padding: EdgeInsets.all(3.rr),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  // Thin brand ring instead of a coloured background.
+                  border: Border.all(
+                    color: scheme.primary.withValues(alpha: 0.35),
+                    width: 2,
+                  ),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onChangePhoto,
+                    customBorder: const CircleBorder(),
+                    child: CircleAvatar(
+                      radius: 30.rr,
+                      backgroundColor: scheme.primary.withValues(alpha: 0.12),
+                      backgroundImage: getAvatarProvider(photoUrl),
+                      child: hasPhoto
+                          ? null
+                          : Text(
+                              initial,
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                color: scheme.primary,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
-                          ),
+                    ),
                   ),
                 ),
               ),
@@ -493,17 +532,19 @@ class _ProfileCard extends StatelessWidget {
                 right: 0,
                 bottom: 0,
                 child: Material(
-                  color: Colors.white,
-                  shape: const CircleBorder(),
+                  color: scheme.primary,
+                  shape: CircleBorder(
+                    side: BorderSide(color: scheme.surfaceContainer, width: 2),
+                  ),
+                  clipBehavior: Clip.antiAlias,
                   child: InkWell(
-                    customBorder: const CircleBorder(),
                     onTap: onChangePhoto,
-                    child: const Padding(
-                      padding: EdgeInsets.all(5),
+                    child: Padding(
+                      padding: EdgeInsets.all(5.rr),
                       child: Icon(
                         Icons.camera_alt_rounded,
-                        size: 14,
-                        color: AppColors.brandDeep,
+                        size: 13.rr,
+                        color: scheme.onPrimary,
                       ),
                     ),
                   ),
@@ -520,41 +561,40 @@ class _ProfileCard extends StatelessWidget {
                   name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: theme.textTheme.titleMedium,
                 ),
-                if (email != null)
+                if (email != null) ...[
+                  const SizedBox(height: 2),
                   Text(
                     email!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.85),
+                      color: scheme.onSurfaceVariant,
                     ),
                   ),
+                ],
                 if (isContributor) ...[
                   const SizedBox(height: AppSpacing.sm),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.md,
-                      vertical: 5,
+                      vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
+                      color: AppColors.income.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(AppRadii.pill),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.favorite_rounded,
-                            size: 12, color: Colors.white),
+                        Icon(Icons.favorite_rounded,
+                            size: 11.rr, color: AppColors.income),
                         const SizedBox(width: 5),
                         Text(
                           'Contributor',
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: Colors.white,
+                            color: AppColors.income,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -566,26 +606,25 @@ class _ProfileCard extends StatelessWidget {
                 TextButton.icon(
                   onPressed: onEditName,
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.white,
                     padding: EdgeInsets.zero,
                     visualDensity: VisualDensity.compact,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  icon: Icon(Icons.edit_outlined, size: 15.rr),
                   label: const Text('Edit name'),
                 ),
               ],
             ),
           ),
           if (saving)
-            const Padding(
-              padding: EdgeInsets.only(left: AppSpacing.sm),
+            Padding(
+              padding: const EdgeInsets.only(left: AppSpacing.sm),
               child: SizedBox(
-                width: 22,
-                height: 22,
+                width: 20.rr,
+                height: 20.rr,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Colors.white,
+                  color: scheme.primary,
                 ),
               ),
             ),

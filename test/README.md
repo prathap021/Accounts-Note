@@ -76,8 +76,16 @@ genhtml coverage/lcov.info -o coverage/html   # needs lcov installed
 | `unit/data/budget_repository_test.dart` | Budget upsert keying, period scoping |
 | `unit/state/settings_provider_test.dart` | Theme, currency and onboarding persistence |
 | `unit/state/sync_state_test.dart` | The Synced / Syncing / Pending / Failed labels |
+| `unit/email_verification_test.dart` | Who is gated behind verification — email/password yes, Google and Apple never |
+| `unit/password_reset_test.dart` | Reset failure wording, including the unregistered-address case |
+| `unit/delete_account_test.dart` | Account deletion for email accounts, and that cloud data goes first |
 | `widget/transaction_tile_test.dart` | Activity row content, amount sign and colour, category icon, swipe-to-delete confirmation |
 | `widget/sync_status_chip_test.dart` | Sync chip and failure banner states |
+| `widget/verify_email_screen_test.dart` | Email-verification gate: address shown, resend cooldown, silent re-check on resume vs. reporting on manual check |
+| `widget/forgot_password_sheet_test.dart` | Password reset: validation, carried-over email, confirmation |
+| `widget/delete_progress_test.dart` | Account-deletion progress: step sequencing, optional backup step, non-dismissible |
+| `widget/responsive_test.dart` | Proportional sizing, and the fallback when ScreenUtil is not initialised |
+| `widget/theme_scaling_test.dart` | Theme builds and type actually scales at non-1.0 factors |
 | `widget/ui_smoke_test.dart` | Shared design-system widgets render in light and dark, including buttons under unbounded width |
 | `tools/logo_test.dart` | **Not a test.** Regenerates the app icon PNG — destructive, see below |
 
@@ -102,27 +110,32 @@ immediately after regenerating the committed PNG. It is tagged `tools` and
 skipped by default (see `dart_test.yaml`) so a normal run stays a trustworthy
 signal.
 
-> **Do not run it to "fix" a failing golden.**
->
-> ```bash
-> flutter test --run-skipped --update-goldens test/tools   # DESTRUCTIVE
-> ```
->
-> It overwrites `assets/branding/app_icon_generated.png` with whatever
-> `AppLogo` renders *in the test environment*. Headless tests do not load the
-> real `assets/branding/app_logo.png`, so `AppLogo` falls back to a plain
-> coloured placeholder and the command replaces ~790 KB of real artwork with a
-> ~6 KB flat image. The file keeps its 1024x1024 dimensions, so the damage is
-> easy to miss in a diff — check the byte size.
->
-> If it has already happened:
->
-> ```bash
-> git checkout -- assets/branding/app_icon_generated.png
-> ```
->
-> Only run it deliberately, on a machine where the branding asset loads, and
-> inspect the resulting PNG before committing it.
+The generator is now safe to run: `AppLogo` draws the mark with a
+`CustomPainter` rather than loading a PNG, so a headless run reproduces the
+real artwork instead of a fallback placeholder. (It previously overwrote
+~790 KB of real artwork with a ~6 KB flat image, which was easy to miss
+because the dimensions stayed the same.)
+
+It regenerates three exports, each scaled for the mask that will be applied
+to it:
+
+| Asset | Scale | Consumer |
+|---|---|---|
+| `app_icon_generated.png` | 0.66 tile | iOS icon, legacy splash |
+| `app_adaptive_foreground.png` | 0.55, transparent | Android adaptive icon |
+| `app_splash_icon.png` | 0.42, transparent | Android 12 splash |
+
+```bash
+flutter test --run-skipped --update-goldens test/tools
+```
+
+Afterwards, regenerate the platform resources:
+
+```bash
+dart run flutter_launcher_icons
+dart pub add -d flutter_native_splash && dart run flutter_native_splash:create
+dart pub remove flutter_native_splash   # it breaks the Android build if left in
+```
 
 ## Adding tests
 
