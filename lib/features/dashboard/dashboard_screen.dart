@@ -325,11 +325,17 @@ class _SummarySection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final monthLabel = DateFormat('MMMM yyyy').format(DateTime.now());
 
+    // Earlier months' leftover sits beside the income it adds to (or the
+    // spending a shortfall adds to), so the cards still add up to the balance.
+    final carried = summary.carriedForward;
+    String carriedCaption(double amount) =>
+        '+ ${CurrencyFormatter.formatCompact(amount, currencyCode: currency)} carried over';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         BalanceHeroCard(
-          label: 'Net balance',
+          label: 'Available balance',
           periodLabel: monthLabel,
           isPositive: summary.balance >= 0,
           amount: CurrencyFormatter.format(
@@ -340,8 +346,8 @@ class _SummarySection extends ConsumerWidget {
           subtitle: CurrencyFormatter.supportsWords(currency)
               ? CurrencyFormatter.inWords(summary.balance)
               : (summary.balance >= 0
-                  ? 'Net saved this month'
-                  : 'Overspent this month'),
+                  ? 'Available to spend'
+                  : 'Spent more than you had'),
         ),
         const SizedBox(height: AppSpacing.md),
         Row(
@@ -353,7 +359,7 @@ class _SummarySection extends ConsumerWidget {
                   summary.totalIncome,
                   currencyCode: currency,
                 ),
-                caption: 'This month',
+                caption: carried > 0 ? carriedCaption(carried) : 'This month',
                 icon: Icons.south_west_rounded,
                 color: AppColors.income,
                 onTap: () =>
@@ -368,7 +374,7 @@ class _SummarySection extends ConsumerWidget {
                   summary.totalExpense,
                   currencyCode: currency,
                 ),
-                caption: 'This month',
+                caption: carried < 0 ? carriedCaption(-carried) : 'This month',
                 icon: Icons.north_east_rounded,
                 color: AppColors.expense,
                 onTap: () =>

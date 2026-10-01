@@ -166,6 +166,21 @@ class OfflineTransactionRepository {
     };
   }
 
+  /// Income minus expenses for everything dated strictly before [before].
+  ///
+  /// This is what a period opens with: whatever was left at the end of every
+  /// earlier month. Derived from the ledger rather than stored, so editing or
+  /// deleting an old transaction corrects every later month automatically.
+  /// Negative when earlier spending exceeded earlier income.
+  double balanceBefore(DateTime before) {
+    double net = 0;
+    for (final t in store.getAll()) {
+      if (!t.date.isBefore(before)) continue;
+      net += t.type == TransactionType.income ? t.amount : -t.amount;
+    }
+    return net;
+  }
+
   Map<String, double> categoryBreakdown({
     required DateTime start,
     required DateTime end,

@@ -1,18 +1,29 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants/app_constants.dart';
+import '../data/repositories/offline_transaction_repository.dart';
 import 'sync_provider.dart';
 import 'transaction_provider.dart';
 
 class DashboardSummary {
+  /// Income dated this month only.
   final double totalIncome;
+
+  /// Expenses dated this month only.
   final double totalExpense;
+
+  /// What was left over from every earlier month. Negative if earlier
+  /// spending ran ahead of earlier income.
+  final double carriedForward;
+
+  /// Money available now: [carriedForward] + [totalIncome] − [totalExpense].
   final double balance;
   final Map<String, double> expenseByCategory;
 
   const DashboardSummary({
     required this.totalIncome,
     required this.totalExpense,
+    required this.carriedForward,
     required this.balance,
     required this.expenseByCategory,
   });
@@ -20,8 +31,41 @@ class DashboardSummary {
   static const empty = DashboardSummary(
     totalIncome: 0,
     totalExpense: 0,
+    carriedForward: 0,
     balance: 0,
     expenseByCategory: {},
+  );
+}
+
+/// The dashboard numbers for the month containing [now].
+///
+/// Income and expense cover this month alone, but the balance does not reset
+/// on the 1st: it opens with whatever earlier months left over. [now] is
+/// injected so the month rollover can be tested without the wall clock.
+DashboardSummary buildDashboardSummary(
+  OfflineTransactionRepository repo, {
+  required DateTime now,
+}) {
+  final start = DateTime(now.year, now.month, 1);
+  final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+
+  final sums = repo.sumByType(start: start, end: end);
+  final breakdown = repo.categoryBreakdown(
+    start: start,
+    end: end,
+    type: TransactionType.expense,
+  );
+
+  final income = sums[TransactionType.income] ?? 0;
+  final expense = sums[TransactionType.expense] ?? 0;
+  final carriedForward = repo.balanceBefore(start);
+
+  return DashboardSummary(
+    totalIncome: income,
+    totalExpense: expense,
+    carriedForward: carriedForward,
+    balance: carriedForward + income - expense,
+    expenseByCategory: breakdown,
   );
 }
 
@@ -40,25 +84,8 @@ final dashboardSummaryProvider = Provider<DashboardSummary>((ref) {
       ref.watch(allTransactionsStreamProvider).asData?.value ?? const [];
   if (!ready && transactions.isEmpty) return DashboardSummary.empty;
 
-  final now = DateTime.now();
-  final start = DateTime(now.year, now.month, 1);
-  final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
-
-  final repo = ref.watch(offlineTransactionRepositoryProvider);
-  final sums = repo.sumByType(start: start, end: end);
-  final breakdown = repo.categoryBreakdown(
-    start: start,
-    end: end,
-    type: TransactionType.expense,
-  );
-
-  final income = sums[TransactionType.income] ?? 0;
-  final expense = sums[TransactionType.expense] ?? 0;
-
-  return DashboardSummary(
-    totalIncome: income,
-    totalExpense: expense,
-    balance: income - expense,
-    expenseByCategory: breakdown,
+  return buildDashboardSummary(
+    ref.watch(offlineTransactionRepositoryProvider),
+    now: DateTime.now(),
   );
 });
