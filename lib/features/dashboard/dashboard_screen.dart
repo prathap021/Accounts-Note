@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/responsive.dart';
-import '../../core/utils/avatar_provider.dart';
+import '../../widgets/user_avatar.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/greeting.dart';
 import '../../data/repositories/transaction_repository.dart';
@@ -126,13 +126,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final recentAsync = ref.watch(allTransactionsStreamProvider);
     final user = ref.watch(authStateProvider).asData?.value;
     final profile = ref.watch(userProfileProvider).asData?.value;
-    final name = profile?.displayName?.trim().isNotEmpty == true
-        ? profile!.displayName!
-        : (user?.displayName?.trim().isNotEmpty == true
-            ? user!.displayName!
-            : (user?.email ?? 'You'));
+    final name = resolveDisplayName(
+      profileName: profile?.displayName,
+      authName: user?.displayName,
+      email: user?.email,
+      fallback: 'You',
+    );
     final photoUrl = profile?.photoUrl ?? user?.photoURL;
-    final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
     final displayGreetingName = greetingName(name);
     final categories = ref.watch(categoryLookupProvider);
 
@@ -153,7 +153,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               eyebrow: greetingFor(DateTime.now()),
               title: displayGreetingName,
               actions: [
-                _ProfileButton(photoUrl: photoUrl, initial: initial),
+                _ProfileButton(
+                  photoUrl: photoUrl,
+                  name: name,
+                  email: user?.email,
+                ),
               ],
             ),
             SliverPadding(
@@ -264,14 +268,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
 class _ProfileButton extends StatelessWidget {
   final String? photoUrl;
-  final String initial;
+  final String name;
+  final String? email;
 
-  const _ProfileButton({required this.photoUrl, required this.initial});
+  const _ProfileButton({
+    required this.photoUrl,
+    required this.name,
+    required this.email,
+  });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final hasPhoto = photoUrl != null && photoUrl!.isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.only(right: AppSpacing.sm),
@@ -285,20 +293,16 @@ class _ProfileButton extends StatelessWidget {
             onTap: () => context.push('/settings'),
             child: Padding(
               padding: const EdgeInsets.all(5),
-              child: CircleAvatar(
+              child: UserAvatar(
                 radius: 17,
+                photoUrl: photoUrl,
+                name: name,
+                email: email,
                 backgroundColor: scheme.primary,
-                backgroundImage: getAvatarProvider(photoUrl),
-                child: hasPhoto
-                    ? null
-                    : Text(
-                        initial,
-                        style: TextStyle(
-                          color: scheme.onPrimary,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                        ),
-                      ),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                ),
               ),
             ),
           ),

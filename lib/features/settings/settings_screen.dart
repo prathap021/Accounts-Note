@@ -11,7 +11,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/responsive.dart';
-import '../../core/utils/avatar_provider.dart';
+import '../../core/utils/greeting.dart';
+import '../../widgets/user_avatar.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/snackbar_helper.dart';
 import '../../core/utils/backup_service.dart';
@@ -227,13 +228,13 @@ class SettingsScreen extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     // Resolved the same way as the dashboard greeting so one name is shown
     // for the user everywhere in the app.
-    final name = profile?.displayName?.trim().isNotEmpty == true
-        ? profile!.displayName!
-        : (user?.displayName?.trim().isNotEmpty == true
-            ? user!.displayName!
-            : (user?.email ?? 'Signed in user'));
+    final name = resolveDisplayName(
+      profileName: profile?.displayName,
+      authName: user?.displayName,
+      email: user?.email,
+      fallback: 'Signed in user',
+    );
     final photoUrl = profile?.photoUrl ?? user?.photoURL;
-    final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
     final saving = actionState.isLoading;
 
     return Scaffold(
@@ -262,7 +263,6 @@ class SettingsScreen extends ConsumerWidget {
           _ProfileCard(
             name: name,
             email: user?.email,
-            initial: initial,
             photoUrl: photoUrl,
             isContributor: isContributor,
             saving: saving,
@@ -462,7 +462,6 @@ class SettingsScreen extends ConsumerWidget {
 class _ProfileCard extends StatelessWidget {
   final String name;
   final String? email;
-  final String initial;
   final String? photoUrl;
   final bool isContributor;
   final bool saving;
@@ -472,7 +471,6 @@ class _ProfileCard extends StatelessWidget {
   const _ProfileCard({
     required this.name,
     required this.email,
-    required this.initial,
     required this.photoUrl,
     required this.isContributor,
     required this.saving,
@@ -484,7 +482,6 @@ class _ProfileCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final hasPhoto = photoUrl != null && photoUrl!.isNotEmpty;
 
     // A light surface like every other card on the screen. Colour is spent on
     // the avatar ring and the contributor badge, not a full slab, so the
@@ -511,19 +508,16 @@ class _ProfileCard extends StatelessWidget {
                   child: InkWell(
                     onTap: onChangePhoto,
                     customBorder: const CircleBorder(),
-                    child: CircleAvatar(
+                    child: UserAvatar(
                       radius: 30.rr,
+                      photoUrl: photoUrl,
+                      name: name,
+                      email: email,
                       backgroundColor: scheme.primary.withValues(alpha: 0.12),
-                      backgroundImage: getAvatarProvider(photoUrl),
-                      child: hasPhoto
-                          ? null
-                          : Text(
-                              initial,
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                color: scheme.primary,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
+                      textStyle: theme.textTheme.headlineSmall?.copyWith(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                 ),

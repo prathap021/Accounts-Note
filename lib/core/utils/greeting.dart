@@ -24,3 +24,26 @@ String greetingName(String rawName) {
   }
   return name;
 }
+
+/// The name to show for the signed-in user, most specific source first.
+///
+/// This matters most offline. The Firestore profile document may not have
+/// resolved yet — or may never have been cached, on a first run with no
+/// network — while Firebase Auth keeps the display name and address on disk
+/// across restarts. Falling through in this order means a cold start with no
+/// network still shows a name instead of a placeholder, and that the avatar
+/// beside it has initials to draw.
+///
+/// [fallback] is the last resort for an account with no name and no address.
+String resolveDisplayName({
+  String? profileName,
+  String? authName,
+  String? email,
+  required String fallback,
+}) {
+  for (final candidate in [profileName, authName, email]) {
+    final value = candidate?.trim() ?? '';
+    if (value.isNotEmpty) return value;
+  }
+  return fallback;
+}

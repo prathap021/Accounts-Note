@@ -16,6 +16,7 @@ import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 import 'core/router/app_router.dart';
+import 'core/services/avatar_cache.dart';
 import 'core/sync/background_sync.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/responsive.dart';
@@ -65,6 +66,10 @@ Future<void> main() async {
     // Local database first: the UI is served from Hive, so it must be ready
     // before the first frame. This is a local disk open — no network.
     await Hive.initFlutter();
+
+    // Profile photos live on disk too, so a cold start with no network still
+    // paints the user's picture instead of an empty circle.
+    await AvatarCache.instance.init();
 
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
