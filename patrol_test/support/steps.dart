@@ -159,9 +159,10 @@ extension UserSteps on PatrolIntegrationTester {
     String? category,
     String? note,
     String? payWithCard,
+    String? account,
   }) async {
     try {
-      await _addTransaction(type, amount, category, note, payWithCard);
+      await _addTransaction(type, amount, category, note, payWithCard, account);
     } on TestFailure {
       rethrow;
     } on Object catch (e) {
@@ -177,6 +178,7 @@ extension UserSteps on PatrolIntegrationTester {
     String? category,
     String? note,
     String? payWithCard,
+    String? account,
   ) async {
     // A keyboard still closing from an earlier form shrinks the type sheet
     // below its content. Nobody taps that fast, so wait it out.
@@ -202,6 +204,12 @@ extension UserSteps on PatrolIntegrationTester {
       await reveal(this('Payment method'), scrollIn: transactionFormList);
       await this('Payment method').tap();
       await tapInSheet(this(ListTile).$(payWithCard));
+    }
+    if (account != null) {
+      final row = this(const Key('account-row'));
+      await reveal(row, scrollIn: transactionFormList);
+      await row.tap();
+      await tapInSheet(this(ListTile).$(account));
     }
     await this(FilledButton).$('Add transaction').tap();
     await this('Transaction added').waitUntilVisible();

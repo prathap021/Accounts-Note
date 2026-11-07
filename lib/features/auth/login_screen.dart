@@ -166,14 +166,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                       ),
                       const SizedBox(height: AppSpacing.xl),
-                      Text(
-                        'Your data stays in your own account. No ads, no trackers.',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                      ),
-                      const SizedBox(height: AppSpacing.xl),
                     ],
                   ),
                 ),

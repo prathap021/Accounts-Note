@@ -17,6 +17,7 @@ import '../../widgets/add_transaction_sheet.dart';
 import '../../widgets/credit_card_visual.dart';
 import '../../widgets/sync_status_chip.dart';
 import '../../widgets/transaction_tile.dart';
+import '../../widgets/undo_delete.dart';
 
 /// One calendar day of transactions plus that day's net movement.
 class _DayGroup {
@@ -667,9 +668,20 @@ class _DaySection extends ConsumerWidget {
                     '/transaction/edit',
                     extra: group.items[i],
                   ),
-                  onDelete: () => ref
-                      .read(transactionActionsProvider.notifier)
-                      .deleteTransaction(group.items[i].id),
+                  onEdit: () => context.push(
+                    '/transaction/edit',
+                    extra: group.items[i],
+                  ),
+                  onDelete: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final actions =
+                        ref.read(transactionActionsProvider.notifier);
+                    final previous =
+                        await actions.deleteTransaction(group.items[i].id);
+                    if (previous != null) {
+                      showUndoDelete(messenger, actions, previous);
+                    }
+                  },
                 ),
                 if (i != group.items.length - 1)
                   Divider(

@@ -5,20 +5,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 
 import '../../core/constants/app_constants.dart';
+import '../../core/constants/currencies.dart';
+import '../../core/services/app_review_service.dart';
+import '../../core/services/app_update_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/responsive.dart';
 import '../../core/utils/greeting.dart';
 import '../../widgets/user_avatar.dart';
+import '../lock/pin_setup_sheet.dart';
+import 'backup_flow.dart';
+import 'clear_data_flow.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/snackbar_helper.dart';
-import '../../core/utils/backup_service.dart';
-import 'delete_account_progress.dart';
 import '../../core/utils/user_facing_error.dart';
+import '../../providers/account_provider.dart';
+import '../../providers/app_lock_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/automation_provider.dart';
 import '../../providers/credit_card_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../models/subscription_plan.dart';
@@ -28,12 +36,16 @@ import '../../widgets/app_logo.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 /// Currencies the app can display, with the symbol shown in the picker.
-const _currencies = <String, String>{
-  'INR': 'Indian Rupee',
-  'USD': 'US Dollar',
-  'EUR': 'Euro',
-  'GBP': 'British Pound',
-};
+
+String _ordinal(int n) {
+  if (n >= 11 && n <= 13) return '${n}th';
+  return switch (n % 10) {
+    1 => '${n}st',
+    2 => '${n}nd',
+    3 => '${n}rd',
+    _ => '${n}th',
+  };
+}
 
 String _themeLabel(ThemeMode mode) => switch (mode) {
       ThemeMode.system => 'Follows system',
@@ -148,40 +160,70 @@ class SettingsScreen extends ConsumerWidget {
   ) async {
     final picked = await showModalBottomSheet<String>(
       context: context,
-      // Four currencies do not fit a default sheet (capped at 9/16 of the
-      // screen) on a 16:9 phone; let it grow, and scroll if it still can't.
+      // Every Play currency: the sheet grows to most of the screen and
+      // scrolls, with a search box on top.
+      isScrollControlled: true,
+      builder: (ctx) => _CurrencyPickerSheet(
+        current: current,
+        local: currencyForCountry(ref.read(deviceCountryProvider)),
+      ),
+    );
+    if (picked != null) {
+      ref.read(settingsProvider.notifier).setCurrency(picked);
+    }
+  }
+
+  Future<void> _pickMonthStart(
+    BuildContext context,
+    WidgetRef ref,
+    int current,
+  ) async {
+    final picked = await showModalBottomSheet<int>(
+      context: context,
       isScrollControlled: true,
       builder: (ctx) => SafeArea(
-        child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xl,
+            0,
+            AppSpacing.xl,
+            AppSpacing.xl,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.xl,
-                  0,
-                  AppSpacing.xl,
-                  AppSpacing.md,
-                ),
-                child: Text('Currency', style: Theme.of(ctx).textTheme.titleLarge),
+              Text(
+                'Month starts on',
+                style: Theme.of(ctx).textTheme.titleLarge,
               ),
-              for (final entry in _currencies.entries)
-                _ChoiceTile(
-                  leadingText: CurrencyFormatter.symbolFor(entry.key),
-                  title: entry.value,
-                  subtitle: entry.key,
-                  selected: entry.key == current,
-                  onTap: () => Navigator.pop(ctx, entry.key),
-                ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Budgets, the dashboard and the Reports month run from this '
+                'day to the day before it next month. Pick your pay day to '
+                'follow your salary cycle.',
+                style: Theme.of(ctx).textTheme.bodySmall,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  for (var d = 1; d <= 28; d++)
+                    ChoiceChip(
+                      label: Text('$d'),
+                      selected: d == current,
+                      onSelected: (_) => Navigator.pop(ctx, d),
+                    ),
+                ],
+              ),
             ],
           ),
         ),
       ),
     );
     if (picked != null) {
-      ref.read(settingsProvider.notifier).setCurrency(picked);
+      await ref.read(settingsProvider.notifier).setMonthStartDay(picked);
     }
   }
 
@@ -235,6 +277,7 @@ class SettingsScreen extends ConsumerWidget {
     final plan = ref.watch(currentPlanProvider);
     final settings = ref.watch(settingsProvider);
     final cardCount = ref.watch(creditCardLookupProvider).length;
+    final accountCount = ref.watch(accountLookupProvider).length;
     // Resolved the same way as the dashboard greeting so one name is shown
     // for the user everywhere in the app.
     final name = resolveDisplayName(
@@ -289,6 +332,16 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => context.push('/categories'),
               ),
               _SettingsTile(
+                icon: Icons.account_balance_outlined,
+                title: 'Accounts',
+                subtitle: switch (accountCount) {
+                  0 => 'Cash, bank, UPI and wallets, and transfers',
+                  1 => '1 account',
+                  _ => '$accountCount accounts',
+                },
+                onTap: () => context.push('/accounts'),
+              ),
+              _SettingsTile(
                 icon: Icons.credit_card_rounded,
                 title: 'Credit cards',
                 subtitle: switch (cardCount) {
@@ -302,8 +355,16 @@ class SettingsScreen extends ConsumerWidget {
                 icon: Icons.payments_outlined,
                 title: 'Currency',
                 subtitle:
-                    '${_currencies[settings.currency] ?? settings.currency} · ${CurrencyFormatter.symbolFor(settings.currency)}',
+                    '${currencyByCode(settings.currency)?.name ?? settings.currency} · ${CurrencyFormatter.symbolFor(settings.currency).trim()}',
                 onTap: () => _pickCurrency(context, ref, settings.currency),
+              ),
+              _SettingsTile(
+                icon: Icons.event_repeat_rounded,
+                title: 'Month starts on',
+                subtitle: settings.monthStartDay == 1
+                    ? 'The 1st (calendar month)'
+                    : 'The ${_ordinal(settings.monthStartDay)}, e.g. your pay day',
+                onTap: () => _pickMonthStart(context, ref, settings.monthStartDay),
               ),
               _SettingsTile(
                 icon: _themeIcon(settings.themeMode),
@@ -320,9 +381,49 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: Icons.workspace_premium_rounded,
                 title: 'Subscription',
-                subtitle: '${plan.title} · ${plan.dailyIncomeLimit} income + '
-                    '${plan.dailyExpenseLimit} expense a day',
+                subtitle: '${plan.title} · '
+                    '${NumberFormat.decimalPattern().format(plan.monthlyLimit)} '
+                    'transactions a month',
                 onTap: () => context.push('/subscription'),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          const SectionLabel('Automation'),
+          _SettingsGroup(
+            children: [
+              _SettingsTile(
+                icon: Icons.repeat_rounded,
+                title: 'Recurring transactions',
+                subtitle: 'Salary, rent, EMIs and subscriptions',
+                onTap: () => context.push('/recurring'),
+              ),
+              const _NotificationToggles(),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          const SectionLabel('Backup'),
+          _SettingsGroup(
+            children: [
+              _SettingsTile(
+                icon: Icons.cloud_download_outlined,
+                title: 'Back up now',
+                subtitle:
+                    'Save every transaction, category, card and budget to a file',
+                onTap: () => runBackup(context, ref),
+              ),
+              _SettingsTile(
+                icon: Icons.upload_file_rounded,
+                title: 'Import a backup',
+                subtitle:
+                    'Add a backup to this account, e.g. from your other account',
+                onTap: () => runImport(context, ref),
+              ),
+              _SettingsTile(
+                icon: Icons.table_view_rounded,
+                title: 'Import from CSV',
+                subtitle: 'Entries from another app or a bank statement',
+                onTap: () => runCsvImport(context, ref),
               ),
             ],
           ),
@@ -330,6 +431,34 @@ class SettingsScreen extends ConsumerWidget {
           const SectionLabel('About'),
           _SettingsGroup(
             children: [
+              if (Platform.isAndroid || AppLinks.appStoreId != null)
+                _SettingsTile(
+                  icon: Icons.star_rate_rounded,
+                  title: 'Rate Accounts Note',
+                  subtitle: Platform.isIOS
+                      ? 'Leave a review on the App Store'
+                      : 'Leave a review on Google Play',
+                  onTap: () =>
+                      ref.read(appReviewServiceProvider).openStorePage(),
+                ),
+              if (ref.watch(inAppUpdateSupportedProvider))
+                _SettingsTile(
+                  icon: Icons.system_update_rounded,
+                  title: 'Check for updates',
+                  subtitle: switch (ref.watch(appUpdateControllerProvider).phase) {
+                    UpdatePhase.checking => 'Checking…',
+                    UpdatePhase.downloading => 'Downloading the update…',
+                    UpdatePhase.readyToInstall => 'Update ready: tap to restart',
+                    _ => 'Get the latest version from Google Play',
+                  },
+                  onTap: () => _checkForUpdates(context, ref),
+                ),
+              _SettingsTile(
+                icon: Icons.privacy_tip_outlined,
+                title: 'Privacy policy',
+                subtitle: 'What the app stores, and where',
+                onTap: () => _openUrl(context, AppLinks.privacyPolicy),
+              ),
               _SettingsTile(
                 icon: Icons.code_rounded,
                 title: 'Source code',
@@ -350,21 +479,23 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
+          const SectionLabel('Security'),
+          const _SettingsGroup(children: [_SecurityToggles()]),
+          const SizedBox(height: AppSpacing.xl),
           const SectionLabel('Account'),
           _SettingsGroup(
             children: [
+              _SettingsTile(
+                icon: Icons.delete_sweep_outlined,
+                title: 'Clear all data',
+                subtitle: 'Start over: removes every transaction, card and budget',
+                onTap: () => runClearAllData(context, ref),
+              ),
               _SettingsTile(
                 icon: Icons.logout_rounded,
                 title: 'Log out',
                 subtitle: 'Sign out on this device',
                 onTap: () => _confirmSignOut(context, actions),
-              ),
-              _SettingsTile(
-                icon: Icons.delete_forever_rounded,
-                title: 'Delete account',
-                subtitle: 'Removes all financial data',
-                destructive: true,
-                onTap: () => _confirmDelete(context, actions),
               ),
             ],
           ),
@@ -373,6 +504,27 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _checkForUpdates(BuildContext context, WidgetRef ref) async {
+    final updates = ref.read(appUpdateControllerProvider.notifier);
+    if (ref.read(appUpdateControllerProvider).phase ==
+        UpdatePhase.readyToInstall) {
+      await updates.install();
+      return;
+    }
+    await updates.checkNow();
+    if (!context.mounted) return;
+    final message = switch (ref.read(appUpdateControllerProvider).phase) {
+      UpdatePhase.upToDate => "You're on the latest version.",
+      UpdatePhase.downloading =>
+        'Downloading the update. You can keep using the app.',
+      UpdatePhase.readyToInstall => 'The update is ready to install.',
+      UpdatePhase.unavailable =>
+        'Updates are only available for the Google Play version of the app.',
+      _ => null,
+    };
+    if (message != null) SnackbarHelper.showSuccess(context, message);
   }
 
   Future<void> _confirmSignOut(
@@ -399,87 +551,6 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
     if (confirmed == true) await actions.signOut();
-  }
-
-  Future<void> _confirmDelete(
-    BuildContext context,
-    AuthActionsNotifier actions,
-  ) async {
-    final action = await showDialog<String>(
-      context: context,
-      builder: (ctx) => const _DeleteAccountDialog(),
-    );
-    if (action != 'backup_delete' && action != 'delete') return;
-    if (!context.mounted) return;
-
-    final wantsBackup = action == 'backup_delete';
-    final stage = ValueNotifier<DeleteStage>(
-      wantsBackup ? DeleteStage.backup : DeleteStage.data,
-    );
-    final router = GoRouter.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-
-    // Progress is shown in its own dialog rather than a toast, because this
-    // runs for several seconds and cannot be cancelled once started.
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => DeleteAccountProgress(
-        stage: stage,
-        includesBackup: wantsBackup,
-      ),
-    );
-
-    void closeProgress() {
-      if (router.canPop()) router.pop();
-    }
-
-    if (wantsBackup) {
-      try {
-        await BackupService.backupTransactionsToExcel();
-      } catch (_) {
-        // A failed backup must not block the delete the user asked for; they
-        // are told about it after the account is closed.
-      }
-      stage.value = DeleteStage.data;
-    }
-
-    // The repository removes cloud data first, then the account itself.
-    stage.value = DeleteStage.data;
-    final result = await actions.deleteAccount();
-
-    await result.when(
-      success: (_) async {
-        stage.value = DeleteStage.done;
-        // Let the finished state register before the dialog disappears.
-        await Future<void>.delayed(const Duration(milliseconds: 900));
-        closeProgress();
-        // The auth stream also redirects here, but say it explicitly so the
-        // user never lands on a screen belonging to an account that is gone.
-        router.go('/login');
-        messenger.showSnackBar(
-          const SnackBar(
-            behavior: SnackBarBehavior.floating,
-            content: Text('Your account and data have been deleted'),
-          ),
-        );
-      },
-      failure: (f) async {
-        closeProgress();
-        messenger.showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: AppColors.expense,
-            content: Text(
-              f.userMessage,
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
-        );
-      },
-    );
-
-    stage.dispose();
   }
 }
 
@@ -829,21 +900,19 @@ class _SettingsTile extends StatelessWidget {
   final String title;
   final String? subtitle;
   final VoidCallback? onTap;
-  final bool destructive;
 
   const _SettingsTile({
     required this.icon,
     required this.title,
     this.subtitle,
     this.onTap,
-    this.destructive = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final accent = destructive ? scheme.error : scheme.primary;
+    final accent = scheme.primary;
 
     return ListTile(
       onTap: onTap,
@@ -864,7 +933,7 @@ class _SettingsTile extends StatelessWidget {
       title: Text(
         title,
         style: theme.textTheme.bodyLarge?.copyWith(
-          color: destructive ? scheme.error : scheme.onSurface,
+          color: scheme.onSurface,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -890,82 +959,281 @@ class _SettingsTile extends StatelessWidget {
   }
 }
 
-class _DeleteAccountDialog extends StatefulWidget {
-  const _DeleteAccountDialog();
+/// Every currency Google Play sells in. The phone's own currency and the
+/// most used ones come first; the rest follow by name, with search.
+class _CurrencyPickerSheet extends StatefulWidget {
+  const _CurrencyPickerSheet({required this.current, required this.local});
+
+  final String current;
+
+  /// The currency of the phone's country.
+  final String local;
 
   @override
-  State<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+  State<_CurrencyPickerSheet> createState() => _CurrencyPickerSheetState();
 }
 
-class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
-  int _secondsLeft = 10;
-  Timer? _timer;
+class _CurrencyPickerSheetState extends State<_CurrencyPickerSheet> {
+  var _query = '';
 
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_secondsLeft > 0) {
-        setState(() => _secondsLeft--);
-      } else {
-        _timer?.cancel();
-      }
-    });
+  List<AppCurrency> get _suggested {
+    final codes = <String>{widget.current, widget.local, ...kPopularCurrencyCodes};
+    return [for (final code in codes) ?currencyByCode(code)];
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
+  List<AppCurrency> get _others {
+    final suggested = _suggested.map((c) => c.code).toSet();
+    return kCurrencies.where((c) => !suggested.contains(c.code)).toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
   }
+
+  bool _matches(AppCurrency c) {
+    final q = _query.trim().toLowerCase();
+    return q.isEmpty ||
+        c.name.toLowerCase().contains(q) ||
+        c.code.toLowerCase().contains(q);
+  }
+
+  Widget _tile(AppCurrency c) => _ChoiceTile(
+        leadingText: c.symbol.trim(),
+        title: c.name,
+        subtitle: c.code,
+        selected: c.code == widget.current,
+        onTap: () => Navigator.pop(context, c.code),
+      );
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final searching = _query.trim().isNotEmpty;
+    final results = searching
+        ? (kCurrencies.where(_matches).toList()
+          ..sort((a, b) => a.name.compareTo(b.name)))
+        : const <AppCurrency>[];
 
-    return AlertDialog(
-      icon: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: scheme.error.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
+    Widget label(String text) => Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xl,
+            AppSpacing.md,
+            AppSpacing.xl,
+            AppSpacing.xs,
+          ),
+          child: Text(
+            text,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        );
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        child: Icon(Icons.warning_amber_rounded, color: scheme.error, size: 26),
-      ),
-      title: const Text('Delete your account?'),
-      content: const Text(
-        'This permanently deletes your profile, transactions, budgets, and categories. This cannot be undone.\n\nYou will be asked to confirm with Google (or Apple) before deletion.\n\nYou can download a backup of your transactions in Excel format before deleting.',
-      ),
-      actions: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            FilledButton.icon(
-              icon: const Icon(Icons.download_rounded, size: 18),
-              onPressed: _secondsLeft > 0
-                  ? null
-                  : () => Navigator.pop(context, 'backup_delete'),
-              label: Text(
-                _secondsLeft > 0
-                    ? 'Backup & Delete ($_secondsLeft)'
-                    : 'Backup & Delete',
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.8,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xl,
+                  0,
+                  AppSpacing.xl,
+                  AppSpacing.md,
+                ),
+                child: Text('Currency', style: theme.textTheme.titleLarge),
               ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            TextButton(
-              style: TextButton.styleFrom(foregroundColor: scheme.error),
-              onPressed:
-                  _secondsLeft > 0 ? null : () => Navigator.pop(context, 'delete'),
-              child: const Text('Delete without backup'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, null),
-              child: const Text('Cancel'),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                child: TextField(
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search_rounded),
+                    hintText: 'Search currencies',
+                  ),
+                  onChanged: (v) => setState(() => _query = v),
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  children: [
+                    if (searching) ...[
+                      for (final c in results) _tile(c),
+                      if (results.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(AppSpacing.xl),
+                          child: Text(
+                            'No currency matches "${_query.trim()}".',
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                    ] else ...[
+                      label('Suggested'),
+                      for (final c in _suggested) _tile(c),
+                      label('All currencies'),
+                      for (final c in _others) _tile(c),
+                    ],
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Daily reminder (with its time), budget alerts and bill reminders.
+class _NotificationToggles extends ConsumerWidget {
+  const _NotificationToggles();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(notificationSettingsProvider);
+    final n = ref.read(notificationSettingsProvider.notifier);
+    final time = s.reminderTime.format(context);
+
+    Future<void> pickTime() async {
+      final picked = await showTimePicker(
+        context: context,
+        initialTime: s.reminderTime,
+        helpText: 'Remind me at',
+      );
+      if (picked != null) await n.setDailyReminder(true, at: picked);
+    }
+
+    return Column(
+      children: [
+        SwitchListTile(
+          key: const Key('daily-reminder'),
+          secondary: const Icon(Icons.notifications_active_outlined),
+          title: const Text('Daily reminder'),
+          subtitle: Text(
+            s.dailyReminder
+                ? 'Every day at $time. Tap to change the time.'
+                : 'A nudge to add the day\'s expenses',
+          ),
+          value: s.dailyReminder,
+          onChanged: (on) async {
+            final ok = await n.setDailyReminder(on);
+            if (on && !ok && context.mounted) {
+              SnackbarHelper.showError(
+                context,
+                'Notifications are turned off for Accounts Note in your '
+                'phone settings.',
+              );
+            }
+          },
+        ),
+        if (s.dailyReminder)
+          ListTile(
+            leading: const SizedBox(width: 24),
+            title: const Text('Reminder time'),
+            trailing: Text(time),
+            onTap: pickTime,
+          ),
+        SwitchListTile(
+          secondary: const Icon(Icons.pie_chart_outline_rounded),
+          title: const Text('Budget alerts'),
+          subtitle: const Text('When spending reaches a budget\'s alert line and its limit'),
+          value: s.budgetAlerts,
+          onChanged: n.setBudgetAlerts,
+        ),
+        SwitchListTile(
+          secondary: const Icon(Icons.event_note_outlined),
+          title: const Text('Bill reminders'),
+          subtitle: const Text('The day before a recurring expense is added'),
+          value: s.billReminders,
+          onChanged: n.setBillReminders,
         ),
       ],
     );
   }
 }
+
+/// App lock (PIN) and fingerprint unlock.
+class _SecurityToggles extends ConsumerWidget {
+  const _SecurityToggles();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lock = ref.watch(appLockProvider);
+    final n = ref.read(appLockProvider.notifier);
+
+    Future<void> toggleLock(bool on) async {
+      if (on) {
+        final pin = await askNewPin(context);
+        if (pin == null) return;
+        await n.setPin(pin);
+        if (context.mounted) {
+          SnackbarHelper.showSuccess(context, 'App lock is on.');
+        }
+      } else {
+        final pin = await askPin(context, 'Enter your current PIN');
+        if (pin == null) return;
+        if (!n.checkPin(pin)) {
+          if (context.mounted) SnackbarHelper.showError(context, 'Wrong PIN.');
+          return;
+        }
+        await n.disable();
+      }
+    }
+
+    return Column(
+      children: [
+        SwitchListTile(
+          key: const Key('app-lock'),
+          secondary: const Icon(Icons.lock_outline_rounded),
+          title: const Text('App lock'),
+          subtitle: Text(
+            lock.enabled
+                ? 'A PIN is asked for when the app opens'
+                : 'Ask for a 4-digit PIN when the app opens',
+          ),
+          value: lock.enabled,
+          onChanged: toggleLock,
+        ),
+        if (lock.enabled)
+          SwitchListTile(
+            key: const Key('biometric-unlock'),
+            secondary: const Icon(Icons.fingerprint_rounded),
+            title: const Text('Unlock with fingerprint'),
+            subtitle: const Text('Or face, where the phone supports it'),
+            value: lock.biometrics,
+            onChanged: (on) async {
+              final ok = await n.setBiometrics(on);
+              if (on && !ok && context.mounted) {
+                SnackbarHelper.showError(
+                  context,
+                  'Fingerprint unlock is not set up on this phone.',
+                );
+              }
+            },
+          ),
+        if (lock.enabled)
+          ListTile(
+            leading: const SizedBox(width: 24),
+            title: const Text('Change PIN'),
+            onTap: () async {
+              final current = await askPin(context, 'Enter your current PIN');
+              if (current == null || !context.mounted) return;
+              if (!n.checkPin(current)) {
+                SnackbarHelper.showError(context, 'Wrong PIN.');
+                return;
+              }
+              final pin = await askNewPin(context);
+              if (pin == null) return;
+              await n.setPin(pin);
+              if (context.mounted) {
+                SnackbarHelper.showSuccess(context, 'PIN changed.');
+              }
+            },
+          ),
+      ],
+    );
+  }
+}
+

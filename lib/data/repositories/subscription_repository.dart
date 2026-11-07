@@ -28,11 +28,14 @@ class SubscriptionRepository {
   final cf.FirebaseFunctions _functions;
 
   /// Codes the Cloud Function uses for a purchase that will never verify.
+  ///
+  /// Not `not-found`: that is also what a function that has not been
+  /// deployed returns, and a purchase must never be confirmed to the store
+  /// (and so kept by Google) when nothing has granted the plan for it.
+  /// Likewise `failed-precondition`, which means the server is not set up.
   static const _finalCodes = {
     'already-exists',
-    'failed-precondition',
     'invalid-argument',
-    'not-found',
     'permission-denied',
   };
 

@@ -102,7 +102,11 @@ class OfflineTransactionRepository {
     }
   }
 
-  Future<Result<void>> deleteTransaction(String txId) async {
+  /// Deletes locally at once and returns the record as it was, so the user
+  /// can undo. The cloud delete waits out [SyncManager.deleteGrace] first:
+  /// an undo inside that window just puts the record back, and nothing ever
+  /// reaches the server.
+  Future<Result<TransactionModel?>> deleteTransaction(String txId) async {
     try {
       final existing = store.getById(txId);
       if (existing == null) return Result.success(null);
@@ -119,7 +123,25 @@ class OfflineTransactionRepository {
           retryCount: 0,
           clearSyncError: true,
         ));
+        if (autoSync) {
+          unawaited(Future<void>.delayed(
+            syncManager.deleteGrace + const Duration(milliseconds: 500),
+            () => syncManager.syncNow(),
+          ));
+        }
       }
+      return Result.success(existing);
+    } catch (e) {
+      return Result.failure(AppFailure.fromException(e));
+    }
+  }
+
+  /// Undo for [deleteTransaction]: the record exactly as it was. A record
+  /// that was still waiting to be created goes back to waiting, and keeps
+  /// the entry it already used from the day's allowance.
+  Future<Result<void>> restoreDeleted(TransactionModel previous) async {
+    try {
+      await store.put(previous);
       _kickSync();
       return Result.success(null);
     } catch (e) {

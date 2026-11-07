@@ -46,7 +46,9 @@ void main() {
     expect(_themeMode($), ThemeMode.system);
 
     await $.openSettings();
-    await $('Appearance').tap();
+    final appearance = $('Appearance');
+    await $.reveal(appearance, scrollIn: find.byType(Scrollable).first);
+    await appearance.tap();
     await $.sheet.$('Dark').tap();
     expect(_themeMode($), ThemeMode.dark);
 
@@ -108,68 +110,128 @@ void main() {
     },
   );
 
-  patrolTest('deleting the account removes the cloud data and the sign-in', (
+  patrolTest('every Play currency can be found and used, with its own format', (
     $,
   ) async {
-    final (backend, user) = await launchSignedIn(
+    await launchSignedIn(
       $,
       seed: (backend, user) async {
         await backend.seedTransaction(
           user.uid,
-          id: 'to-be-deleted',
-          amount: 99,
-          category: 'Food',
+          id: 'pay',
+          type: TransactionType.income,
+          amount: 1500,
+          category: 'Salary',
         );
       },
     );
-    await $(balance(-99)).waitUntilVisible();
+    await $(balance(1500)).waitUntilVisible();
 
     await $.openSettings();
-    await $('Delete account').scrollTo();
-    await $('Delete account').tap();
+    await $('Currency').tap();
+    await $('Suggested').waitUntilVisible();
+    expect($('All currencies'), findsOneWidget);
 
-    await $('Delete your account?').waitUntilVisible();
-    expect(
-      $(RegExp(r'^Backup & Delete \(\d+\)$')),
-      findsOneWidget,
-      reason: 'a countdown guards against a reflex tap',
-    );
+    await $.sheet.$(TextField).enterText('yen');
+    await $.hideKeyboard();
+    await $.sheet.$('Japanese Yen').tap();
+    await $('Japanese Yen · ¥').waitUntilVisible();
 
-    // The guard holds both buttons for ten seconds.
-    await $(
-      'Backup & Delete',
-    ).waitUntilVisible(timeout: const Duration(seconds: 15));
-    await $('Delete without backup').tap();
-
-    await $(
-      'Continue with Email',
-    ).waitUntilVisible(timeout: const Duration(seconds: 15));
-    await $('Your account and data have been deleted').waitUntilVisible();
-
-    expect(backend.auth.accountFor(user.email), isNull);
-    final profile = await backend.firestore
-        .collection(FirestoreCollections.users)
-        .doc(user.uid)
-        .get();
-    expect(profile.exists, isFalse);
-    expect(await backend.cloudTransactions(user.uid), isEmpty);
-
-    // The old credentials no longer work.
-    await $.signInWithEmail(user.email, testPassword);
-    await $('Incorrect email or password.').waitUntilVisible();
+    await $.leaveSettings();
+    // The yen has no minor units, so no ".00".
+    await $(balance(1500, currency: 'JPY')).waitUntilVisible();
+    expect(balance(1500, currency: 'JPY'), '¥ 1,500');
   });
 
-  patrolTest('cancelling the delete dialog leaves the account alone', (
+  patrolTest('About offers rating the app and checking for updates', ($) async {
+    await launchSignedIn($);
+    await $.openSettings();
+
+    final rate = $('Rate Accounts Note');
+    await $.reveal(rate, scrollIn: find.byType(Scrollable).first);
+    expect($('Leave a review on Google Play'), findsOneWidget);
+
+    final check = $('Check for updates');
+    await $.reveal(check, scrollIn: find.byType(Scrollable).first);
+    await check.tap();
+    // This build was installed by the test runner, not from Google Play.
+    await $(
+      'Updates are only available for the Google Play version of the app.',
+    ).waitUntilVisible();
+  });
+
+  patrolTest('a backup moves every transaction into another account', (
     $,
   ) async {
-    final (backend, user) = await launchSignedIn($);
+    final (backend, asha) = await launchSignedIn(
+      $,
+      seed: (backend, user) async {
+        await backend.seedTransaction(
+          user.uid,
+          id: 'b-pay',
+          type: TransactionType.income,
+          amount: 25000,
+          category: 'Salary',
+          note: 'October salary',
+        );
+        await backend.seedTransaction(
+          user.uid,
+          id: 'b-food',
+          amount: 640,
+          category: 'Food',
+          note: 'Groceries',
+        );
+        await backend.seedUser(
+          email: 'ravi@example.com',
+          displayName: 'Ravi Kumar',
+          signedIn: false,
+        );
+        // Setting Ravi up signed him in and out; Asha is the one using the
+        // phone.
+        await backend.auth.signInWithEmailAndPassword(
+          email: user.email,
+          password: testPassword,
+        );
+      },
+    );
+
+    // Asha backs up. The file is made from her cloud copy.
+    await $.openSettings();
+    final backup = $('Back up now');
+    await $.reveal(backup, scrollIn: find.byType(Scrollable).first);
+    await backup.tap();
+    await $('Backup ready with 2 transactions.').waitUntilVisible();
+    expect(
+      backend.backupFiles.lastSharedName,
+      matches(RegExp(r'^accounts_note_backup_\d{4}-\d{2}-\d{2}\.json$')),
+    );
+
+    // Ravi signs in on the same phone and imports it.
+    await $.dismissSnackBars();
+    await $('Log out').scrollTo();
+    await $('Log out').tap();
+    await $.dialog.$('Log out').tap();
+    await $('Continue with Email').waitUntilVisible();
+    await $.signInWithEmail('ravi@example.com', testPassword);
+    await $.expectDashboard();
+    expect($('October salary'), findsNothing);
 
     await $.openSettings();
-    await $('Delete account').scrollTo();
-    await $('Delete account').tap();
-    await $.dialog.$('Cancel').tap();
+    final import = $('Import a backup');
+    await $.reveal(import, scrollIn: find.byType(Scrollable).first);
+    await import.tap();
+    await $('Import this backup?').waitUntilVisible();
+    expect($('2 transactions'), findsOneWidget);
+    await $.dialog.$('Import').tap();
+    await $('Imported 2 transactions.').waitUntilVisible();
 
-    expect($('Profile & settings'), findsOneWidget);
-    expect(backend.auth.accountFor(user.email), isNotNull);
+    await $.leaveSettings();
+    await $.openTab('Activity');
+    await $('October salary').waitUntilVisible();
+    expect($('Groceries'), findsOneWidget);
+
+    // Asha's own account still has them too.
+    final ashaTx = await backend.cloudTransactions(asha.uid);
+    expect(ashaTx, hasLength(2));
   });
 }

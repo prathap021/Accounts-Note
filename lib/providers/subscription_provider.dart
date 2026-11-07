@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../core/constants/app_constants.dart';
 import '../core/utils/result.dart';
@@ -82,6 +83,8 @@ final todayUsageProvider = Provider<DailyUsage>((ref) {
 });
 
 /// The user tried to add past today's allowance for [type].
+/// The user tried to add past today's allowance. [type] is what they were
+/// adding; the limit itself covers income and expense together.
 class DailyLimitReached extends AppFailure {
   final TransactionType type;
   final SubscriptionPlan plan;
@@ -92,7 +95,7 @@ class DailyLimitReached extends AppFailure {
     required this.plan,
     required this.limit,
   }) : super(
-         "You've reached today's limit of $limit ${type.name} entries.",
+         "You've reached today's limit of $limit entries.",
          code: 'daily-limit',
        );
 }
@@ -148,8 +151,9 @@ class DailyLimitChecker {
     }
     final local = _ref.read(dailyUsageStoreProvider).unsynced(uid, day);
 
-    final used = server.countFor(type) + local.countFor(type);
-    final limit = plan.limitFor(type);
+    // One allowance for income and expense together.
+    final used = server.total + local.total;
+    final limit = plan.dailyLimit;
     return used >= limit
         ? DailyLimitReached(type: type, plan: plan, limit: limit)
         : null;
@@ -179,6 +183,9 @@ class SubscriptionUiState {
 
   /// The plan whose purchase is in progress.
   final SubscriptionPlan? purchasing;
+
+  /// Monthly or yearly, as chosen on the plan screen.
+  final BillingPeriod period;
   final bool restoring;
   final SubscriptionNotice? notice;
 
@@ -189,13 +196,34 @@ class SubscriptionUiState {
     this.purchasing,
     this.restoring = false,
     this.notice,
+    this.period = BillingPeriod.monthly,
   });
 
   bool get busy => purchasing != null || restoring;
 
-  /// The store's localized price, or the list price until it has loaded.
-  String priceFor(SubscriptionPlan plan) =>
-      products[plan.productId]?.price ?? plan.priceLabel;
+  /// The store's localized price, or the list price in [currency] (rupees
+  /// for INR, dollars otherwise) until it has loaded.
+  String priceFor(
+    SubscriptionPlan plan, {
+    String currency = 'USD',
+    BillingPeriod? period,
+  }) {
+    final p = period ?? this.period;
+    return products[plan.productIdFor(p)]?.price ?? plan.listPrice(currency, p);
+  }
+
+  /// What paying yearly saves over twelve monthly payments: from the store's
+  /// prices when both are known, otherwise the list saving ($1 / ₹99).
+  String yearlySavingFor(SubscriptionPlan plan, {String currency = 'USD'}) {
+    final m = products[plan.productId]?.rawPrice;
+    final yearly = products[plan.yearlyProductId];
+    final y = yearly?.rawPrice;
+    final code = yearly?.currencyCode;
+    if (m != null && y != null && code != null && m * 12 > y) {
+      return NumberFormat.simpleCurrency(name: code).format(m * 12 - y);
+    }
+    return SubscriptionPlan.yearlySaving(currency);
+  }
 
   SubscriptionUiState copyWith({
     bool? loading,
@@ -205,6 +233,7 @@ class SubscriptionUiState {
     bool clearPurchasing = false,
     bool? restoring,
     SubscriptionNotice? notice,
+    BillingPeriod? period,
   }) {
     return SubscriptionUiState(
       loading: loading ?? this.loading,
@@ -213,6 +242,7 @@ class SubscriptionUiState {
       purchasing: clearPurchasing ? null : (purchasing ?? this.purchasing),
       restoring: restoring ?? this.restoring,
       notice: notice ?? this.notice,
+      period: period ?? this.period,
     );
   }
 }
@@ -231,6 +261,7 @@ class SubscriptionController extends Notifier<SubscriptionUiState> {
   StreamSubscription<List<StorePurchase>>? _purchases;
   bool _restoredSomething = false;
   bool _refreshRequested = false;
+  bool _periodChosen = false;
 
   @override
   SubscriptionUiState build() {
@@ -246,6 +277,16 @@ class SubscriptionController extends Notifier<SubscriptionUiState> {
     // The paid period ran out but the store may well have renewed it: ask the
     // backend to look, once per session.
     ref.listen<SubscriptionStatus>(subscriptionStatusProvider, (_, next) {
+      // Open the plan screen on the period the user already pays for.
+      // Deferred: this can fire while build() is still running.
+      if (!_periodChosen && next.plan.isPaid) {
+        final period = SubscriptionPlan.periodOf(next.productId);
+        Future.microtask(() {
+          if (!_periodChosen && period != state.period) {
+            state = state.copyWith(period: period);
+          }
+        });
+      }
       if (_refreshRequested || !next.needsRefresh()) return;
       _refreshRequested = true;
       unawaited(_backend.refresh());
@@ -283,14 +324,24 @@ class SubscriptionController extends Notifier<SubscriptionUiState> {
     }
   }
 
+  /// The Monthly | Yearly switch on the plan screen.
+  void selectPeriod(BillingPeriod period) {
+    _periodChosen = true;
+    state = state.copyWith(period: period);
+  }
+
+  /// Buys [plan] for the chosen [SubscriptionUiState.period]. Also how a
+  /// subscriber changes plan or switches between monthly and yearly.
   Future<void> buy(SubscriptionPlan plan) async {
     final uid = ref.read(currentUidProvider);
     if (uid == null || state.busy) return;
-    final product = state.products[plan.productId];
+    final period = state.period;
+    final product = state.products[plan.productIdFor(period)];
     if (product == null) {
       _notify(
         state.storeAvailable
-            ? 'The ${plan.title} plan is not available from the store yet.'
+            ? 'The ${period.label.toLowerCase()} ${plan.title} plan is not '
+                  'available from the store yet.'
             : 'Purchases are not available on this device.',
         isError: true,
       );
@@ -298,6 +349,16 @@ class SubscriptionController extends Notifier<SubscriptionUiState> {
     }
 
     final current = ref.read(currentPlanProvider);
+    final currentPeriod = SubscriptionPlan.periodOf(
+      ref.read(subscriptionStatusProvider).productId,
+    );
+    // A bigger plan, or the same plan for a longer period, starts at once and
+    // charges the difference; anything else is a downgrade.
+    final isUpgrade =
+        plan.isHigherThan(current) ||
+        (plan == current &&
+            period == BillingPeriod.yearly &&
+            currentPeriod == BillingPeriod.monthly);
     state = state.copyWith(purchasing: plan);
     try {
       final replacing = current.isPaid
@@ -307,7 +368,7 @@ class SubscriptionController extends Notifier<SubscriptionUiState> {
         product,
         accountUid: uid,
         replacing: replacing,
-        isUpgrade: plan.isHigherThan(current),
+        isUpgrade: isUpgrade,
       );
       if (!started) state = state.copyWith(clearPurchasing: true);
     } catch (e) {

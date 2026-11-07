@@ -9,14 +9,23 @@ import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:income_expense_tracker/core/constants/app_constants.dart';
 import 'package:income_expense_tracker/core/services/avatar_cache.dart';
 import 'package:income_expense_tracker/core/sync/sync_manager.dart';
+import 'package:income_expense_tracker/data/repositories/account_repository.dart';
 import 'package:income_expense_tracker/data/repositories/auth_repository.dart';
+import 'package:income_expense_tracker/data/repositories/csv_import_repository.dart';
+import 'package:income_expense_tracker/data/repositories/receipt_repository.dart';
+import 'package:income_expense_tracker/data/repositories/backup_repository.dart';
 import 'package:income_expense_tracker/data/repositories/budget_repository.dart';
+import 'package:income_expense_tracker/data/repositories/data_reset_repository.dart';
+import 'package:income_expense_tracker/data/repositories/recurring_repository.dart';
+import 'package:income_expense_tracker/core/services/notifications.dart';
 import 'package:income_expense_tracker/data/repositories/category_repository.dart';
 import 'package:income_expense_tracker/data/repositories/profile_repository.dart';
 import 'package:income_expense_tracker/data/repositories/credit_card_repository.dart';
 import 'package:income_expense_tracker/data/repositories/transaction_repository.dart';
 import 'package:income_expense_tracker/main.dart';
 import 'package:income_expense_tracker/models/transaction_model.dart';
+import 'package:income_expense_tracker/providers/account_provider.dart';
+import 'package:income_expense_tracker/providers/app_lock_provider.dart';
 import 'package:income_expense_tracker/providers/auth_provider.dart';
 import 'package:income_expense_tracker/providers/budget_provider.dart';
 import 'package:income_expense_tracker/providers/category_provider.dart';
@@ -163,7 +172,6 @@ List<Override> appOverrides(FakeBackend backend, SharedPreferences prefs) {
       AuthRepository(
         auth: backend.auth,
         firestore: firestore,
-        functions: backend.functions,
       ),
     ),
     transactionRepositoryProvider.overrideWithValue(
@@ -178,10 +186,28 @@ List<Override> appOverrides(FakeBackend backend, SharedPreferences prefs) {
     creditCardRepositoryProvider.overrideWithValue(
       CreditCardRepository(firestore: firestore),
     ),
+    accountRepositoryProvider.overrideWithValue(
+      AccountRepository(firestore: firestore),
+    ),
     profileRepositoryProvider.overrideWithValue(
       ProfileRepository(firestore: firestore),
     ),
     subscriptionStoreProvider.overrideWithValue(backend.store),
+    backupRepositoryProvider.overrideWithValue(backend.backups),
+    appNotificationsProvider.overrideWithValue(backend.notifications),
+    biometricUnlockProvider.overrideWithValue(backend.biometrics),
+    receiptPickerProvider.overrideWithValue(backend.receiptPicker),
+    receiptRepositoryProvider.overrideWithValue(
+      ReceiptRepository(firestore: firestore),
+    ),
+    csvImportServiceProvider.overrideWithValue(backend.csvImport),
+    recurringRepositoryProvider.overrideWithValue(
+      RecurringRepository(firestore: firestore),
+    ),
+    dataResetRepositoryProvider.overrideWithValue(
+      DataResetRepository(firestore: firestore),
+    ),
+    backupFilesProvider.overrideWithValue(backend.backupFiles),
     subscriptionRepositoryProvider.overrideWithValue(backend.subscriptions),
     // Same wiring as production, with connectivity under the test's control.
     syncManagerProvider.overrideWith((ref) {
@@ -221,7 +247,6 @@ extension Seeding on FakeBackend {
     final repo = AuthRepository(
       auth: auth,
       firestore: firestore,
-      functions: functions,
     );
     final result = await repo.signInWithEmail(email, password);
     if (!result.isSuccess) {

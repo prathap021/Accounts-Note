@@ -19,6 +19,10 @@ import workmanager_apple
       withIdentifier: "com.accountsnote.sync.processing"
     )
 
+    // Reminders and budget alerts show while the app is open, and taps on
+    // them reach Flutter (flutter_local_notifications).
+    UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

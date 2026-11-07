@@ -25,7 +25,7 @@ extension on PatrolIntegrationTester {
     final tile = this('Subscription');
     await reveal(tile, scrollIn: find.byType(Scrollable).first);
     await tile.tap();
-    await this('MONTHLY PLANS').waitUntilVisible();
+    await this('PLANS').waitUntilVisible();
   }
 
   /// Back to the status card at the top of the plan screen. The list is
@@ -58,56 +58,56 @@ extension on PatrolIntegrationTester {
 }
 
 void main() {
-  patrolTest('a free user gets 7 expenses a day, then is offered the plans', (
-    $,
-  ) async {
-    await launchSignedIn(
-      $,
-      seed: (backend, user) => backend.seedUsage(user.uid, expense: 6),
-    );
+  patrolTest(
+    'a free user gets 14 a day in any mix, then is offered the plans',
+    ($) async {
+      await launchSignedIn(
+        $,
+        seed: (backend, user) =>
+            backend.seedUsage(user.uid, income: 8, expense: 5),
+      );
 
-    // The 7th expense of the day still goes in.
-    await $.addTransaction(
-      type: TransactionType.expense,
-      amount: 450,
-      category: 'Food',
-    );
-    await $.dismissSnackBars();
+      // The 14th of the day still goes in, whatever its type.
+      await $.addTransaction(
+        type: TransactionType.expense,
+        amount: 450,
+        category: 'Food',
+      );
+      await $.dismissSnackBars();
 
-    // The 8th is stopped before the form even opens.
-    await $.startAdding(TransactionType.expense);
-    await $('Daily expense limit reached').waitUntilVisible();
-    expect(
-      $(
-        RegExp(
-          r"You've added 7 of 7 expense entries today on the Free "
-          r'plan\. Upgrade for up to 100 a day',
+      // The 15th is stopped before the form even opens.
+      await $.startAdding(TransactionType.income);
+      await $('Daily limit reached').waitUntilVisible();
+      expect(
+        $(
+          RegExp(
+            r"You've added 14 of 14 entries today \(income and expense "
+            r'together\) on the Free plan\. Upgrade for up to 200 a day',
+          ),
         ),
-      ),
-      findsOneWidget,
-    );
-    expect($('Add expense'), findsNothing);
+        findsOneWidget,
+      );
+      expect($('Add income'), findsNothing);
 
-    // Income has its own allowance.
-    await $('Not now').tap();
-    await $.startAdding(TransactionType.income);
-    await $('Add income').waitUntilVisible();
-    await $.goBack();
+      // One allowance: expenses are stopped too.
+      await $('Not now').tap();
+      await $.startAdding(TransactionType.expense);
+      await $('Daily limit reached').waitUntilVisible();
 
-    // The upgrade path, from the prompt to a plan that lets it through.
-    await $.startAdding(TransactionType.expense);
-    await $('See plans').tap();
-    await $('MONTHLY PLANS').waitUntilVisible();
-    await $.tapPlanButton(SubscriptionPlan.basic, 'Subscribe');
-    await $("You're on Basic. Thank you!").waitUntilVisible();
-    await $.goBack();
+      // The upgrade path, from the prompt to a plan that lets it through.
+      await $('See plans').tap();
+      await $('PLANS').waitUntilVisible();
+      await $.tapPlanButton(SubscriptionPlan.basic, 'Subscribe');
+      await $("You're on Basic. Thank you!").waitUntilVisible();
+      await $.goBack();
 
-    await $.addTransaction(
-      type: TransactionType.expense,
-      amount: 120,
-      category: 'Transport',
-    );
-  });
+      await $.addTransaction(
+        type: TransactionType.expense,
+        amount: 120,
+        category: 'Transport',
+      );
+    },
+  );
 
   patrolTest(
     'the plan screen shows every plan, the current status and today\'s use',
@@ -121,18 +121,18 @@ void main() {
       await $.openPlans();
       expect($('Free'), findsOneWidget);
       expect($('No subscription'), findsOneWidget);
-      expect($('2 of 7'), findsOneWidget);
-      expect($('5 of 7'), findsOneWidget);
+      expect($('7 of 14'), findsOneWidget);
+      expect($('2 income · 5 expense'), findsOneWidget);
 
       for (final (p, price, limit) in [
-        (SubscriptionPlan.basic, '₹99.00', 30),
-        (SubscriptionPlan.standard, '₹199.00', 60),
-        (SubscriptionPlan.premium, '₹299.00', 100),
+        (SubscriptionPlan.basic, '\$1.00', '1,800'),
+        (SubscriptionPlan.standard, '\$2.00', '3,600'),
+        (SubscriptionPlan.premium, '\$3.00', '6,000'),
       ]) {
         await $.reveal($.plan(p), scrollIn: find.byType(Scrollable).first);
         expect($.plan(p).$(price), findsOneWidget);
-        expect($.plan(p).$('$limit income entries a day'), findsOneWidget);
-        expect($.plan(p).$('$limit expense entries a day'), findsOneWidget);
+        expect($.plan(p).$('$limit transactions a month'), findsOneWidget);
+        expect($.plan(p).$('Income or expense, in any mix'), findsOneWidget);
       }
 
       await $.tapPlanButton(SubscriptionPlan.premium, 'Subscribe');
@@ -145,12 +145,11 @@ void main() {
       );
       await $.scrollPlansToTop();
       expect($(RegExp(r'^Renews on ')), findsOneWidget);
-      expect($('2 of 100'), findsOneWidget);
-      expect($('5 of 100'), findsOneWidget);
+      expect($('7 of 200'), findsOneWidget);
 
       // Settings now names the plan.
       await $.goBack();
-      await $('Premium · 100 income + 100 expense a day').waitUntilVisible();
+      await $('Premium · 6,000 transactions a month').waitUntilVisible();
     },
   );
 
@@ -217,7 +216,7 @@ void main() {
             status: 'canceled',
             autoRenewing: false,
           );
-          await backend.seedUsage(user.uid, expense: 7);
+          await backend.seedUsage(user.uid, expense: 14);
         },
       );
 
@@ -230,7 +229,37 @@ void main() {
 
       await $.openPlans();
       expect($(RegExp(r'^Cancelled · Standard until ')), findsOneWidget);
-      expect($('8 of 60'), findsOneWidget);
+      expect($('15 of 120'), findsOneWidget);
     },
   );
+
+  patrolTest('a plan can be bought yearly, for twelve months less \$1', (
+    $,
+  ) async {
+    final (backend, _) = await launchSignedIn($);
+    await $.openPlans();
+
+    await $(RegExp(r'^Yearly · save')).tap();
+    for (final (p, price) in [
+      (SubscriptionPlan.basic, '\$11.00'),
+      (SubscriptionPlan.standard, '\$23.00'),
+      (SubscriptionPlan.premium, '\$35.00'),
+    ]) {
+      await $.reveal($.plan(p), scrollIn: find.byType(Scrollable).first);
+      expect($.plan(p).$(price), findsOneWidget);
+      expect($.plan(p).$(' / year'), findsOneWidget);
+      expect($.plan(p).$('Save \$1.00 a year'), findsOneWidget);
+    }
+
+    await $.tapPlanButton(SubscriptionPlan.standard, 'Subscribe');
+    await $("You're on Standard. Thank you!").waitUntilVisible();
+    expect(backend.store.bought, ['accounts_note_standard_yearly']);
+
+    await $.scrollPlansToTop();
+    await $('Monthly').tap();
+    await $.reveal(
+      $.plan(SubscriptionPlan.standard).$('Switch to monthly'),
+      scrollIn: find.byType(Scrollable).first,
+    );
+  });
 }

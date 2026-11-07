@@ -15,6 +15,9 @@ class DailyUsage extends Equatable {
 
   const DailyUsage({required this.day, this.income = 0, this.expense = 0});
 
+  /// Every entry, whichever type: what the daily limit counts.
+  int get total => income + expense;
+
   int countFor(TransactionType type) => switch (type) {
     TransactionType.income => income,
     TransactionType.expense => expense,

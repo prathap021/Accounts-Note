@@ -12,6 +12,7 @@ import {
   initializeTestEnvironment,
 } from "@firebase/rules-unit-testing";
 import {
+  Bytes,
   Timestamp,
   deleteDoc,
   doc,
@@ -105,63 +106,60 @@ function plan(name, {status = "active", days = 20} = {}) {
 }
 
 describe("free plan", () => {
-  test("allows 7 income entries a day and refuses the 8th", async () => {
+  test("allows 14 entries a day in any mix, and refuses the 15th", async () => {
     for (let i = 1; i <= 7; i++) {
       await assertSucceeds(addCounted(db(), `in-${i}`, "income"));
+      await assertSucceeds(addCounted(db(), `ex-${i}`, "expense"));
     }
     await assertFails(addCounted(db(), "in-8", "income"));
-  });
-
-  test("counts expense separately from income", async () => {
-    await seed(`users/${UID}/usage/${today()}`, {income: 7, lastTxId: "x"});
-    await assertFails(addCounted(db(), "in-8", "income"));
-    await assertSucceeds(addCounted(db(), "ex-1", "expense"));
-  });
-
-  test("refuses the 8th expense", async () => {
-    await seed(`users/${UID}/usage/${today()}`, {expense: 7, lastTxId: "x"});
     await assertFails(addCounted(db(), "ex-8", "expense"));
+  });
+
+  test("all 14 can be expenses", async () => {
+    await seed(`users/${UID}/usage/${today()}`, {expense: 13, lastTxId: "x"});
+    await assertSucceeds(addCounted(db(), "ex-14", "expense"));
+    await assertFails(addCounted(db(), "ex-15", "expense"));
+  });
+
+  test("income and expense share the allowance", async () => {
+    await seed(`users/${UID}/usage/${today()}`, {
+      income: 10, expense: 4, lastTxId: "x",
+    });
+    await assertFails(addCounted(db(), "in-11", "income"));
+    await assertFails(addCounted(db(), "ex-5", "expense"));
   });
 });
 
 describe("paid plans", () => {
-  test("Basic allows 30 a day", async () => {
-    await seed(`users/${UID}`, plan("basic"));
-    await seed(`users/${UID}/usage/${today()}`, {income: 29, lastTxId: "x"});
-    await assertSucceeds(addCounted(db(), "in-30", "income"));
-    await assertFails(addCounted(db(), "in-31", "income"));
-  });
+  async function allowsUpTo(planName, limit) {
+    await seed(`users/${UID}`, plan(planName));
+    await seed(`users/${UID}/usage/${today()}`, {
+      income: limit - 1 - 5, expense: 5, lastTxId: "x",
+    });
+    await assertSucceeds(addCounted(db(), "last", "income"));
+    await assertFails(addCounted(db(), "over", "expense"));
+  }
 
-  test("Standard allows 60 a day", async () => {
-    await seed(`users/${UID}`, plan("standard"));
-    await seed(`users/${UID}/usage/${today()}`, {expense: 59, lastTxId: "x"});
-    await assertSucceeds(addCounted(db(), "ex-60", "expense"));
-    await assertFails(addCounted(db(), "ex-61", "expense"));
-  });
-
-  test("Premium allows 100 a day", async () => {
-    await seed(`users/${UID}`, plan("premium"));
-    await seed(`users/${UID}/usage/${today()}`, {income: 99, lastTxId: "x"});
-    await assertSucceeds(addCounted(db(), "in-100", "income"));
-    await assertFails(addCounted(db(), "in-101", "income"));
-  });
+  test("Basic allows 60 a day", () => allowsUpTo("basic", 60));
+  test("Standard allows 120 a day", () => allowsUpTo("standard", 120));
+  test("Premium allows 200 a day", () => allowsUpTo("premium", 200));
 
   test("a cancelled plan keeps its limit until the paid month ends", async () => {
     await seed(`users/${UID}`, plan("premium", {status: "canceled"}));
-    await seed(`users/${UID}/usage/${today()}`, {income: 7, lastTxId: "x"});
-    await assertSucceeds(addCounted(db(), "in-8", "income"));
+    await seed(`users/${UID}/usage/${today()}`, {income: 14, lastTxId: "x"});
+    await assertSucceeds(addCounted(db(), "in-15", "income"));
   });
 
   test("an expired plan falls back to the free limit", async () => {
     await seed(`users/${UID}`, plan("premium", {days: -1}));
-    await seed(`users/${UID}/usage/${today()}`, {income: 7, lastTxId: "x"});
-    await assertFails(addCounted(db(), "in-8", "income"));
+    await seed(`users/${UID}/usage/${today()}`, {income: 14, lastTxId: "x"});
+    await assertFails(addCounted(db(), "in-15", "income"));
   });
 
   test("a plan on hold falls back to the free limit", async () => {
     await seed(`users/${UID}`, plan("premium", {status: "on_hold"}));
-    await seed(`users/${UID}/usage/${today()}`, {income: 7, lastTxId: "x"});
-    await assertFails(addCounted(db(), "in-8", "income"));
+    await seed(`users/${UID}/usage/${today()}`, {expense: 14, lastTxId: "x"});
+    await assertFails(addCounted(db(), "ex-15", "expense"));
   });
 });
 
@@ -199,7 +197,7 @@ describe("the counter cannot be skipped or gamed", () => {
 
   test("counters cannot be lowered, reset or deleted", async () => {
     const path = `users/${UID}/usage/${today()}`;
-    await seed(path, {income: 7, lastTxId: "x"});
+    await seed(path, {income: 14, lastTxId: "x"});
     await assertFails(setDoc(doc(db(), path), {
       income: 0, lastTxId: "x", updatedAt: serverTimestamp(),
     }));
@@ -293,5 +291,77 @@ describe("plan fields are server-owned", () => {
     await assertFails(setDoc(doc(other, `users/${UID}/usage/${today()}`), {
       income: increment(1), lastTxId: "y", updatedAt: serverTimestamp(),
     }, {merge: true}));
+  });
+});
+
+describe("accounts and transfers", () => {
+  const account = (over = {}) => ({
+    name: "SBI savings", kind: "bank", openingBalance: 12000,
+    createdAt: Timestamp.now(), ...over,
+  });
+  const transfer = (over = {}) => ({
+    fromAccountId: "sbi", toAccountId: "cash",
+    fromAccountName: "SBI savings", toAccountName: "Cash in hand",
+    amount: 2000, date: Timestamp.now(), note: "ATM",
+    createdAt: Timestamp.now(), ...over,
+  });
+
+  test("an account, even overdrawn, can be added and renamed", async () => {
+    const ref = doc(db(), `users/${UID}/accounts/sbi`);
+    await assertSucceeds(setDoc(ref, account({openingBalance: -500})));
+    await assertSucceeds(updateDoc(ref, {name: "SBI salary"}));
+    await assertFails(updateDoc(ref, {createdAt: Timestamp.now()}));
+  });
+
+  test("account fields are checked, and no account numbers", async () => {
+    const ref = doc(db(), `users/${UID}/accounts/a`);
+    await assertFails(setDoc(ref, account({kind: "crypto"})));
+    await assertFails(setDoc(ref, account({name: " "})));
+    await assertFails(setDoc(ref, account({name: "SBI 123456789012"})));
+    await assertFails(setDoc(ref, account({ifsc: "SBIN0001"})));
+    await assertFails(setDoc(ref, account({openingBalance: "lots"})));
+  });
+
+  test("a transfer moves a positive amount between two accounts",
+    async () => {
+      const ref = doc(db(), `users/${UID}/transfers/x1`);
+      await assertSucceeds(setDoc(ref, transfer()));
+      await assertSucceeds(deleteDoc(ref));
+      await assertFails(setDoc(ref, transfer({amount: 0})));
+      await assertFails(setDoc(ref, transfer({toAccountId: "sbi"})));
+      await assertFails(setDoc(ref, transfer({type: "income"})));
+    });
+
+  test("other users cannot see or add them", async () => {
+    await seed(`users/${UID}/accounts/sbi`, account());
+    const other = env.authenticatedContext("mallory").firestore();
+    await assertFails(setDoc(
+      doc(other, `users/${UID}/transfers/x`), transfer()));
+    await assertFails(updateDoc(
+      doc(other, `users/${UID}/accounts/sbi`), {openingBalance: 1e9}));
+  });
+});
+
+describe("receipts", () => {
+  const photo = (size) => ({
+    image: Bytes.fromUint8Array(new Uint8Array(size)),
+    contentType: "image/jpeg",
+    createdAt: Timestamp.now(),
+  });
+
+  test("a photo up to 900 KB can be stored and removed", async () => {
+    const ref = doc(db(), `users/${UID}/receipts/t1`);
+    await assertSucceeds(setDoc(ref, photo(200 * 1024)));
+    await assertSucceeds(deleteDoc(ref));
+  });
+
+  test("too large, not bytes or someone else's is refused", async () => {
+    await assertFails(setDoc(doc(db(), `users/${UID}/receipts/t1`),
+      photo(950 * 1024)));
+    await assertFails(setDoc(doc(db(), `users/${UID}/receipts/t1`),
+      {...photo(10), image: "data:image/jpeg;base64,AAAA"}));
+    const other = env.authenticatedContext("mallory").firestore();
+    await assertFails(setDoc(doc(other, `users/${UID}/receipts/t1`),
+      photo(10)));
   });
 });

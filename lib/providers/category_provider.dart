@@ -4,6 +4,7 @@ import '../core/constants/app_constants.dart';
 import '../data/repositories/category_repository.dart';
 import '../models/category_model.dart';
 import 'auth_provider.dart';
+import 'sync_provider.dart';
 
 final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {
   return CategoryRepository();
@@ -58,15 +59,34 @@ class CategoryActionsNotifier extends Notifier<AsyncValue<void>> {
     return result.isSuccess;
   }
 
-  Future<bool> removeCategory(CategoryModel category, {required bool hasTransactions}) async {
-    if (_uid == null) return false;
-    final result = await _repo.deleteOrArchiveCategory(
-      _uid!,
-      category,
-      hasTransactions: hasTransactions,
-    );
-    return result.isSuccess;
+  /// Deletes [category]. Its transactions move to the type's "Other"
+  /// category first, so no entry is left pointing at nothing. Returns how
+  /// many moved, or null if it failed.
+  Future<int?> removeCategory(CategoryModel category) async {
+    if (_uid == null || isFallback(category)) return null;
+    final transactions = ref.read(offlineTransactionRepositoryProvider);
+    final using = transactions
+        .currentTransactions()
+        .where((t) => t.categoryId == category.id)
+        .toList();
+    if (using.isNotEmpty) {
+      final other = await _repo.findOrCreateFallback(_uid!, category.type);
+      final fallback = other.when(success: (c) => c, failure: (_) => null);
+      if (fallback == null) return null;
+      for (final t in using) {
+        await transactions.updateTransaction(
+          t.copyWith(categoryId: fallback.id, categoryName: fallback.name),
+        );
+      }
+    }
+    final result = await _repo.deleteCategory(_uid!, category.id);
+    return result.isSuccess ? using.length : null;
   }
+
+  /// "Other" is where removed categories' entries go, so it stays.
+  static bool isFallback(CategoryModel c) =>
+      c.name == CategoryRepository.fallbackName;
+
 }
 
 final categoryActionsProvider =

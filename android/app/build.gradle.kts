@@ -36,6 +36,13 @@ android {
         testInstrumentationRunner = "pl.leancode.patrol.PatrolJUnitRunner"
     }
 
+    // Debug builds with the Patrol test runner are ~250 MB; the default
+    // install timeout is too short for an emulator, and the run then fails
+    // with "Failed to install-write all apks" and "Total: 0".
+    installation {
+        timeOutInMs = 10 * 60 * 1000
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.

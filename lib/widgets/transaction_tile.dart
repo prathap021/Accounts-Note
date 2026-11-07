@@ -25,6 +25,9 @@ class TransactionTile extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
 
+  /// Swipe right to edit.
+  final VoidCallback? onEdit;
+
   /// Grouped lists already print the day above the row, so they turn the date
   /// off and the meta line shows just the time.
   final bool showDate;
@@ -37,6 +40,7 @@ class TransactionTile extends StatelessWidget {
     this.creditCard,
     this.onTap,
     this.onDelete,
+    this.onEdit,
     this.showDate = true,
   });
 
@@ -48,12 +52,15 @@ class TransactionTile extends StatelessWidget {
     final payment = creditCard?.displayName ??
         transaction.creditCardName ??
         transaction.paymentMethod;
+    final account = transaction.isOnCard ? null : transaction.accountName;
     final parts = <String>[
       if (showDate)
         DateFormat('MMM d, yyyy · h:mm a').format(transaction.date)
       else
         DateFormat('h:mm a').format(transaction.date),
       if (payment != null && payment.isNotEmpty) payment,
+      if (account != null && account.isNotEmpty) account,
+      if (transaction.hasReceipt) 'Receipt',
     ];
     return parts.join('  ·  ');
   }
@@ -66,7 +73,7 @@ class TransactionTile extends StatelessWidget {
         content: Text(
           '${transaction.categoryName} · '
           '${CurrencyFormatter.format(transaction.amount, currencyCode: currency)}'
-          '\n\nThis cannot be undone.',
+          '\n\nYou can undo this for a few seconds afterwards.',
         ),
         actions: [
           TextButton(
@@ -98,9 +105,37 @@ class TransactionTile extends StatelessWidget {
 
     return Dismissible(
       key: ValueKey(transaction.id),
-      direction:
-          onDelete == null ? DismissDirection.none : DismissDirection.endToStart,
+      direction: switch ((onEdit != null, onDelete != null)) {
+        (true, true) => DismissDirection.horizontal,
+        (false, true) => DismissDirection.endToStart,
+        (true, false) => DismissDirection.startToEnd,
+        _ => DismissDirection.none,
+      },
+      // Swipe right: edit.
       background: Container(
+        alignment: Alignment.centerLeft,
+        margin: const EdgeInsets.symmetric(vertical: 2),
+        padding: const EdgeInsets.only(left: AppSpacing.xl),
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer,
+          borderRadius: BorderRadius.circular(AppRadii.card),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.edit_outlined, color: scheme.onPrimaryContainer),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              'Edit',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: scheme.onPrimaryContainer,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+      // Swipe left: delete.
+      secondaryBackground: Container(
         alignment: Alignment.centerRight,
         margin: const EdgeInsets.symmetric(vertical: 2),
         padding: const EdgeInsets.only(right: AppSpacing.xl),
@@ -124,7 +159,13 @@ class TransactionTile extends StatelessWidget {
         ),
       ),
       // Swiping is easy to do by accident on a ledger — always ask first.
-      confirmDismiss: (_) => _confirmDelete(context),
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          onEdit?.call();
+          return false; // The row stays; the editor opens.
+        }
+        return _confirmDelete(context);
+      },
       onDismissed: (_) => onDelete?.call(),
       child: Material(
         color: Colors.transparent,

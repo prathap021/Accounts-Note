@@ -89,16 +89,26 @@ genhtml coverage/lcov.info -o coverage/html   # needs lcov installed
 | `unit/state/sync_state_test.dart` | The Synced / Syncing / Pending / Failed labels |
 | `unit/email_verification_test.dart` | Who is gated behind verification — email/password yes, Google and Apple never |
 | `unit/password_reset_test.dart` | Reset failure wording, including the unregistered-address case |
-| `unit/delete_account_test.dart` | Account deletion for email accounts, and that cloud data goes first |
 | `widget/transaction_tile_test.dart` | Activity row content, amount sign and colour, category icon, card name, swipe-to-delete confirmation |
 | `widget/credit_card_filter_test.dart` | Activity filtered by card: the live total in the filter sheet, the applied total, net with refunds, whole-day date ranges |
 | `widget/credit_card_form_test.dart` | The add/edit card form: what it saves and hands back, digits-only last 4, refusing a card number |
 | `widget/sync_status_chip_test.dart` | Sync chip and failure banner states |
 | `widget/verify_email_screen_test.dart` | Email-verification gate: address shown, resend cooldown, silent re-check on resume vs. reporting on manual check |
 | `widget/forgot_password_sheet_test.dart` | Password reset: validation, carried-over email, confirmation |
+| `unit/currencies_test.dart` | Every Play currency listed once and formattable, country → currency, the country default for new installs only, and plan prices in rupees or dollars |
+| `unit/review_and_update_test.dart` | When an update is blocking or background, the 3-day pause after "no", restart only on request, no Play → unavailable; and when the rating prompt appears |
+| `widget/currency_setup_test.dart` | First-run currency: from the location when allowed, the region's otherwise, and "Not now" never asks for location |
+| `unit/data/subscription_repository_test.dart` | Which verification failures are final: a function that is not deployed is always retried, so a purchase is never kept without its plan |
+| `widget/backup_flow_test.dart` | Back up now (share sheet, unsynced-entries warning) and Import a backup (preview, currency switch, refused files, cancel) |
+| `widget/report_period_test.dart` | Reports for any period: the Custom option, cancelling the calendar, a past period with both end days in full, an empty period, and the export format sheet |
+| `unit/report_export_test.dart` | Report files: the period's entries and totals, CSV rows, the Excel summary and transactions sheets, a valid PDF, text the PDF fonts cannot draw |
+| `unit/state/first_sync_test.dart` | When the dashboard shimmers: while the box opens and on a first sign-in until the first sync, but never over data already on the device |
 | `widget/subscription_screen_test.dart` | The plan screen: three plans with prices and limits, status and today's use, subscribe/upgrade labels, no-store notice, restore; and the limit-reached sheet |
+| `unit/app_lock_test.dart` | PIN stored only as a salted hash, every launch locks, 5 wrong tries → 30 s wait, relock after 30 s away, fingerprint must work before it is turned on, Forgot PIN dialog above the router |
+| `unit/accounts_test.dart` | Account balances from opening balance, entries and transfers (card charges, deleted entries and closed accounts left out); accounts and transfers through Firestore; the account fields on a transaction |
+| `unit/report_insights_test.dart` | Spending and income by category (adding up to the totals), the trend by day, week or month with empty slices kept, and the Day period |
+| `unit/csv_import_test.dart` | Reading CSV files: this app's export, bank statements with title lines and Debit/Credit columns, signed amounts, Cr/Dr, date and amount formats, and files refused with a reason |
 | `support/fake_subscriptions.dart` | A fake app store and purchase verifier, shared with the Patrol suite |
-| `widget/delete_progress_test.dart` | Account-deletion progress: step sequencing, optional backup step, non-dismissible |
 | `widget/responsive_test.dart` | Proportional sizing, and the fallback when ScreenUtil is not initialised |
 | `widget/theme_scaling_test.dart` | Theme builds and type actually scales at non-1.0 factors |
 | `widget/ui_smoke_test.dart` | Shared design-system widgets render in light and dark, including buttons under unbounded width |

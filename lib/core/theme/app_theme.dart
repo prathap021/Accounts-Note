@@ -992,7 +992,7 @@ class _SkeletonBoxState extends State<SkeletonBox>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1300),
+    duration: const Duration(milliseconds: 1100),
   )..repeat();
 
   @override
@@ -1004,25 +1004,36 @@ class _SkeletonBoxState extends State<SkeletonBox>
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final base = scheme.surfaceContainerHigh;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    // Tinted from the text colour, so the placeholder stands out from both
+    // the canvas and the cards it sits on, and the sweep is plainly visible.
+    final base = Color.alphaBlend(
+      scheme.onSurface.withValues(alpha: dark ? 0.10 : 0.11),
+      scheme.surface,
+    );
     final highlight = Color.alphaBlend(
-      scheme.surface.withValues(alpha: 0.6),
-      scheme.surfaceContainerHighest,
+      dark
+          ? scheme.onSurface.withValues(alpha: 0.22)
+          : Colors.white.withValues(alpha: 0.85),
+      base,
     );
 
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
-        final t = _controller.value * 2 - 1;
+        // A narrow bright band sweeping left to right, fully off both edges
+        // between passes.
+        final t = _controller.value * 3 - 1.5;
         return Container(
           width: widget.width,
           height: widget.height,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(widget.radius),
             gradient: LinearGradient(
-              begin: Alignment(t - 1, 0),
-              end: Alignment(t + 1, 0),
-              colors: [base, highlight, base],
+              begin: Alignment(t - 1, -0.3),
+              end: Alignment(t + 1, 0.3),
+              colors: [base, base, highlight, base, base],
+              stops: const [0, 0.35, 0.5, 0.65, 1],
             ),
           ),
         );

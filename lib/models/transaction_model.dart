@@ -21,6 +21,17 @@ class TransactionModel extends Equatable {
   /// The card's display name at the time — denormalized like [categoryName],
   /// so history still reads correctly after the card is renamed or deleted.
   final String? creditCardName;
+
+  /// The cash, bank, UPI or wallet account this moved money in or out of,
+  /// when the user keeps accounts. Null for card charges and for entries not
+  /// put against an account.
+  final String? accountId;
+
+  /// The account's name at the time, denormalized like [categoryName].
+  final String? accountName;
+
+  /// A photo of the receipt is stored (users/{uid}/receipts/{id}).
+  final bool hasReceipt;
   final bool isRecurring;
   final String? recurringId; // link back to the recurring template, if any
   final DateTime createdAt;
@@ -54,6 +65,9 @@ class TransactionModel extends Equatable {
     this.paymentMethod,
     this.creditCardId,
     this.creditCardName,
+    this.accountId,
+    this.accountName,
+    this.hasReceipt = false,
     this.isRecurring = false,
     this.recurringId,
     required this.createdAt,
@@ -102,6 +116,10 @@ class TransactionModel extends Equatable {
     String? paymentMethod,
     String? creditCardId,
     String? creditCardName,
+    String? accountId,
+    String? accountName,
+    bool clearAccount = false,
+    bool? hasReceipt,
     bool? isRecurring,
     String? recurringId,
     DateTime? createdAt,
@@ -124,6 +142,9 @@ class TransactionModel extends Equatable {
       paymentMethod: paymentMethod ?? this.paymentMethod,
       creditCardId: creditCardId ?? this.creditCardId,
       creditCardName: creditCardName ?? this.creditCardName,
+      accountId: clearAccount ? null : (accountId ?? this.accountId),
+      accountName: clearAccount ? null : (accountName ?? this.accountName),
+      hasReceipt: hasReceipt ?? this.hasReceipt,
       isRecurring: isRecurring ?? this.isRecurring,
       recurringId: recurringId ?? this.recurringId,
       createdAt: createdAt ?? this.createdAt,
@@ -151,6 +172,9 @@ class TransactionModel extends Equatable {
       // out would keep a card on an entry the user moved back to cash.
       'creditCardId': creditCardId,
       'creditCardName': creditCardName,
+      'accountId': accountId,
+      'accountName': accountName,
+      'hasReceipt': hasReceipt,
       'isRecurring': isRecurring,
       'recurringId': recurringId,
       'createdAt': Timestamp.fromDate(createdAt),
@@ -174,6 +198,9 @@ class TransactionModel extends Equatable {
       'paymentMethod': paymentMethod,
       'creditCardId': creditCardId,
       'creditCardName': creditCardName,
+      'accountId': accountId,
+      'accountName': accountName,
+      'hasReceipt': hasReceipt,
       'isRecurring': isRecurring,
       'recurringId': recurringId,
       'createdAt': createdAt.millisecondsSinceEpoch,
@@ -205,6 +232,9 @@ class TransactionModel extends Equatable {
       paymentMethod: map['paymentMethod'] as String?,
       creditCardId: map['creditCardId'] as String?,
       creditCardName: map['creditCardName'] as String?,
+      accountId: map['accountId'] as String?,
+      accountName: map['accountName'] as String?,
+      hasReceipt: map['hasReceipt'] as bool? ?? false,
       isRecurring: map['isRecurring'] as bool? ?? false,
       recurringId: map['recurringId'] as String?,
       createdAt: dateFrom(map['createdAt']),
@@ -234,6 +264,9 @@ class TransactionModel extends Equatable {
       paymentMethod: data['paymentMethod'] as String?,
       creditCardId: data['creditCardId'] as String?,
       creditCardName: data['creditCardName'] as String?,
+      accountId: data['accountId'] as String?,
+      accountName: data['accountName'] as String?,
+      hasReceipt: data['hasReceipt'] as bool? ?? false,
       isRecurring: data['isRecurring'] as bool? ?? false,
       recurringId: data['recurringId'] as String?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -257,6 +290,9 @@ class TransactionModel extends Equatable {
         paymentMethod,
         creditCardId,
         creditCardName,
+        accountId,
+        accountName,
+        hasReceipt,
         isRecurring,
         recurringId,
         createdAt,

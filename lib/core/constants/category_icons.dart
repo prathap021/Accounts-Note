@@ -19,6 +19,10 @@ const kCategoryIcons = <String, IconData>{
   'pets': Icons.pets_rounded,
   'sports_esports': Icons.sports_esports_rounded,
   'home': Icons.home_rounded,
+  'laptop': Icons.laptop_mac_rounded,
+  'card_giftcard': Icons.card_giftcard_rounded,
+  'savings': Icons.savings_rounded,
+  'swap_horiz': Icons.swap_horiz_rounded,
 };
 
 IconData iconFor(String name) => kCategoryIcons[name] ?? Icons.category_rounded;

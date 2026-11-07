@@ -48,6 +48,49 @@ service cloud.firestore {
         && card.createdAt is timestamp;
     }
 
+    // A place the user keeps money (users/{uid}/accounts/{accountId}):
+    //   name           string, required, 1-100 characters
+    //   kind           'cash' | 'bank' | 'upi' | 'wallet'
+    //   openingBalance number, required; may be negative (overdrawn)
+    //   createdAt      timestamp, required, never changes
+    // Closed schema, and no account numbers: a long digit run is refused
+    // in the name, as for cards.
+    function isValidAccount(a) {
+      return a.keys().hasAll(['name', 'kind', 'openingBalance', 'createdAt'])
+        && a.keys().hasOnly(['name', 'kind', 'openingBalance', 'createdAt'])
+        && a.name is string
+        && a.name.trim().size() > 0
+        && a.name.size() <= 100
+        && !a.name.replace('[ -]', '').matches('.*[0-9]{9,}.*')
+        && a.kind in ['cash', 'bank', 'upi', 'wallet']
+        && a.openingBalance is number
+        && a.openingBalance > -1000000000000
+        && a.openingBalance < 1000000000000
+        && a.createdAt is timestamp;
+    }
+
+    // Money moved between two of the user's accounts
+    // (users/{uid}/transfers/{transferId}). Neither income nor expense, so
+    // it has no daily counter.
+    function isValidTransfer(x) {
+      return x.keys().hasAll(['fromAccountId', 'toAccountId', 'fromAccountName',
+          'toAccountName', 'amount', 'date', 'createdAt'])
+        && x.keys().hasOnly(['fromAccountId', 'toAccountId', 'fromAccountName',
+          'toAccountName', 'amount', 'date', 'note', 'createdAt'])
+        && x.fromAccountId is string
+        && x.toAccountId is string
+        && x.fromAccountId != x.toAccountId
+        && x.fromAccountName is string && x.fromAccountName.size() <= 100
+        && x.toAccountName is string && x.toAccountName.size() <= 100
+        && x.amount is number
+        && x.amount > 0
+        && x.amount < 1000000000000
+        && x.date is timestamp
+        && (x.get('note', null) == null
+            || (x.note is string && x.note.size() <= 500))
+        && x.createdAt is timestamp;
+    }
+
     // ---- Subscriptions and daily limits -----------------------------------
     //
     // Plan fields on users/{uid}. Written only by Cloud Functions
@@ -71,8 +114,8 @@ service cloud.firestore {
         .hasAny(subscriptionFields());
     }
 
-    // New entries allowed per day, per type (income and expense each), for
-    // the user's plan. A plan counts while it is active, in a payment grace
+    // New entries allowed per day for the user's plan: one allowance for
+    // income and expense together, in any mix. A plan counts while it is active, in a payment grace
     // period, or cancelled but not yet at the end of its paid month.
     // Must match SubscriptionPlan in lib/models/subscription_plan.dart.
     function dailyLimit(uid) {
@@ -82,7 +125,7 @@ service cloud.firestore {
         && expires is timestamp
         && expires > request.time;
       let plan = live ? user.get('subscriptionPlan', 'free') : 'free';
-      return {'free': 7, 'basic': 30, 'standard': 60, 'premium': 100}.get(plan, 7);
+      return {'free': 14, 'basic': 60, 'standard': 120, 'premium': 200}.get(plan, 14);
     }
 
     function pad2(n) {
@@ -114,14 +157,15 @@ service cloud.firestore {
 
     // The same write must move users/{uid}/usage/{day} up by exactly one for
     // this entry's type, name this entry as lastTxId (so one bump cannot
-    // cover two entries), and stay within the plan's daily limit.
+    // cover two entries), and keep the day's total (income + expense) within
+    // the plan's daily limit.
     function bumpsUsageFor(uid, txId, tx, day) {
       let path = /databases/$(database)/documents/users/$(uid)/usage/$(day);
       let before = exists(path) ? get(path).data : {};
       let after = getAfter(path).data;
       return after.lastTxId == txId
         && after.get(tx.type, 0) == before.get(tx.type, 0) + 1
-        && after.get(tx.type, 0) <= dailyLimit(uid);
+        && after.get('income', 0) + after.get('expense', 0) <= dailyLimit(uid);
     }
 
     function isCountedNewEntry(uid, txId) {
@@ -171,7 +215,7 @@ service cloud.firestore {
         allow update: if isOwner(uid)
           && isUsageBump(request.resource.data, resource.data, day);
         // Never from the app: deleting a counter would hand the day's
-        // allowance back. Account deletion runs with the Admin SDK.
+        // allowance back.
         allow delete: if false;
       }
 
@@ -189,6 +233,31 @@ service cloud.firestore {
         allow update: if isOwner(uid)
           && isValidCreditCard(request.resource.data)
           && request.resource.data.createdAt == resource.data.createdAt;
+      }
+
+      match /accounts/{accountId} {
+        allow read, delete: if isOwner(uid);
+        allow create: if isOwner(uid) && isValidAccount(request.resource.data);
+        allow update: if isOwner(uid)
+          && isValidAccount(request.resource.data)
+          && request.resource.data.createdAt == resource.data.createdAt;
+      }
+
+      match /transfers/{transferId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+          && isValidTransfer(request.resource.data);
+      }
+
+      // A receipt photo for one transaction: users/{uid}/receipts/{txId}.
+      // Bytes only, under the 1 MB document limit with room to spare.
+      match /receipts/{txId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+          && request.resource.data.keys().hasOnly(['image', 'contentType', 'createdAt'])
+          && request.resource.data.image is bytes
+          && request.resource.data.image.size() <= 921600
+          && request.resource.data.contentType in ['image/jpeg', 'image/png'];
       }
 
       match /recurringTransactions/{recId} {

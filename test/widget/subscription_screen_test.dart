@@ -54,6 +54,7 @@ void main() {
       ProviderScope(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(prefs),
+          deviceCountryProvider.overrideWithValue('US'),
           currentUidProvider.overrideWithValue(uid),
           profileRepositoryProvider.overrideWithValue(
             ProfileRepository(firestore: firestore),
@@ -84,18 +85,18 @@ void main() {
     await pumpScreen(tester);
 
     for (final (plan, price, limit) in [
-      (SubscriptionPlan.basic, '₹99.00', 30),
-      (SubscriptionPlan.standard, '₹199.00', 60),
-      (SubscriptionPlan.premium, '₹299.00', 100),
+      (SubscriptionPlan.basic, '\$1.00', '1,800'),
+      (SubscriptionPlan.standard, '\$2.00', '3,600'),
+      (SubscriptionPlan.premium, '\$3.00', '6,000'),
     ]) {
       expect(inPlan(plan, find.text(plan.title)), findsOneWidget);
       expect(inPlan(plan, find.text(price)), findsOneWidget);
       expect(
-        inPlan(plan, find.text('$limit income entries a day')),
+        inPlan(plan, find.text('$limit transactions a month')),
         findsOneWidget,
       );
       expect(
-        inPlan(plan, find.text('$limit expense entries a day')),
+        inPlan(plan, find.text('Income or expense, in any mix')),
         findsOneWidget,
       );
       expect(inPlan(plan, find.text('Subscribe')), findsOneWidget);
@@ -103,7 +104,7 @@ void main() {
     expect(find.text('Restore purchases'), findsOneWidget);
   });
 
-  testWidgets("shows the free plan and today's usage of each type", (
+  testWidgets("shows the free plan and today's use of the shared allowance", (
     tester,
   ) async {
     await firestore.doc(FirestorePaths.usageDay(uid, todayKey())).set({
@@ -115,8 +116,8 @@ void main() {
 
     expect(find.text('Free'), findsOneWidget);
     expect(find.text('No subscription'), findsOneWidget);
-    expect(find.text('3 of 7'), findsOneWidget);
-    expect(find.text('7 of 7'), findsOneWidget);
+    expect(find.text('10 of 14'), findsOneWidget);
+    expect(find.text('3 income · 7 expense'), findsOneWidget);
   });
 
   testWidgets('subscribing switches the screen to the new plan', (
@@ -141,9 +142,43 @@ void main() {
       inPlan(SubscriptionPlan.basic, find.text('Switch to Basic')),
       findsOneWidget,
     );
-    expect(find.text('0 of 60'), findsNWidgets(2));
+    expect(find.text('0 of 120'), findsOneWidget);
     expect(find.text("You're on Standard. Thank you!"), findsOneWidget);
     expect(find.text('Manage or cancel'), findsOneWidget);
+  });
+
+  testWidgets('the yearly toggle shows yearly prices and the saving', (
+    tester,
+  ) async {
+    await pumpScreen(tester);
+    await tester.tap(find.textContaining('Yearly · save'));
+    await tester.pumpAndSettle();
+
+    for (final (plan, price) in [
+      (SubscriptionPlan.basic, '\$11.00'),
+      (SubscriptionPlan.standard, '\$23.00'),
+      (SubscriptionPlan.premium, '\$35.00'),
+    ]) {
+      expect(inPlan(plan, find.text(price)), findsOneWidget);
+      expect(inPlan(plan, find.text(' / year')), findsOneWidget);
+      expect(inPlan(plan, find.text('Save \$1.00 a year')), findsOneWidget);
+    }
+
+    await tester.tap(inPlan(SubscriptionPlan.basic, find.text('Subscribe')));
+    await tester.pumpAndSettle();
+    expect(store.bought, ['accounts_note_basic_yearly']);
+    expect(
+      inPlan(SubscriptionPlan.basic, find.text('Current plan')),
+      findsOneWidget,
+    );
+
+    // The same plan, monthly, is now a switch rather than a new purchase.
+    await tester.tap(find.text('Monthly'));
+    await tester.pumpAndSettle();
+    expect(
+      inPlan(SubscriptionPlan.basic, find.text('Switch to monthly')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('a cancelled plan shows when access ends', (tester) async {
@@ -171,7 +206,22 @@ void main() {
       findsOneWidget,
     );
     // List prices still shown, so the plans can be compared.
+    expect(inPlan(SubscriptionPlan.basic, find.text('\$1')), findsOneWidget);
+  });
+
+  testWidgets('an INR user sees rupee list prices until the store answers', (
+    tester,
+  ) async {
+    store.available = false;
+    await prefs.setString('app_currency', 'INR');
+    await pumpScreen(tester);
+
     expect(inPlan(SubscriptionPlan.basic, find.text('₹99')), findsOneWidget);
+    expect(
+      inPlan(SubscriptionPlan.standard, find.text('₹199')),
+      findsOneWidget,
+    );
+    expect(inPlan(SubscriptionPlan.premium, find.text('₹299')), findsOneWidget);
   });
 
   testWidgets('restore reports what it found', (tester) async {
@@ -223,15 +273,15 @@ void main() {
         DailyLimitReached(
           type: TransactionType.expense,
           plan: SubscriptionPlan.free,
-          limit: 7,
+          limit: 14,
         ),
       );
 
-      expect(find.text('Daily expense limit reached'), findsOneWidget);
+      expect(find.text('Daily limit reached'), findsOneWidget);
       expect(
         find.textContaining(
-          "You've added 7 of 7 expense entries today on "
-          'the Free plan. Upgrade for up to 100 a day',
+          "You've added 14 of 14 entries today (income and expense "
+          'together) on the Free plan. Upgrade for up to 200 a day',
         ),
         findsOneWidget,
       );
@@ -248,11 +298,11 @@ void main() {
         DailyLimitReached(
           type: TransactionType.income,
           plan: SubscriptionPlan.premium,
-          limit: 100,
+          limit: 200,
         ),
       );
 
-      expect(find.text('Daily income limit reached'), findsOneWidget);
+      expect(find.text('Daily limit reached'), findsOneWidget);
       expect(find.text('See plans'), findsNothing);
       expect(find.textContaining('You can add more tomorrow'), findsOneWidget);
     });

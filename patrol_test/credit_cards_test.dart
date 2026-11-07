@@ -8,7 +8,10 @@ import 'support/test_app.dart';
 
 Future<void> _openCards(PatrolIntegrationTester $) async {
   await $.openSettings();
-  await $('Credit cards').tap();
+  // Below Accounts, so it may need a scroll on a small screen.
+  final tile = $('Credit cards');
+  await $.reveal(tile, scrollIn: find.byType(Scrollable).first);
+  await tile.tap();
   await $(AppBar).$('Credit cards').waitUntilVisible();
 }
 

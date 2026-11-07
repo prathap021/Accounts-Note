@@ -20,6 +20,7 @@ import 'core/services/avatar_cache.dart';
 import 'core/sync/background_sync.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/responsive.dart';
+import 'features/lock/lock_screen.dart';
 import 'firebase_options.dart';
 
 void _configEasyLoading() {
@@ -145,7 +146,11 @@ class IncomeExpenseTrackerApp extends ConsumerWidget {
         darkTheme: AppTheme.dark(),
         themeMode: settings.themeMode,
         routerConfig: router,
-        builder: EasyLoading.init(),
+        // The app lock sits over every screen; EasyLoading over that.
+        builder: (context, child) => EasyLoading.init()(
+          context,
+          AppLockGate(child: child ?? const SizedBox.shrink()),
+        ),
       ),
     );
   }

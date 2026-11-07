@@ -6,6 +6,8 @@ class FirestoreCollections {
   static const categories = 'categories';
   static const budgets = 'budgets';
   static const creditCards = 'creditCards';
+  static const accounts = 'accounts';
+  static const transfers = 'transfers';
   static const recurringTransactions = 'recurringTransactions';
   static const settings = 'settings';
   static const notifications = 'notifications';
@@ -43,6 +45,10 @@ class FirestorePaths {
   static String creditCards(String uid) =>
       '${user(uid)}/${FirestoreCollections.creditCards}';
 
+  static String accounts(String uid) =>
+      '${user(uid)}/${FirestoreCollections.accounts}';
+  static String transfers(String uid) =>
+      '${user(uid)}/${FirestoreCollections.transfers}';
   static String recurring(String uid) =>
       '${user(uid)}/${FirestoreCollections.recurringTransactions}';
 
@@ -73,8 +79,17 @@ class AppLinks {
   static const githubRepo = 'https://github.com/prathap021/Accounts-Note';
   static const license = 'MIT';
 
+  /// PRIVACY.md in the repository. Also the URL to give in Play Console and
+  /// App Store Connect.
+  static const privacyPolicy = '$githubRepo/blob/master/PRIVACY.md';
+
   /// Must match `applicationId` in android/app/build.gradle.kts.
   static const androidPackage = 'com.example.income_expense_tracker';
+
+  /// The app's numeric Apple ID (App Store Connect → App Information), used
+  /// to open the App Store page for "Rate Accounts Note" on iOS. Until it is
+  /// set, the item is hidden on iOS; Android needs nothing.
+  static const String? appStoreId = null;
 
   /// Where the user cancels or changes a subscription. Neither store lets an
   /// app cancel on the user's behalf, so the plan screen links here.
@@ -94,6 +109,7 @@ const List<Map<String, dynamic>> kDefaultExpenseCategories = [
   {'name': 'Transport', 'icon': 'directions_car', 'color': 0xFF1E88E5},
   {'name': 'Shopping', 'icon': 'shopping_bag', 'color': 0xFFD81B60},
   {'name': 'Bills', 'icon': 'receipt_long', 'color': 0xFF6D4C41},
+  {'name': 'Rent', 'icon': 'home', 'color': 0xFF5D4037},
   {'name': 'Entertainment', 'icon': 'movie', 'color': 0xFF8E24AA},
   {'name': 'Health', 'icon': 'local_hospital', 'color': 0xFFE53935},
   {'name': 'Education', 'icon': 'school', 'color': 0xFF3949AB},
@@ -103,6 +119,8 @@ const List<Map<String, dynamic>> kDefaultExpenseCategories = [
 const List<Map<String, dynamic>> kDefaultIncomeCategories = [
   {'name': 'Salary', 'icon': 'work', 'color': 0xFF2E7D32},
   {'name': 'Business', 'icon': 'store', 'color': 0xFF00897B},
+  {'name': 'Freelance', 'icon': 'laptop', 'color': 0xFF0288D1},
+  {'name': 'Gift', 'icon': 'card_giftcard', 'color': 0xFFC2185B},
   {'name': 'Investment', 'icon': 'trending_up', 'color': 0xFF43A047},
   {'name': 'Other', 'icon': 'category', 'color': 0xFF757575},
 ];

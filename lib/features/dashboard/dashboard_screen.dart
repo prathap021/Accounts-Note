@@ -12,11 +12,14 @@ import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/greeting.dart';
 import '../../data/repositories/transaction_repository.dart';
 import '../../models/transaction_model.dart';
+import '../../features/accounts/accounts_screen.dart';
+import '../../providers/account_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/credit_card_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/sync_provider.dart';
+import '../../providers/period_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/transaction_provider.dart';
@@ -25,8 +28,6 @@ import '../../widgets/credit_card_usage.dart';
 import '../../widgets/summary_card.dart';
 import '../../widgets/transaction_tile.dart';
 
-import 'dart:io';
-import 'package:in_app_update/in_app_update.dart';
 
 /// One wedge of the dashboard donut.
 typedef ExpenseSlice = ({String label, double amount, Color color});
@@ -96,29 +97,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  @override
-  void initState() {
-    super.initState();
-    if (Platform.isAndroid) {
-      _checkForUpdate();
-    }
-  }
-
-  Future<void> _checkForUpdate() async {
-    try {
-      final info = await InAppUpdate.checkForUpdate();
-      if (info.updateAvailability == UpdateAvailability.updateAvailable) {
-        if (info.immediateUpdateAllowed) {
-          await InAppUpdate.performImmediateUpdate();
-        } else if (info.flexibleUpdateAllowed) {
-          await InAppUpdate.startFlexibleUpdate();
-          await InAppUpdate.completeFlexibleUpdate();
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -126,6 +104,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final summary = ref.watch(dashboardSummaryProvider);
     final storeReady = ref.watch(localStoreReadyProvider);
     final recentAsync = ref.watch(allTransactionsStreamProvider);
+    // A first sign-in on this phone: nothing local yet, and the user's
+    // history is still downloading. Shimmer rather than an empty dashboard.
+    final awaitingCloud = ref.watch(awaitingFirstCloudDataProvider);
     final user = ref.watch(authStateProvider).asData?.value;
     final profile = ref.watch(userProfileProvider).asData?.value;
     final name = resolveDisplayName(
@@ -172,20 +153,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  // Skeleton only while the local box opens (milliseconds);
-                  // after that the summary is computed from Hive, so it is
-                  // correct with or without a network.
+                  // Skeleton while the local box opens (milliseconds), and on
+                  // a first sign-in until the cloud has been pulled down.
+                  // With data on the device the summary is computed from
+                  // Hive at once, with or without a network.
+                  if (awaitingCloud)
+                    const DashboardSummarySkeleton()
+                  else
                   storeReady.when(
                     data: (_) => _SummarySection(
                       summary: summary,
                       currency: settings.currency,
                     ),
-                    loading: () => const _SummarySkeleton(),
+                    loading: () => const DashboardSummarySkeleton(),
                     error: (e, _) => AppErrorState(
                       message: "We couldn't open your local ledger.",
                       onRetry: () => ref.invalidate(localStoreReadyProvider),
                     ),
                   ),
+                  const _AccountsSection(),
                   const _CreditCardSection(),
                   const SizedBox(height: AppSpacing.xxl),
                   SectionHeader(
@@ -195,6 +181,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     onAction: () => context.go('/transactions'),
                   ),
                   const SizedBox(height: AppSpacing.md),
+                  if (awaitingCloud)
+                    const _ListSkeleton()
+                  else
                   recentAsync.when(
                     data: (txs) {
                       final recent =
@@ -332,27 +321,37 @@ class _SummarySection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final monthLabel = DateFormat('MMMM yyyy').format(DateTime.now());
+    final month = ref.watch(dashboardMonthProvider);
+    final isCurrent = ref.watch(isDashboardOnCurrentMonthProvider);
+    final hidden = ref.watch(settingsProvider.select((s) => s.hideBalance));
+    const masked = '••••••';
+    String money(double v, {bool spaced = false}) => hidden
+        ? masked
+        : CurrencyFormatter.format(v, currencyCode: currency, spacedSymbol: spaced);
+    final periodCaption = isCurrent ? 'This month' : month.label;
 
     // Earlier months' leftover sits beside the income it adds to (or the
     // spending a shortfall adds to), so the cards still add up to the balance.
     final carried = summary.carriedForward;
     String carriedCaption(double amount) =>
-        '+ ${CurrencyFormatter.formatCompact(amount, currencyCode: currency)} carried over';
+        hidden
+            ? 'Includes carry-over'
+            : '+ ${CurrencyFormatter.formatCompact(amount, currencyCode: currency)} carried over';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const _MonthBar(),
+        const SizedBox(height: AppSpacing.sm),
         BalanceHeroCard(
-          label: 'Available balance',
-          periodLabel: monthLabel,
+          // A past month shows where the balance stood when it ended.
+          label: isCurrent ? 'Available balance' : 'Balance at month end',
+          periodLabel: month.label,
           isPositive: summary.balance >= 0,
-          amount: CurrencyFormatter.format(
-            summary.balance,
-            currencyCode: currency,
-            spacedSymbol: true,
-          ),
-          subtitle: CurrencyFormatter.supportsWords(currency)
+          amount: money(summary.balance, spaced: true),
+          subtitle: hidden
+              ? 'Hidden. Tap the eye to show amounts.'
+              : CurrencyFormatter.supportsWords(currency)
               ? CurrencyFormatter.inWords(summary.balance)
               : (summary.balance >= 0
                   ? 'Available to spend'
@@ -364,11 +363,8 @@ class _SummarySection extends ConsumerWidget {
             Expanded(
               child: SummaryCard(
                 label: 'Income',
-                value: CurrencyFormatter.format(
-                  summary.totalIncome,
-                  currencyCode: currency,
-                ),
-                caption: carried > 0 ? carriedCaption(carried) : 'This month',
+                value: money(summary.totalIncome),
+                caption: carried > 0 ? carriedCaption(carried) : periodCaption,
                 icon: Icons.south_west_rounded,
                 color: AppColors.income,
                 onTap: () =>
@@ -379,11 +375,8 @@ class _SummarySection extends ConsumerWidget {
             Expanded(
               child: SummaryCard(
                 label: 'Expenses',
-                value: CurrencyFormatter.format(
-                  summary.totalExpense,
-                  currencyCode: currency,
-                ),
-                caption: carried < 0 ? carriedCaption(-carried) : 'This month',
+                value: money(summary.totalExpense),
+                caption: carried < 0 ? carriedCaption(-carried) : periodCaption,
                 icon: Icons.north_east_rounded,
                 color: AppColors.expense,
                 onTap: () =>
@@ -413,6 +406,69 @@ class _SummarySection extends ConsumerWidget {
   }
 }
 
+/// ‹ November 2026 › with the hide-amounts eye. Steps back through past
+/// months; never forward past the current one.
+class _MonthBar extends ConsumerWidget {
+  const _MonthBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final month = ref.watch(dashboardMonthProvider);
+    final isCurrent = ref.watch(isDashboardOnCurrentMonthProvider);
+    final hidden = ref.watch(settingsProvider.select((s) => s.hideBalance));
+    final months = ref.read(dashboardMonthOverrideProvider.notifier);
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        IconButton(
+          tooltip: 'Previous month',
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.chevron_left_rounded),
+          onPressed: months.previous,
+        ),
+        Expanded(
+          child: GestureDetector(
+            onTap: isCurrent ? null : months.showCurrent,
+            child: Column(
+              children: [
+                Text(
+                  month.label,
+                  key: const Key('dashboard-month'),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleSmall,
+                ),
+                if (!isCurrent)
+                  Text(
+                    'Tap to go back to this month',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Next month',
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.chevron_right_rounded),
+          onPressed: isCurrent ? null : months.next,
+        ),
+        IconButton(
+          tooltip: hidden ? 'Show amounts' : 'Hide amounts',
+          visualDensity: VisualDensity.compact,
+          icon: Icon(
+            hidden ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+          ),
+          onPressed: () =>
+              ref.read(settingsProvider.notifier).setHideBalance(!hidden),
+        ),
+      ],
+    );
+  }
+}
+
 /// Credit cards and what has been charged to each this month.
 ///
 /// Separate from the cash cards above on purpose: a card swipe creates debt
@@ -423,6 +479,61 @@ class _SummarySection extends ConsumerWidget {
 /// Live by construction — both providers recompute from the local Hive
 /// ledger on every write, so a card expense lands here the moment it is
 /// saved, online or off.
+class _AccountsSection extends ConsumerWidget {
+  const _AccountsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final accounts = ref.watch(accountsStreamProvider).asData?.value ?? const [];
+    if (accounts.isEmpty) return const SizedBox.shrink();
+    final balances = ref.watch(accountBalancesProvider);
+    final currency = ref.watch(settingsProvider).currency;
+    final hidden = ref.watch(settingsProvider).hideBalance;
+    final total = accounts.fold<double>(
+      0,
+      (sum, a) => sum + (balances[a.id] ?? 0),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: AppSpacing.xxl),
+        SectionHeader(
+          title: 'Accounts',
+          subtitle: hidden
+              ? '•••••• in total'
+              : '${CurrencyFormatter.format(total, currencyCode: currency)} in total',
+          actionLabel: 'Manage',
+          onAction: () => context.push('/accounts'),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        AppCard(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+          child: Column(
+            children: [
+              for (var i = 0; i < accounts.length; i++) ...[
+                if (i > 0) const Divider(height: 1, indent: AppSpacing.md),
+                hidden
+                    ? ListTile(
+                        leading: Icon(accounts[i].kind.icon),
+                        title: Text(accounts[i].name),
+                        trailing: const Text('••••••'),
+                      )
+                    : AccountBalanceTile(
+                        account: accounts[i],
+                        balance: balances[accounts[i].id] ?? 0,
+                        currency: currency,
+                        onTap: () => context.push('/accounts'),
+                      ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _CreditCardSection extends ConsumerWidget {
   const _CreditCardSection();
 
@@ -613,20 +724,68 @@ class _ExpenseBreakdown extends StatelessWidget {
   }
 }
 
-class _SummarySkeleton extends StatelessWidget {
-  const _SummarySkeleton();
+/// The balance card and the income / expense cards while there is nothing
+/// to show yet, drawn in the shape of the real ones so the screen reads as
+/// "loading", not "empty".
+class DashboardSummarySkeleton extends StatelessWidget {
+  const DashboardSummarySkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    final scheme = Theme.of(context).colorScheme;
+
+    return Column(
+      key: const Key('dashboard-summary-skeleton'),
       children: [
-        SkeletonBox(height: 168, radius: AppRadii.hero),
-        SizedBox(height: AppSpacing.md),
+        // Available balance: label, the large amount, a caption.
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          decoration: BoxDecoration(
+            color: AppColors.brand.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(AppRadii.hero),
+            border: Border.all(color: AppColors.brand.withValues(alpha: 0.18)),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SkeletonBox(width: 130, height: 14, radius: 7),
+              SizedBox(height: AppSpacing.lg),
+              SkeletonBox(width: 220, height: 40, radius: 12),
+              SizedBox(height: AppSpacing.lg),
+              SkeletonBox(width: 160, height: 14, radius: 7),
+              SizedBox(height: AppSpacing.sm),
+              SkeletonBox(width: 110, height: 12, radius: 6),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
         Row(
           children: [
-            Expanded(child: SkeletonBox(height: 124, radius: AppRadii.card)),
-            SizedBox(width: AppSpacing.md),
-            Expanded(child: SkeletonBox(height: 124, radius: AppRadii.card)),
+            for (final i in [0, 1]) ...[
+              if (i == 1) const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainer,
+                    borderRadius: BorderRadius.circular(AppRadii.card),
+                    border: Border.all(color: scheme.outlineVariant),
+                  ),
+                  // Income / expense: icon, label, amount.
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SkeletonBox(width: 36, height: 36, radius: 12),
+                      SizedBox(height: AppSpacing.md),
+                      SkeletonBox(width: 64, height: 12, radius: 6),
+                      SizedBox(height: AppSpacing.sm),
+                      SkeletonBox(width: 110, height: 22, radius: 8),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ],

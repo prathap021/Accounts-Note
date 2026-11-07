@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../data/repositories/budget_repository.dart';
 import '../models/budget_model.dart';
 import 'auth_provider.dart';
+import 'period_provider.dart';
 import 'sync_provider.dart';
 import 'transaction_provider.dart';
 
@@ -12,8 +12,9 @@ final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
 });
 
 /// Current financial-month period key, e.g. "2026-09".
+/// Budgets are saved per budgeting month (see [MoneyMonth.key]).
 final currentPeriodProvider = Provider<String>((ref) {
-  return DateFormat('yyyy-MM').format(DateTime.now());
+  return ref.watch(currentMoneyMonthProvider).key;
 });
 
 final budgetsStreamProvider = StreamProvider<List<BudgetModel>>((ref) {
@@ -29,12 +30,10 @@ final budgetProgressProvider = FutureProvider<Map<String, double>>((ref) async {
   // Computed from Hive, so budgets track correctly with no network and
   // update the moment a transaction is saved.
   ref.watch(allTransactionsStreamProvider);
-  final now = DateTime.now();
-  final start = DateTime(now.year, now.month, 1);
-  final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+  final month = ref.watch(currentMoneyMonthProvider);
   return ref
       .watch(offlineTransactionRepositoryProvider)
-      .categoryBreakdown(start: start, end: end);
+      .categoryBreakdown(start: month.start, end: month.end);
 });
 
 class BudgetActionsNotifier extends Notifier<AsyncValue<void>> {

@@ -13,7 +13,18 @@ void main() {
     });
 
     test('falls back to the code itself for anything unknown', () {
-      expect(CurrencyFormatter.symbolFor('JPY'), 'JPY ');
+      expect(CurrencyFormatter.symbolFor('XYZ'), 'XYZ ');
+    });
+
+    test('knows every Play currency, without confusing dollars', () {
+      expect(CurrencyFormatter.symbolFor('JPY'), '¥');
+      expect(CurrencyFormatter.symbolFor('CAD'), 'CA\$');
+      expect(CurrencyFormatter.symbolFor('AUD'), 'A\$');
+    });
+
+    test('currencies without minor units show no decimals', () {
+      expect(CurrencyFormatter.format(1500, currencyCode: 'JPY'), '¥1,500');
+      expect(CurrencyFormatter.format(1500, currencyCode: 'USD'), '\$1,500.00');
     });
   });
 

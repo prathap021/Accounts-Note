@@ -1,8 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/constants/app_constants.dart';
+import '../core/services/app_update_service.dart';
+import '../core/services/notifications.dart';
+import '../providers/automation_provider.dart';
 import '../core/sync/background_sync.dart';
 import '../providers/subscription_provider.dart';
 import '../providers/sync_provider.dart';
@@ -38,10 +44,55 @@ class _AppScaffoldState extends ConsumerState<AppScaffold>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     BackgroundSync.setAppInForeground(true);
+    // After the first frame, so none of this delays the dashboard.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      ref.read(appUpdateControllerProvider.notifier).checkOnLaunch();
+      final notifications = ref.read(appNotificationsProvider);
+      await notifications.init();
+      _taps = notifications.taps.listen(_openFromNotification);
+      final launchedWith = await notifications.launchAction();
+      if (launchedWith != null) _openFromNotification(launchedWith);
+      if (!mounted) return;
+      await ref.read(notificationSettingsProvider.notifier).reapply();
+      _runRecurring();
+    });
+  }
+
+  StreamSubscription<String>? _taps;
+
+  /// Makes any recurring entries that came due, once the device ledger is
+  /// open (and again whenever the app returns to the front).
+  Future<void> _runRecurring() async {
+    final ready = await ref.read(localStoreReadyProvider.future);
+    if (!ready || !mounted) return;
+    final added = await ref.read(recurringRunnerProvider).run();
+    if (added > 0 && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+            'Added $added recurring '
+            '${added == 1 ? 'entry' : 'entries'} that came due.',
+          ),
+        ),
+      );
+    }
+  }
+
+  void _openFromNotification(String action) {
+    if (!mounted) return;
+    switch (action) {
+      case NotificationAction.addExpense:
+        context.push('/transaction/add', extra: TransactionType.expense);
+      case NotificationAction.openBudgets:
+        context.go('/budgets');
+    }
   }
 
   @override
   void dispose() {
+    _taps?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     BackgroundSync.setAppInForeground(false);
     super.dispose();
@@ -57,6 +108,9 @@ class _AppScaffoldState extends ConsumerState<AppScaffold>
     BackgroundSync.setAppInForeground(resumed);
     if (resumed) {
       ref.read(syncManagerProvider).syncNow();
+      // Picks up an update that finished downloading while the app was away.
+      ref.read(appUpdateControllerProvider.notifier).checkOnLaunch();
+      _runRecurring();
     } else {
       // Leaving the app: hand anything still queued to the OS scheduler.
       final sync = ref.read(syncManagerProvider);
@@ -80,6 +134,26 @@ class _AppScaffoldState extends ConsumerState<AppScaffold>
     // for the whole session, not only while the plan screen is open. A
     // provider nothing listens to is paused, hence a listener, not a read.
     ref.listen(subscriptionControllerProvider, (_, _) {});
+
+    // A background update has downloaded: offer the restart, never force it.
+    ref.listen<AppUpdateState>(appUpdateControllerProvider, (prev, next) {
+      if (next.phase != UpdatePhase.readyToInstall ||
+          prev?.phase == UpdatePhase.readyToInstall) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(days: 1),
+          content: const Text('An update is ready to install.'),
+          action: SnackBarAction(
+            label: 'Restart',
+            onPressed: () =>
+                ref.read(appUpdateControllerProvider.notifier).install(),
+          ),
+        ),
+      );
+    });
 
     return Scaffold(
       body: widget.child,

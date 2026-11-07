@@ -5,8 +5,11 @@ covers: where each flow starts, what the test does, and what it checks.
 For how to run the suite and how the test harness works, see
 [README.md](README.md).
 
-**Last full run:** 49 of 49 passed, 7 Nov 2026, on the `Pixel` Android emulator
-(Android 7.1.1, API 25), in one app session, in about 5½ minutes.
+**Last full run:** 67 of 70 passed, 7 Nov 2026, on the `Pixel` Android emulator
+(Android 7.1.1, API 25), in one app session, in about 10 minutes. The three
+failures (CARD-02, CARD-03, SET-02) tapped Settings tiles that the new
+Accounts tile had pushed below the fold; the tests now scroll to them, and
+both files pass in full (11 of 11) on rerun.
 
 ## How to read this
 
@@ -35,7 +38,7 @@ For how to run the suite and how the test harness works, see
 | Currency | INR (₹) unless the flow changes it |
 | Network | Online unless the flow switches it off |
 | "Cloud" | In-memory fakes of Firebase Auth and Firestore. Nothing reaches the real project |
-| Store | A fake app store selling the three plans at ₹99.00, ₹199.00 and ₹299.00. Purchases go through at once, and a fake verifier writes the plan to the profile the way the `verifySubscription` Cloud Function does |
+| Store | A fake app store selling the three plans at $1.00, $2.00 and $3.00 (a dollar storefront). Purchases go through at once, and a fake verifier writes the plan to the profile the way the `verifySubscription` Cloud Function does |
 
 Seeded transactions are written to the cloud before launch, as if logged
 on another device. The app pulls them down through its normal sync.
@@ -44,7 +47,7 @@ on another device. The app pulls them down through its normal sync.
 
 | ID | Flow | File | Native |
 |---|---|---|:-:|
-| [ONB-01](#onb-01--first-launch-shows-onboarding-once) | First launch shows onboarding once | `onboarding_test.dart` | |
+| [ONB-01](#onb-01--first-launch-shows-onboarding-once) | First launch shows onboarding once | `onboarding_test.dart` | ✓ |
 | [ONB-02](#onb-02--swiping-between-intro-pages) | Swiping between intro pages | `onboarding_test.dart` | |
 | [AUTH-01](#auth-01--new-email-account-must-confirm-its-address) | New email account must confirm its address | `auth_test.dart` | |
 | [AUTH-02](#auth-02--returning-from-the-inbox-re-checks-verification) | Returning from the inbox re-checks verification | `auth_test.dart` | ✓ |
@@ -82,19 +85,40 @@ on another device. The app pulls them down through its normal sync.
 | [SET-02](#set-02--change-appearance) | Change appearance | `settings_test.dart` | |
 | [SET-03](#set-03--edit-display-name) | Edit display name | `settings_test.dart` | |
 | [SET-04](#set-04--log-out-and-restore-from-the-cloud) | Log out and restore from the cloud | `settings_test.dart` | |
-| [SET-05](#set-05--delete-account) | Delete account | `settings_test.dart` | |
-| [SET-06](#set-06--cancel-account-deletion) | Cancel account deletion | `settings_test.dart` | |
+| [SET-05](#set-05--any-play-currency-found-by-search) | Any Play currency, found by search | `settings_test.dart` | |
+| [SET-06](#set-06--rate-the-app-and-check-for-updates) | Rate the app and check for updates | `settings_test.dart` | |
+| [SET-07](#set-07--move-transactions-to-another-account-with-a-backup) | Move transactions to another account with a backup | `settings_test.dart` | |
 | [NAV-01](#nav-01--bottom-navigation-tabs) | Bottom navigation tabs | `navigation_reports_test.dart` | |
 | [NAV-02](#nav-02--android-back-from-a-tab) | Android back from a tab | `navigation_reports_test.dart` | ✓ |
 | [NAV-03](#nav-03--android-back-from-a-pushed-screen) | Android back from a pushed screen | `navigation_reports_test.dart` | ✓ |
 | [REP-01](#rep-01--reports-totals-and-ranges) | Reports totals and ranges | `navigation_reports_test.dart` | |
+| [REP-02](#rep-02--custom-period-from-past-history-and-export) | Custom period from past history, and export | `navigation_reports_test.dart` | |
 | [SUB-01](#sub-01--daily-limit-then-upgrade) | Daily limit, then upgrade | `subscriptions_test.dart` | |
 | [SUB-02](#sub-02--plans-status-and-todays-use) | Plans, status and today's use | `subscriptions_test.dart` | |
 | [SUB-03](#sub-03--upgrade-a-plan) | Upgrade a plan | `subscriptions_test.dart` | |
 | [SUB-04](#sub-04--restore-after-a-reinstall) | Restore after a reinstall | `subscriptions_test.dart` | |
 | [SUB-05](#sub-05--cancelled-plan-keeps-its-limits-until-it-ends) | Cancelled plan keeps its limits until it ends | `subscriptions_test.dart` | |
+| [SUB-06](#sub-06--yearly-plans) | Yearly plans | `subscriptions_test.dart` | |
+| [EVD-01](#evd-01--a-deleted-entry-comes-back-with-undo) | A deleted entry comes back with Undo | `everyday_test.dart` | |
+| [EVD-02](#evd-02--swipe-right-to-edit) | Swipe right to edit | `everyday_test.dart` | |
+| [EVD-03](#evd-03--step-through-months-and-hide-amounts) | Step through months and hide amounts | `everyday_test.dart` | |
+| [EVD-04](#evd-04--pay-day-month-start) | Pay-day month start | `everyday_test.dart` | |
+| [EVD-05](#evd-05--removing-a-used-category-moves-its-entries-to-other) | Removing a used category moves its entries to Other | `everyday_test.dart` | |
+| [EVD-06](#evd-06--clear-all-data) | Clear all data | `everyday_test.dart` | |
+| [AUTO-01](#auto-01--recurring-entries-catch-up-and-pause) | Recurring entries catch up, and pause | `automation_test.dart` | |
+| [AUTO-02](#auto-02--repeat-from-the-add-form) | Repeat from the add form | `automation_test.dart` | |
+| [AUTO-03](#auto-03--daily-reminder) | Daily reminder | `automation_test.dart` | |
+| [AUTO-04](#auto-04--budget-alert-at-80) | Budget alert at 80% | `automation_test.dart` | |
+| [SEC-01](#sec-01--pin-lock-on-launch) | PIN lock on launch | `security_test.dart` | |
+| [SEC-02](#sec-02--fingerprint-unlock) | Fingerprint unlock | `security_test.dart` | |
+| [SEC-03](#sec-03--forgot-pin) | Forgot PIN | `security_test.dart` | |
+| [ACC-01](#acc-01--accounts-opening-balances-and-transfers) | Accounts, opening balances and transfers | `accounts_test.dart` | |
+| [ACC-02](#acc-02--an-expense-from-an-account) | An expense from an account | `accounts_test.dart` | |
+| [INS-01](#ins-01--spending-by-category-tap-through-and-day) | Spending by category, tap-through, and Day | `insights_test.dart` | |
+| [INS-02](#ins-02--receipt-photo) | Receipt photo | `insights_test.dart` | |
+| [INS-03](#ins-03--import-from-csv) | Import from CSV | `insights_test.dart` | |
 
-49 flows in total. NAV-02 and NAV-03 are skipped automatically when not
+70 flows in total. NAV-02 and NAV-03 are skipped automatically when not
 running on Android.
 
 ---
@@ -110,8 +134,10 @@ running on Android.
 |---|---|---|
 | 1 | Open the app | "Welcome to Accounts Note" page, listing "Log in seconds" |
 | 2 | Tap **Next** | "Privacy first" page |
-| 3 | Tap **Get started** | Sign-in screen ("Continue with Email") |
-| 4 | Close the app and open it again | Sign-in screen straight away. The intro is not shown again |
+| 3 | Tap **Get started** | "Set your currency", explaining the location stays on the phone |
+| 4 | **Use my location**, then allow it in the system dialog _(native)_ | The currency is set from the country ("Currency set to …"), or, where the emulator cannot name its country, "Couldn't find your location" and the region's currency is kept |
+| 5 | Continue | Sign-in screen ("Continue with Email") |
+| 6 | Close the app and open it again | Sign-in screen straight away. The intro is not shown again |
 
 ### ONB-02 · Swiping between intro pages
 
@@ -511,25 +537,43 @@ Settings (see [Bugs these flows found](#bugs-these-flows-found)).
 | 2 | Profile → **Log out** → **Log out** | "Log out?", then the sign-in screen |
 | 3 | Sign in as Asha again | Dashboard shows "Electricity" and a balance of -₹ 340.00, rebuilt from the cloud |
 
-### SET-05 · Delete account
+### SET-05 · Any Play currency, found by search
 
-`settings_test.dart` › _deleting the account removes the cloud data and the sign-in_
-**Starts from:** a 99 Food expense in the cloud.
-
-| # | Step | Expected |
-|---|---|---|
-| 1 | Profile → **Delete account** | "Delete your account?", with the buttons held behind a 10-second countdown |
-| 2 | Wait for the countdown → **Delete without backup** | Sign-in screen with "Your account and data have been deleted" |
-| 3 | — | _(cloud)_ Account, profile and transactions gone |
-| 4 | Sign in with the old details | "Incorrect email or password." |
-
-### SET-06 · Cancel account deletion
-
-`settings_test.dart` › _cancelling the delete dialog leaves the account alone_
+`settings_test.dart` › _every Play currency can be found and used, with its own format_
+**Starts from:** ₹1,500 salary this month.
 
 | # | Step | Expected |
 |---|---|---|
-| 1 | Profile → **Delete account** → **Cancel** | Still on Settings. _(cloud)_ Account intact |
+| 1 | Profile → **Currency** | The full list: "Suggested" (current, the phone's own, then popular ones), then "All currencies" |
+| 2 | Search "yen" → **Japanese Yen** | "Japanese Yen · ¥" |
+| 3 | Back to the dashboard | The balance reads "¥ 1,500", with no decimals, as the yen has none |
+
+### SET-06 · Rate the app and check for updates
+
+`settings_test.dart` › _About offers rating the app and checking for updates_
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Profile → About | "Rate Accounts Note" ("Leave a review on Google Play") and "Check for updates" |
+| 2 | Tap **Check for updates** | "Updates are only available for the Google Play version of the app.": the test build is not installed from Play |
+
+### SET-07 · Move transactions to another account with a backup
+
+`settings_test.dart` › _a backup moves every transaction into another account_
+**Starts from:** Asha signed in, with 25,000 salary ("October salary") and a 640 Food expense ("Groceries"); a second account, Ravi, exists.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Profile → **Back up now** | "Backup ready with 2 transactions."; the file `accounts_note_backup_<date>.json` goes to the share sheet |
+| 2 | **Log out** → sign in as Ravi | Ravi's empty dashboard |
+| 3 | Profile → **Import a backup** → pick the file | "Import this backup?" with "2 transactions" |
+| 4 | **Import** | "Imported 2 transactions." |
+| 5 | Open **Activity** | "October salary" and "Groceries" are in Ravi's account. _(cloud)_ Asha still has hers |
+
+The share sheet and file picker are the system's; a fake hands the shared
+file to the picker, and a fake server stands in for `createBackup` /
+`importBackup` (their signing and merging are tested on the Firestore
+emulator in `functions/test/`).
 
 ## 8. Navigation and reports
 
@@ -570,6 +614,18 @@ All flows start signed in as Asha.
 | 1 | Open **Reports** | "This month so far": Income ₹20,000.00, Expenses ₹8,000.00, plus the "Income vs expenses" chart |
 | 2 | Switch to **Year** | "This year so far", still including the ₹20,000.00 |
 
+### REP-02 · Custom period from past history, and export
+
+`navigation_reports_test.dart` › _Reports cover a past period picked on the calendar, and export it_
+**Starts from:** last March: 15,000 income (10 Mar) and 6,000 expense (31 Mar, 9 pm); this month: 1,234 income.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Open **Reports** → tap **Custom** | The calendar, "Select report period" |
+| 2 | Close it without choosing | Still "This month so far" with ₹1,234.00 |
+| 3 | **Custom** → switch to typing → 1 March to 31 March last year → **Generate** | "Custom range", "1 Mar – 31 Mar" of last year, ₹15,000.00 and ₹6,000.00 (the last day counts in full); this month's ₹1,234.00 is not included |
+| 4 | Tap **Export report** | "Export report" for the period, "· 2 transactions", with PDF document, Excel spreadsheet and CSV file |
+
 ## 9. Subscriptions and daily limits
 
 All flows start signed in as Asha. "Today's count" is the server's per-day
@@ -579,17 +635,16 @@ rules that enforce the limits on the server are tested separately, in
 
 ### SUB-01 · Daily limit, then upgrade
 
-`subscriptions_test.dart` › _a free user gets 7 expenses a day, then is offered the plans_
-**Starts from:** Free plan, 6 expenses already counted today.
+`subscriptions_test.dart` › _a free user gets 14 a day in any mix, then is offered the plans_
+**Starts from:** Free plan, 8 income and 5 expenses already counted today.
 
 | # | Step | Expected |
 |---|---|---|
-| 1 | Add an expense: ₹450, Food | "Transaction added". That was the 7th, the last one free |
-| 2 | Tap **Add** → **Expense** | "Daily expense limit reached", "You've added 7 of 7 expense entries today on the Free plan. Upgrade for up to 100 a day…". The form does not open |
-| 3 | Tap **Not now** → **Add** → **Income** | The income form opens: income has its own 7 |
-| 4 | Back, **Add** → **Expense** → **See plans** | The plan screen |
-| 5 | **Subscribe** on Basic | "You're on Basic. Thank you!" |
-| 6 | Back, add an expense: ₹120, Transport | "Transaction added": Basic allows 30 |
+| 1 | Add an expense: ₹450, Food | "Transaction added". That was the 14th, the last one free |
+| 2 | Tap **Add** → **Income** | "Daily limit reached", "You've added 14 of 14 entries today (income and expense together) on the Free plan. Upgrade for up to 200 a day…". The form does not open |
+| 3 | **Not now** → **Add** → **Expense** | "Daily limit reached" again: one allowance for both types |
+| 4 | **See plans** → **Subscribe** on Basic | "You're on Basic. Thank you!" |
+| 5 | Back, add an expense: ₹120, Transport | "Transaction added": Basic allows 60 a day |
 
 ### SUB-02 · Plans, status and today's use
 
@@ -598,11 +653,11 @@ rules that enforce the limits on the server are tested separately, in
 
 | # | Step | Expected |
 |---|---|---|
-| 1 | Settings → **Subscription** | "Free", "No subscription", today "2 of 7" income and "5 of 7" expense |
-| 2 | Scroll through the plans | Basic ₹99.00, Standard ₹199.00, Premium ₹299.00, each with its income and expense entries a day (30, 60, 100) |
+| 1 | Settings → **Subscription** | "Free", "No subscription", today "7 of 14", "2 income · 5 expense" |
+| 2 | Scroll through the plans | Basic $1.00, Standard $2.00, Premium $3.00, each with its transactions a month (1,800, 3,600, 6,000), "Income or expense, in any mix" |
 | 3 | **Subscribe** on Premium | "You're on Premium. Thank you!". _(store)_ one purchase, acknowledged once verified |
-| 4 | Back to the top | "Renews on …", today "2 of 100" and "5 of 100" |
-| 5 | Back to Settings | The tile reads "Premium · 100 income + 100 expense a day" |
+| 4 | Back to the top | "Renews on …", today "7 of 200" |
+| 5 | Back to Settings | The tile reads "Premium · 6,000 transactions a month" |
 
 ### SUB-03 · Upgrade a plan
 
@@ -627,14 +682,222 @@ rules that enforce the limits on the server are tested separately, in
 ### SUB-05 · Cancelled plan keeps its limits until it ends
 
 `subscriptions_test.dart` › _a cancelled subscription keeps its limits until the month is up_
-**Starts from:** Standard, cancelled but paid for 30 more days; 7 expenses counted today.
+**Starts from:** Standard, cancelled but paid for 30 more days; 14 expenses counted today.
 
 | # | Step | Expected |
 |---|---|---|
-| 1 | Add an expense: ₹99, Food | "Transaction added": past the free 7, still within Standard's 60 |
-| 2 | Settings → **Subscription** | "Cancelled · Standard until …", today "8 of 60" expense |
+| 1 | Add an expense: ₹99, Food | "Transaction added": past the free 14, still within Standard's 120 |
+| 2 | Settings → **Subscription** | "Cancelled · Standard until …", today "15 of 120" |
+
+### SUB-06 · Yearly plans
+
+`subscriptions_test.dart` › _a plan can be bought yearly, for twelve months less $1_
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Settings → **Subscription** → **Yearly · save $1** | Basic $11.00, Standard $23.00, Premium $35.00 " / year", each "Save $1.00 a year" |
+| 2 | **Subscribe** on Standard | "You're on Standard. Thank you!". _(store)_ the yearly product was bought |
+| 3 | Switch to **Monthly** | Standard offers "Switch to monthly" rather than a new purchase |
 
 ---
+
+## 10. Everyday polish
+
+### EVD-01 · A deleted entry comes back with Undo
+
+`everyday_test.dart` › _a deleted entry comes back with Undo_
+**Starts from:** A Food expense "Team lunch".
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | **Activity** → swipe the entry left → confirm | "Deleted Food entry" with **Undo**; the entry is gone |
+| 2 | Tap **Undo** | "Team lunch" is back, and is still in the cloud _(cloud)_ |
+
+### EVD-02 · Swipe right to edit
+
+`everyday_test.dart` › _swiping right opens the entry to edit_
+**Starts from:** A Food expense "Team lunch".
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | **Activity** → swipe the entry right | "Edit transaction" opens |
+
+### EVD-03 · Step through months and hide amounts
+
+`everyday_test.dart` › _the dashboard steps through months and can hide amounts_
+**Starts from:** 9,000 income last month.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Tap **Previous month** on the dashboard | "BALANCE AT MONTH END" and last month's name; ₹9,000.00 income |
+| 2 | Tap the month name | Back to "AVAILABLE BALANCE" |
+| 3 | Tap **Hide amounts**, then **Show amounts** | "••••••" replaces the balance, then it shows again |
+
+### EVD-04 · Pay-day month start
+
+`everyday_test.dart` › _a pay-day month start re-cuts the month everywhere_
+**Starts from:** A fresh account.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Settings → **Month starts on** → 25 | "The 25th, e.g. your pay day"; the dashboard shows the month running from the 25th |
+
+### EVD-05 · Removing a used category moves its entries to Other
+
+`everyday_test.dart` › _removing a used category moves its entries to Other_
+**Starts from:** A Shopping expense "Running shoes".
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Categories → remove **Shopping** → confirm | "Removed \"Shopping\". 1 moved to Other." |
+| 2 | Open **Activity** | "Running shoes" is listed under Other |
+
+### EVD-06 · Clear all data
+
+`everyday_test.dart` › _clear all data starts over, after typing DELETE_
+**Starts from:** Some transactions.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Settings → **Clear all data** | "Clear all data?"; the button stays off until DELETE is typed |
+| 2 | Type DELETE → **Clear everything** | The app starts over and the cloud has no transactions _(cloud)_ |
+
+## 11. Recurring, reminders and alerts
+
+### AUTO-01 · Recurring entries catch up, and pause
+
+`automation_test.dart` › _a repeating expense is added when it comes due, and can pause_
+**Starts from:** A monthly 15,000 rent rule started two months ago, last added on its start day.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Open the app | "Added 2 recurring entries that came due."; Activity lists "Flat rent" twice |
+| 2 | Settings → **Recurring transactions** → **Pause** | "Paused", and the button reads **Resume** |
+
+### AUTO-02 · Repeat from the add form
+
+`automation_test.dart` › _turning on Repeat in the form sets up the rule_
+**Starts from:** A fresh account.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Add an 899 Bills expense "Phone plan" with **Repeat** on (Monthly) | "Transaction added. It repeats monthly." |
+| 2 | Settings → **Recurring transactions** | "Phone plan", "Monthly · Bills" |
+
+### AUTO-03 · Daily reminder
+
+`automation_test.dart` › _the daily reminder is set, and tapping it opens a new expense_
+**Starts from:** A fresh account.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Settings → **Daily reminder** on | "Every day at 9:00 PM"; scheduled for 21:00 |
+| 2 | Tap the reminder notification | "Add expense" opens |
+
+### AUTO-04 · Budget alert at 80%
+
+`automation_test.dart` › _spending past 80% of a budget raises an alert_
+**Starts from:** A 1,000 Food budget this month, alert at 80%.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Add an 850 Food expense | A "Food budget 80% used" notification |
+| 2 | Tap it | Budgets opens |
+
+## 12. App lock
+
+The fingerprint reader is a fake that answers as the test sets it.
+
+### SEC-01 · PIN lock on launch
+
+`security_test.dart` › _with a PIN set, the app opens locked and the PIN unlocks it_
+**Starts from:** A fresh account.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Settings → **App lock** → choose 2468, repeat it | "App lock is on." |
+| 2 | Restart the app | "Enter your PIN" |
+| 3 | Type 1111 | "Wrong PIN. 4 tries left before a short wait." |
+| 4 | Type 2468 | The dashboard |
+
+### SEC-02 · Fingerprint unlock
+
+`security_test.dart` › _fingerprint unlock opens the app without the PIN_
+**Starts from:** A phone with a fingerprint set up.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Turn on App lock, then **Unlock with fingerprint** | The fingerprint is asked for once to confirm it works |
+| 2 | Restart the app | The fingerprint is asked for and the dashboard opens, with no PIN typed |
+
+### SEC-03 · Forgot PIN
+
+`security_test.dart` › _forgot PIN signs out, and signing back in needs no PIN_
+**Starts from:** App lock on with PIN 2468.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Restart → **Forgot PIN?** → **Sign out** | The sign-in screen |
+| 2 | Sign in again | The dashboard, with no lock screen |
+
+## 13. Accounts and transfers
+
+### ACC-01 · Accounts, opening balances and transfers
+
+`accounts_test.dart` › _accounts start from their opening balance, and a transfer moves money between them without changing the total_
+**Starts from:** A fresh account.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Settings → **Accounts** → **Add account**: SBI savings, 10000 | "SBI savings" with ₹10,000.00 |
+| 2 | **Add account**: Cash in hand (Cash), no opening balance | Total in accounts ₹10,000.00 |
+| 3 | **Transfer** 2,000 from SBI savings to Cash in hand | "Moved ₹2,000.00 to Cash in hand"; SBI ₹8,000.00, Cash ₹2,000.00; the total is still ₹10,000.00 |
+| 4 | Delete the transfer | "Transfer deleted"; SBI is back to ₹10,000.00 |
+
+### ACC-02 · An expense from an account
+
+`accounts_test.dart` › _an expense paid from an account lowers its balance, and the next entry starts on the same account_
+**Starts from:** Accounts SBI savings (5,000) and Cash in hand (1,000).
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Add a 450 Food expense, account **Cash in hand** | The dashboard's Accounts list: Cash in hand ₹550.00, SBI ₹5,000.00 |
+| 2 | Start another expense | The Account row already shows Cash in hand |
+
+## 14. Insights, receipts and CSV import
+
+### INS-01 · Spending by category, tap-through, and Day
+
+`insights_test.dart` › _reports break spending down by category, and a category opens its entries_
+**Starts from:** Today: Food 450 "Lunch" and 300 "Dinner", Bills 2,000 "Power bill".
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Open **Reports** | "Spending by category": Food ₹750.00, Bills ₹2,000.00 |
+| 2 | Tap **Food** | Activity lists Lunch and Dinner, not Power bill |
+| 3 | Reports → **Day** | The period reads today to today, with ₹2,750.00 spent |
+
+### INS-02 · Receipt photo
+
+`insights_test.dart` › _a receipt photo is attached to an expense and opens full size_
+**Starts from:** A fresh account; the gallery returns a photo.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Add a 640 Food expense "Team dinner" → **Add a photo** → **Choose from gallery** | A thumbnail in the form; "Transaction added" |
+| 2 | Activity | The entry's line says Receipt |
+| 3 | Open it, tap the thumbnail | The photo full size |
+
+### INS-03 · Import from CSV
+
+`insights_test.dart` › _entries are imported from a CSV file, once_
+**Starts from:** A CSV file with one expense and one income dated today.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Settings → **Import from CSV** | "Import 2 entries?", "1 income · 1 expense" |
+| 2 | **Import** | "Imported 2 entries."; Activity lists both |
+| 3 | Import the same file again | "Imported 0 entries (2 already here)." |
 
 ## Bugs these flows found
 
@@ -653,10 +916,12 @@ return.
 | Flow | Why |
 |---|---|
 | Google and Apple sign-in | They open the provider's own account UI and need a real account, so they can't run unattended. They share the post-sign-in path with email, which is covered |
-| CSV export, "Backup & Delete" | Both end in the system share sheet or a file save, which differ between devices. The backup step also reads Firebase directly, which the fakes can't reach |
+| Saving or sharing an exported report | The PDF, Excel and CSV files end in the system share sheet, which differs between devices. The flows check the format choice; the files themselves are checked by unit tests |
 | The real store purchase sheet | Google Play and the App Store show their own payment UI, which needs a signed-in store account and a licence tester. The flows use a fake store; the purchase handling around it is real. Test real purchases with a Play internal testing track and App Store sandbox accounts |
 | Server-side verification | The `verifySubscription` and notification functions call Google's and Apple's APIs. The flows use a fake verifier that writes the same profile fields |
-| Profile photo | Needs the camera or a gallery with images in it |
+| Profile photo | Needs the camera or a gallery with images in it. Receipt photos use a fake picker (INS-02) |
+| The real fingerprint prompt, notifications shade and file picker | System UI. The flows use fakes behind the same interfaces |
+| The CSV import and backup functions | Run on the server; tested against the Firestore emulator in `functions/test/` |
 | iOS | Only Android's native test runner is set up. iOS needs Patrol's `RunnerUITests` target in Xcode before this suite can run there |
 
 ## Adding a flow

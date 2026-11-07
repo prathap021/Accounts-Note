@@ -51,20 +51,48 @@ class CategoryRepository {
     }
   }
 
-  /// Default categories are archived (hidden) rather than hard-deleted,
-  /// since historical transactions reference them by denormalized name.
-  /// Custom categories with no transaction history are deleted outright.
-  Future<Result<void>> deleteOrArchiveCategory(
+  /// The name every type's catch-all category has. Transactions from a
+  /// deleted category move here, so it can never be deleted itself.
+  static const fallbackName = 'Other';
+
+  /// The "Other" category of [type], created if the user has none.
+  Future<Result<CategoryModel>> findOrCreateFallback(
     String uid,
-    CategoryModel category, {
-    required bool hasTransactions,
-  }) async {
+    TransactionType type,
+  ) async {
     try {
-      if (category.isDefault || hasTransactions) {
-        await _col(uid).doc(category.id).update({'isArchived': true});
-      } else {
-        await _col(uid).doc(category.id).delete();
+      final snap = await _col(uid)
+          .where('type', isEqualTo: type.name)
+          .where('name', isEqualTo: fallbackName)
+          .limit(1)
+          .get();
+      if (snap.docs.isNotEmpty) {
+        final doc = snap.docs.first;
+        if (doc.data()['isArchived'] == true) {
+          await doc.reference.update({'isArchived': false});
+        }
+        return Result.success(CategoryModel.fromDoc(doc));
       }
+      return addCategory(
+        uid,
+        CategoryModel(
+          id: '',
+          name: fallbackName,
+          icon: 'category',
+          color: 0xFF757575,
+          type: type,
+          isDefault: true,
+          createdAt: DateTime.now(),
+        ),
+      );
+    } catch (e) {
+      return Result.failure(AppFailure.fromException(e));
+    }
+  }
+
+  Future<Result<void>> deleteCategory(String uid, String categoryId) async {
+    try {
+      await _col(uid).doc(categoryId).delete();
       return Result.success(null);
     } catch (e) {
       return Result.failure(AppFailure.fromException(e));

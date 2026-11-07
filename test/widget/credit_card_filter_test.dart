@@ -86,6 +86,7 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
+        deviceCountryProvider.overrideWithValue('IN'),
         currentUidProvider.overrideWithValue(testUid),
         localStoreReadyProvider.overrideWith((ref) => true),
         offlineTransactionRepositoryProvider.overrideWithValue(repo),

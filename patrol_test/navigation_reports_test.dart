@@ -97,4 +97,76 @@ void main() {
       reason: 'this month is inside this year',
     );
   });
+
+  patrolTest(
+    'Reports cover a past period picked on the calendar, and export it',
+    ($) async {
+      final lastYear = DateTime.now().year - 1;
+      await launchSignedIn(
+        $,
+        seed: (backend, user) async {
+          await backend.seedTransaction(
+            user.uid,
+            id: 'old-bonus',
+            type: TransactionType.income,
+            amount: 15000,
+            category: 'Salary',
+            date: DateTime(lastYear, 3, 10, 10),
+          );
+          await backend.seedTransaction(
+            user.uid,
+            id: 'old-rent',
+            amount: 6000,
+            category: 'Bills',
+            date: DateTime(lastYear, 3, 31, 21),
+          );
+          await backend.seedTransaction(
+            user.uid,
+            id: 'now',
+            type: TransactionType.income,
+            amount: 1234,
+            category: 'Salary',
+          );
+        },
+      );
+      await $.openTab('Reports');
+      await $('This month so far').waitUntilVisible();
+
+      // Cancelling the calendar leaves the report alone.
+      await $(SegmentedButton<ReportRange>).$('Custom').tap();
+      await $('Select report period').waitUntilVisible();
+      await $(find.byTooltip('Close')).tap();
+      await $('This month so far').waitUntilVisible();
+      expect($(money(1234)), findsWidgets);
+
+      // Last March, typed in the calendar's text mode.
+      String typed(int m, int d) =>
+          '${m.toString().padLeft(2, '0')}/${d.toString().padLeft(2, '0')}/$lastYear';
+      await $(SegmentedButton<ReportRange>).$('Custom').tap();
+      await $(find.byTooltip('Switch to input')).tap();
+      await $(TextField).at(0).enterText(typed(3, 1));
+      await $(TextField).at(1).enterText(typed(3, 31));
+      await $.hideKeyboard();
+      await $('Generate').tap();
+
+      await $('Custom range').waitUntilVisible();
+      expect($('1 Mar $lastYear – 31 Mar $lastYear'), findsOneWidget);
+      expect($(money(15000)), findsWidgets);
+      expect(
+        $(money(6000)),
+        findsWidgets,
+        reason: '9 pm on the last day still counts',
+      );
+      expect($(money(1234)), findsNothing, reason: 'this month is outside');
+
+      // Export asks for the file type.
+      await $(find.byTooltip('Export report')).tap();
+      await $('Export report').waitUntilVisible();
+      expect($('2 transactions'), findsNothing);
+      expect($(RegExp(r'· 2 transactions$')), findsOneWidget);
+      expect($('PDF document'), findsOneWidget);
+      expect($('Excel spreadsheet'), findsOneWidget);
+      expect($('CSV file'), findsOneWidget);
+    },
+  );
 }

@@ -12,6 +12,7 @@ import '../../core/utils/snackbar_helper.dart';
 import '../../models/daily_usage.dart';
 import '../../models/subscription_plan.dart';
 import '../../models/subscription_status.dart';
+import '../../providers/settings_provider.dart';
 import '../../providers/subscription_provider.dart';
 
 /// The three monthly plans, what the user is on, and how much of today's
@@ -25,6 +26,7 @@ class SubscriptionScreen extends ConsumerWidget {
     final status = ref.watch(subscriptionStatusProvider);
     final plan = ref.watch(currentPlanProvider);
     final usage = ref.watch(todayUsageProvider);
+    final currency = ref.watch(settingsProvider).currency;
     final controller = ref.read(subscriptionControllerProvider.notifier);
 
     ref.listen<SubscriptionUiState>(subscriptionControllerProvider, (
@@ -67,7 +69,28 @@ class SubscriptionScreen extends ConsumerWidget {
         children: [
           _StatusCard(status: status, plan: plan, usage: usage),
           const SizedBox(height: AppSpacing.xxl),
-          const SectionLabel('Monthly plans'),
+          const SectionLabel('Plans'),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<BillingPeriod>(
+              key: const Key('billing-period'),
+              segments: [
+                for (final p in BillingPeriod.values)
+                  ButtonSegment(
+                    value: p,
+                    label: Text(
+                      p == BillingPeriod.yearly
+                          ? 'Yearly · save ${SubscriptionPlan.yearlySaving(currency)}'
+                          : p.label,
+                    ),
+                  ),
+              ],
+              selected: {ui.period},
+              showSelectedIcon: false,
+              onSelectionChanged: (s) => controller.selectPeriod(s.first),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
           if (!ui.loading && !ui.storeAvailable) ...[
             _Notice(
               icon: Icons.storefront_outlined,
@@ -81,8 +104,13 @@ class SubscriptionScreen extends ConsumerWidget {
             _PlanCard(
               key: Key('plan-${p.name}'),
               plan: p,
-              price: ui.priceFor(p),
+              price: ui.priceFor(p, currency: currency),
+              period: ui.period,
+              saving: ui.period == BillingPeriod.yearly
+                  ? ui.yearlySavingFor(p, currency: currency)
+                  : null,
               current: plan,
+              currentPeriod: SubscriptionPlan.periodOf(status.productId),
               busy: ui.purchasing == p,
               enabled: !ui.busy && !ui.loading,
               onPressed: () => controller.buy(p),
@@ -90,8 +118,8 @@ class SubscriptionScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.md),
           ],
           Text(
-            'Free: ${SubscriptionPlan.free.dailyIncomeLimit} income and '
-            '${SubscriptionPlan.free.dailyExpenseLimit} expense entries a day.',
+            'Free: ${_count(SubscriptionPlan.free.monthlyLimit)} transactions '
+            'a month, income or expense in any mix.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -130,12 +158,13 @@ class SubscriptionScreen extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
-            'Plans renew every month until cancelled. You can cancel at any '
-            'time in your $storeName subscriptions; cancel at least 24 hours '
-            'before the renewal date to avoid being charged for the next '
-            'month. Payment is charged to your $storeName account. Limits '
-            'count the entries you add each day and reset at midnight; '
-            'deleting an entry does not give it back.',
+            'Plans renew every month or every year, as chosen, until '
+            'cancelled. You can cancel at any time in your $storeName '
+            'subscriptions; cancel at least 24 hours before the renewal date '
+            'to avoid being charged for the next period. Payment is charged '
+            "to your $storeName account. Each plan's monthly transactions "
+            "are shared out evenly by day, and each day's allowance resets at "
+            'midnight; deleting an entry does not give it back.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
               height: 1.4,
@@ -146,6 +175,9 @@ class SubscriptionScreen extends ConsumerWidget {
     );
   }
 }
+
+/// 900 → "900", 3000 → "3,000".
+String _count(int n) => NumberFormat.decimalPattern().format(n);
 
 class _StatusCard extends StatelessWidget {
   const _StatusCard({
@@ -224,17 +256,17 @@ class _StatusCard extends StatelessWidget {
           Text('Today', style: theme.textTheme.titleSmall),
           const SizedBox(height: AppSpacing.md),
           _UsageBar(
-            label: 'Income',
-            used: usage.income,
-            limit: plan.dailyIncomeLimit,
-            color: AppColors.income,
+            label: 'Transactions',
+            used: usage.total,
+            limit: plan.dailyLimit,
+            color: AppColors.brand,
           ),
-          const SizedBox(height: AppSpacing.md),
-          _UsageBar(
-            label: 'Expense',
-            used: usage.expense,
-            limit: plan.dailyExpenseLimit,
-            color: AppColors.expense,
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            '${usage.income} income · ${usage.expense} expense',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -293,7 +325,10 @@ class _PlanCard extends StatelessWidget {
     super.key,
     required this.plan,
     required this.price,
+    required this.period,
+    required this.saving,
     required this.current,
+    required this.currentPeriod,
     required this.busy,
     required this.enabled,
     required this.onPressed,
@@ -301,7 +336,12 @@ class _PlanCard extends StatelessWidget {
 
   final SubscriptionPlan plan;
   final String price;
+  final BillingPeriod period;
+
+  /// Yearly only: what it saves over paying monthly.
+  final String? saving;
   final SubscriptionPlan current;
+  final BillingPeriod currentPeriod;
   final bool busy;
   final bool enabled;
   final VoidCallback onPressed;
@@ -310,9 +350,12 @@ class _PlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isCurrent = plan == current;
+    final samePlan = plan == current;
+    final isCurrent = samePlan && period == currentPeriod;
     final label = isCurrent
         ? 'Current plan'
+        : samePlan
+        ? 'Switch to ${period.label.toLowerCase()}'
         : plan.isHigherThan(current)
         ? (current.isPaid ? 'Upgrade' : 'Subscribe')
         : 'Switch to ${plan.title}';
@@ -331,24 +374,37 @@ class _PlanCard extends StatelessWidget {
               ),
               Text(price, style: theme.textTheme.titleLarge),
               Text(
-                ' / month',
+                ' / ${period.unit}',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
               ),
             ],
           ),
+          if (saving != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'Save $saving a year',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: AppColors.income,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
           _LimitRow(
-            icon: Icons.south_west_rounded,
-            color: AppColors.income,
-            text: '${plan.dailyIncomeLimit} income entries a day',
+            icon: Icons.receipt_long_rounded,
+            color: AppColors.brand,
+            text: '${_count(plan.monthlyLimit)} transactions a month',
           ),
           const SizedBox(height: AppSpacing.xs),
           _LimitRow(
-            icon: Icons.north_east_rounded,
-            color: AppColors.expense,
-            text: '${plan.dailyExpenseLimit} expense entries a day',
+            icon: Icons.swap_vert_rounded,
+            color: scheme.onSurfaceVariant,
+            text: 'Income or expense, in any mix',
           ),
           const SizedBox(height: AppSpacing.lg),
           SizedBox(

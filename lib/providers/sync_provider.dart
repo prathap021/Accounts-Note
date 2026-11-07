@@ -81,3 +81,21 @@ final currentSyncStateProvider = Provider<SyncState>((ref) {
   return ref.watch(syncStateProvider).asData?.value ??
       ref.watch(syncManagerProvider).state;
 });
+
+/// True while there is nothing on this device to show yet and the first
+/// download from the cloud is still running — a new sign-in on this phone.
+///
+/// Screens show a shimmer for this instead of an empty state, so a returning
+/// user does not see "No transactions yet" for the seconds it takes their
+/// history to arrive. With anything already on the device it is false at
+/// once: local data shows straight away and the cloud updates it in place.
+final awaitingFirstCloudDataProvider = Provider<bool>((ref) {
+  final ready = ref.watch(localStoreReadyProvider);
+  if (ready.isLoading) return true;
+  if (ready.hasError || ready.asData?.value != true) return false;
+  final local = ref.watch(allTransactionsStreamProvider);
+  final items = local.asData?.value;
+  if (items == null) return local.isLoading;
+  if (items.isNotEmpty) return false;
+  return !ref.watch(currentSyncStateProvider).firstSyncDone;
+});

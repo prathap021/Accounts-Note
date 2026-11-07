@@ -15,14 +15,18 @@ void main() {
     SharedPreferences.setMockInitialValues(initialValues);
     final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        deviceCountryProvider.overrideWithValue('IN'),
+      ],
     );
     addTearDown(container.dispose);
     return container;
   }
 
   group('defaults', () {
-    test('a fresh install follows the system theme and uses INR', () async {
+    test('a fresh install in India follows the system theme and uses INR',
+        () async {
       final container = await containerWith({});
       final settings = container.read(settingsProvider);
 

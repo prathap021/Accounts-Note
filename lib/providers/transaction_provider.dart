@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/services/app_review_service.dart';
@@ -5,6 +7,7 @@ import '../data/repositories/offline_transaction_repository.dart';
 import '../data/repositories/transaction_repository.dart';
 import '../models/transaction_model.dart';
 import 'auth_provider.dart';
+import 'automation_provider.dart';
 import 'subscription_provider.dart';
 import 'sync_provider.dart';
 
@@ -78,9 +81,11 @@ class TransactionActionsNotifier extends Notifier<AsyncValue<void>> {
     }
     final result = await _repo.addTransaction(tx);
     return result.when(
-      success: (_) {
+      success: (saved) {
         state = const AsyncData(null);
-        AppReviewService.checkAndAskForReview();
+        // May notify that a budget just reached its alert line or its limit.
+        unawaited(ref.read(budgetAlertsProvider).afterAdd(saved));
+        unawaited(ref.read(appReviewServiceProvider).recordTransactionAdded());
         return true;
       },
       failure: (f) {
@@ -106,21 +111,29 @@ class TransactionActionsNotifier extends Notifier<AsyncValue<void>> {
     );
   }
 
-  Future<bool> deleteTransaction(String txId) async {
-    if (_uid == null) return false;
+  /// Deletes, and returns the record as it was for [undoDelete]. Null when
+  /// nothing was deleted.
+  Future<TransactionModel?> deleteTransaction(String txId) async {
+    if (_uid == null) return null;
     state = const AsyncLoading();
     final result = await _repo.deleteTransaction(txId);
     return result.when(
-      success: (_) {
+      success: (previous) {
         state = const AsyncData(null);
-        return true;
+        return previous;
       },
       failure: (f) {
         state = AsyncError(f, StackTrace.current);
-        return false;
+        return null;
       },
     );
   }
+
+  Future<bool> undoDelete(TransactionModel previous) async {
+    final result = await _repo.restoreDeleted(previous);
+    return result.isSuccess;
+  }
+
 }
 
 final transactionActionsProvider =

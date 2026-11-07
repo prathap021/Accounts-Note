@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/constants/app_constants.dart';
 import 'package:income_expense_tracker/data/subscriptions/subscription_store.dart';
 import 'package:income_expense_tracker/models/app_user_model.dart';
 import 'package:income_expense_tracker/models/subscription_plan.dart';
@@ -13,19 +12,21 @@ void main() {
     test('daily limits match the published plans', () {
       final table = {
         for (final p in SubscriptionPlan.values)
-          p: (p.priceLabel, p.dailyIncomeLimit, p.dailyExpenseLimit),
+          p: (p.priceLabel, p.dailyLimit),
       };
       expect(table, {
-        SubscriptionPlan.free: ('₹0', 7, 7),
-        SubscriptionPlan.basic: ('₹99', 30, 30),
-        SubscriptionPlan.standard: ('₹199', 60, 60),
-        SubscriptionPlan.premium: ('₹299', 100, 100),
+        SubscriptionPlan.free: ('\$0', 14),
+        SubscriptionPlan.basic: ('\$1', 60),
+        SubscriptionPlan.standard: ('\$2', 120),
+        SubscriptionPlan.premium: ('\$3', 200),
       });
     });
 
-    test('limits are per type', () {
-      expect(SubscriptionPlan.basic.limitFor(TransactionType.income), 30);
-      expect(SubscriptionPlan.basic.limitFor(TransactionType.expense), 30);
+    test('plans are shown as a month of the daily cap', () {
+      expect(SubscriptionPlan.free.monthlyLimit, 420);
+      expect(SubscriptionPlan.basic.monthlyLimit, 1800);
+      expect(SubscriptionPlan.standard.monthlyLimit, 3600);
+      expect(SubscriptionPlan.premium.monthlyLimit, 6000);
     });
 
     test('store product ids map back to their plans', () {
@@ -33,11 +34,33 @@ void main() {
         'accounts_note_basic_monthly',
         'accounts_note_standard_monthly',
         'accounts_note_premium_monthly',
+        'accounts_note_basic_yearly',
+        'accounts_note_standard_yearly',
+        'accounts_note_premium_yearly',
       });
       for (final p in SubscriptionPlan.paid) {
         expect(SubscriptionPlan.fromProductId(p.productId), p);
+        expect(SubscriptionPlan.fromProductId(p.yearlyProductId), p);
+        expect(SubscriptionPlan.periodOf(p.productId), BillingPeriod.monthly);
+        expect(
+          SubscriptionPlan.periodOf(p.yearlyProductId),
+          BillingPeriod.yearly,
+        );
       }
       expect(SubscriptionPlan.fromProductId('something_else'), isNull);
+    });
+
+    test('a year costs twelve months less \$1, or less ₹99 in India', () {
+      for (final (plan, usd, inr) in [
+        (SubscriptionPlan.basic, '\$11', '₹1,089'),
+        (SubscriptionPlan.standard, '\$23', '₹2,289'),
+        (SubscriptionPlan.premium, '\$35', '₹3,489'),
+      ]) {
+        expect(plan.listPrice('USD', BillingPeriod.yearly), usd);
+        expect(plan.listPrice('INR', BillingPeriod.yearly), inr);
+      }
+      expect(SubscriptionPlan.yearlySaving('INR'), '₹99');
+      expect(SubscriptionPlan.yearlySaving('EUR'), '\$1');
     });
 
     test('plans are ordered cheapest first', () {

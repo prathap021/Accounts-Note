@@ -19,12 +19,18 @@ class SyncState {
   final int failedCount;
   final DateTime? lastSyncedAt;
 
+  /// Whether the first sync since sign-in has finished — pulled the cloud
+  /// down, failed, or found no connection. Until then an empty device may
+  /// just mean the user's data has not arrived yet.
+  final bool firstSyncDone;
+
   const SyncState({
     this.phase = SyncPhase.idle,
     this.isOnline = true,
     this.pendingCount = 0,
     this.failedCount = 0,
     this.lastSyncedAt,
+    this.firstSyncDone = false,
   });
 
   /// What to show the user, in one word.
@@ -43,6 +49,7 @@ class SyncState {
     int? pendingCount,
     int? failedCount,
     DateTime? lastSyncedAt,
+    bool? firstSyncDone,
   }) {
     return SyncState(
       phase: phase ?? this.phase,
@@ -50,6 +57,7 @@ class SyncState {
       pendingCount: pendingCount ?? this.pendingCount,
       failedCount: failedCount ?? this.failedCount,
       lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+      firstSyncDone: firstSyncDone ?? this.firstSyncDone,
     );
   }
 }
@@ -76,11 +84,16 @@ class SyncManager {
   /// device and is retried on the next manual sync or app start.
   static const maxAutoRetries = 5;
 
+  /// How long a delete waits on the device before it is sent, so "Undo" can
+  /// take it back without the server ever seeing it.
+  final Duration deleteGrace;
+
   SyncManager({
     required this.store,
     required this.repository,
     Connectivity? connectivity,
     this.usageStore,
+    this.deleteGrace = const Duration(seconds: 6),
   }) : connectivity = connectivity ?? Connectivity();
 
   final _stateController = StreamController<SyncState>.broadcast();
@@ -99,12 +112,17 @@ class SyncManager {
     _stateController.add(next);
   }
 
-  void _refreshCounts({SyncPhase? phase, DateTime? lastSyncedAt}) {
+  void _refreshCounts({
+    SyncPhase? phase,
+    DateTime? lastSyncedAt,
+    bool? firstSyncDone,
+  }) {
     _emit(_state.copyWith(
       phase: phase,
       pendingCount: store.pendingCount,
       failedCount: store.failedCount,
       lastSyncedAt: lastSyncedAt,
+      firstSyncDone: firstSyncDone,
     ));
   }
 
@@ -112,6 +130,8 @@ class SyncManager {
   /// the user is known and their box is open.
   Future<void> start() async {
     _disposed = false;
+    // A new session (or a different account): its first sync is still ahead.
+    _emit(_state.copyWith(firstSyncDone: false));
     await _connectivitySub?.cancel();
     _connectivitySub = connectivity.onConnectivityChanged.listen((results) {
       final online = _isOnline(results);
@@ -129,6 +149,8 @@ class SyncManager {
       phase: online ? SyncPhase.idle : SyncPhase.offline,
       pendingCount: store.pendingCount,
       failedCount: store.failedCount,
+      // Offline, there is nothing to wait for: show what the device has.
+      firstSyncDone: online ? null : true,
     ));
     if (online) unawaited(syncNow());
   }
@@ -157,7 +179,7 @@ class SyncManager {
     if (_syncing || uid == null || _disposed) return;
 
     if (!await isOnline()) {
-      _refreshCounts(phase: SyncPhase.offline);
+      _refreshCounts(phase: SyncPhase.offline, firstSyncDone: true);
       return;
     }
 
@@ -171,10 +193,11 @@ class SyncManager {
       _refreshCounts(
         phase: anyFailed ? SyncPhase.failed : SyncPhase.idle,
         lastSyncedAt: DateTime.now(),
+        firstSyncDone: true,
       );
     } catch (e) {
       debugPrint('Sync failed: $e');
-      _refreshCounts(phase: SyncPhase.failed);
+      _refreshCounts(phase: SyncPhase.failed, firstSyncDone: true);
     } finally {
       _syncing = false;
     }
@@ -217,6 +240,11 @@ class SyncManager {
               clearSyncError: true,
             ));
           case PendingOp.delete:
+            if (DateTime.now().difference(tx.updatedAt) < deleteGrace) {
+              // Still undoable. Put it back as it was; a later sync sends it.
+              await store.put(tx.copyWith(syncStatus: SyncStatus.pending));
+              continue;
+            }
             await repository.deleteTransactionRaw(uid, tx.id);
             // Tombstone has done its job — drop it for good.
             await store.remove(tx.id);

@@ -41,7 +41,7 @@ app, which kills the first one mid-test ("Process crashed").
 `flutter test` does **not** run these tests. Patrol needs its native test
 runner to drive the device.
 
-A full run takes about 5½ minutes on an emulator.
+A full run (70 flows) takes about 10 minutes on an emulator.
 
 **If a run reports `Total: 0` after about 4–5 minutes**, the APK never
 installed. Check
@@ -87,29 +87,34 @@ after it will see it.
 
 ## What is covered
 
-[TEST_FLOWS.md](TEST_FLOWS.md) describes all 49 flows step by step, with
+[TEST_FLOWS.md](TEST_FLOWS.md) describes all 70 flows step by step, with
 their starting state and expected results. In summary:
 
 | File | Flows |
 |---|---|
-| `onboarding_test.dart` | First launch → intro pages → sign-in, shown only once; swiping between pages |
+| `onboarding_test.dart` | First launch → intro pages → currency from location (native permission) → sign-in, shown only once; swiping between pages |
 | `auth_test.dart` | Email sign-up → verification gate → dashboard; re-check on returning from the inbox app (native Home / reopen); duplicate address; switching account; validation; wrong then right password; session kept across restarts; password reset (address carried over, invalid address) |
 | `transactions_test.dart` | Add income and expense from the dashboard and check balance, rows and cloud sync; amount validation; switching type changes categories; edit; delete with confirmation; offline entry queued, then synced on reconnect |
 | `activity_test.dart` | History from another device pulled down; search with a total; type and category filters with a live preview; dashboard Income card opens a filtered Activity; swipe to delete with confirmation; last month's balance carried forward |
 | `categories_budgets_test.dart` | Create a category (with validation) and spend in it; income and expense categories kept apart; remove a category; budget tracking against spend; overspent overall budget; delete a budget |
 | `credit_cards_test.dart` | Add a card, keeping only the last 4 digits; card spend kept out of the cash balance; rename and delete; add a card from the payment picker while logging an expense |
-| `settings_test.dart` | Currency, appearance (kept after a restart), display name; log out wipes the device and signing back in restores from the cloud; delete account (10-second guard, data and sign-in gone); cancelling the delete |
-| `navigation_reports_test.dart` | Every bottom tab; Android back goes Home first, then asks before exiting; back closes a pushed screen; Reports totals and range switch |
-| `subscriptions_test.dart` | The free 7-a-day limit and the upgrade prompt; income and expense counted apart; the plan screen (prices, limits, status, today's use); subscribe, upgrade, restore; a cancelled plan keeping its limits until it ends |
+| `settings_test.dart` | Currency, appearance (kept after a restart), display name; log out wipes the device and signing back in restores from the cloud; every Play currency, found by search; rating the app and checking for updates; a backup moving every transaction into another account |
+| `navigation_reports_test.dart` | Every bottom tab; Android back goes Home first, then asks before exiting; back closes a pushed screen; Reports totals and range switch; a custom past period picked on the calendar (and cancelled), and the PDF / Excel / CSV export choice |
+| `subscriptions_test.dart` | The free 14-a-day limit, shared by income and expense, and the upgrade prompt; the plan screen (prices, limits, status, today's use); subscribe, upgrade, restore; yearly plans; a cancelled plan keeping its limits until it ends |
+| `everyday_test.dart` | Undo a delete; swipe right to edit; step through months and hide amounts; a pay-day month start; removing a used category moves entries to Other; clear all data |
+| `automation_test.dart` | Recurring entries caught up on launch, pause and resume; Repeat from the add form; the daily reminder and its tap; a budget alert at 80% |
+| `security_test.dart` | PIN lock on launch with a wrong-PIN countdown; fingerprint unlock (fake reader); Forgot PIN signs out |
+| `accounts_test.dart` | Accounts with opening balances; a transfer that moves money without changing the total, and deleting it; an expense from an account and the remembered default |
+| `insights_test.dart` | Spending by category with tap-through to Activity, and the Day period; a receipt photo (fake gallery) shown full size; CSV import, and importing the same file again |
 
 ### Not covered, on purpose
 
 - **Google and Apple sign-in.** They open the provider's own account UI and
   need a real account, so they cannot run unattended. The email path covers
   the shared post-sign-in flow.
-- **CSV export and "Backup & Delete".** These end in the system share sheet
-  or a file save, which differs between devices. The backup step also reads
-  `FirebaseAuth.instance` directly, which the fakes cannot reach.
+- **Saving or sharing an exported report.** The PDF, Excel and CSV files
+  end in the system share sheet, which differs between devices. The flows
+  check the format choice; unit tests check the files.
 - **The real store purchase sheet and server verification.** Google Play
   and the App Store need real store accounts, and verification calls their
   APIs. A fake store and verifier stand in (`test/support/fake_subscriptions.dart`);
@@ -120,7 +125,7 @@ their starting state and expected results. In summary:
 
 | Path | Purpose |
 |---|---|
-| `support/fake_backend.dart` | The fakes. Auth keeps real accounts, rejects wrong passwords and reports verification, deletion and sign-out the way Firebase does. `FakeConnectivity` lets a test go offline on demand. |
+| `support/fake_backend.dart` | The fakes. Auth keeps real accounts, rejects wrong passwords and reports verification and sign-out the way Firebase does. `FakeConnectivity` lets a test go offline on demand. |
 | `support/test_app.dart` | `launchApp` / `launchSignedIn` boot the real app with the fakes plugged into its Riverpod providers. `restartApp` simulates a cold start. The `Seeding` extension writes server-side data the way the app writes it. |
 | `support/steps.dart` | Reusable user steps (`signInWithEmail`, `addTransaction`, `openTab`…) and money formatting helpers, so tests read as flows. |
 

@@ -159,30 +159,6 @@ class AuthActionsNotifier extends Notifier<AsyncValue<void>> {
         await _repo.signOut();
         return Result.success(null);
       });
-
-  Future<Result<void>> deleteAccount() async {
-    state = const AsyncLoading();
-    // Stop syncing so nothing re-uploads mid-delete, but keep the local ledger
-    // until the delete actually succeeds — if it fails the user still has an
-    // account, and wiping their data first would strand them with an empty one.
-    await ref.read(syncManagerProvider).stop();
-    final uid = ref.read(currentUidProvider);
-
-    final result = await _repo.deleteAccount();
-    await result.when(
-      success: (_) async {
-        await ref.read(transactionLocalStoreProvider).clear();
-        if (uid != null) await ref.read(dailyUsageStoreProvider).clear(uid);
-        state = const AsyncData(null);
-      },
-      failure: (f) async {
-        // Deletion did not happen: resume syncing so the account keeps working.
-        await ref.read(syncManagerProvider).start();
-        state = AsyncError(f, StackTrace.current);
-      },
-    );
-    return result;
-  }
 }
 
 final authActionsProvider =

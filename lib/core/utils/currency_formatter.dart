@@ -1,6 +1,8 @@
 import 'package:intl/intl.dart';
 import 'package:number_to_indian_words/number_to_indian_words.dart';
 
+import '../constants/currencies.dart';
+
 class CurrencyFormatter {
   /// Set [spacedSymbol] to separate the symbol from the digits ("₹ 1,605.00").
   /// Used where the amount is set large enough that a tight symbol crowds it,
@@ -13,7 +15,7 @@ class CurrencyFormatter {
     final symbol = symbolFor(currencyCode);
     final formatter = NumberFormat.currency(
       symbol: spacedSymbol && !symbol.endsWith(' ') ? '$symbol ' : symbol,
-      decimalDigits: 2,
+      decimalDigits: decimalDigitsFor(currencyCode),
       locale: currencyCode == 'INR' ? 'en_IN' : 'en_US',
     );
     return formatter.format(amount);
@@ -52,18 +54,16 @@ class CurrencyFormatter {
     return '$prefix$words';
   }
 
-  static String symbolFor(String code) {
-    switch (code) {
-      case 'INR':
-        return '₹';
-      case 'USD':
-        return '\$';
-      case 'EUR':
-        return '€';
-      case 'GBP':
-        return '£';
-      default:
-        return '$code ';
+  static String symbolFor(String code) =>
+      currencyByCode(code)?.symbol ?? '$code ';
+
+  /// Minor units for [code]: 2 for most, 0 for currencies such as the yen
+  /// and the won that have no coins in use.
+  static int decimalDigitsFor(String code) {
+    try {
+      return NumberFormat.currency(name: code).decimalDigits ?? 2;
+    } catch (_) {
+      return 2;
     }
   }
 }

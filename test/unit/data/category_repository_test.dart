@@ -83,12 +83,11 @@ void main() {
   });
 
   group('removal', () {
-    test('a custom category with no history is deleted outright', () async {
+    test('a category is deleted outright', () async {
       await addCategory(name: 'Temp');
       final category = (await repo.watchCategories(testUid).first).single;
 
-      await repo.deleteOrArchiveCategory(testUid, category,
-          hasTransactions: false);
+      await repo.deleteCategory(testUid, category.id);
 
       final snap = await firestore
           .collection(FirestorePaths.categories(testUid))
@@ -96,41 +95,30 @@ void main() {
       expect(snap.docs, isEmpty);
     });
 
-    test('a category with history is archived, preserving past records',
-        () async {
-      await addCategory(name: 'Food');
-      final category = (await repo.watchCategories(testUid).first).single;
+    test('the fallback "Other" is found, and un-hidden if archived', () async {
+      final id = await addCategory(name: 'Other', isDefault: true);
+      await firestore
+          .doc(FirestorePaths.category(testUid, id))
+          .update({'isArchived': true});
 
-      await repo.deleteOrArchiveCategory(testUid, category,
-          hasTransactions: true);
-
-      final snap = await firestore
-          .collection(FirestorePaths.categories(testUid))
-          .get();
-      expect(snap.docs, hasLength(1), reason: 'the document survives');
-      expect(snap.docs.single.data()['isArchived'], isTrue);
+      final other = (await repo.findOrCreateFallback(
+        testUid,
+        TransactionType.expense,
+      )).when(success: (c) => c, failure: (_) => fail('no fallback'));
+      expect(other.id, id);
+      final doc =
+          await firestore.doc(FirestorePaths.category(testUid, id)).get();
+      expect(doc.data()!['isArchived'], isFalse);
     });
 
-    test('a default category is archived even with no history', () async {
-      await addCategory(name: 'Other', isDefault: true);
-      final category = (await repo.watchCategories(testUid).first).single;
-
-      await repo.deleteOrArchiveCategory(testUid, category,
-          hasTransactions: false);
-
-      final snap = await firestore
-          .collection(FirestorePaths.categories(testUid))
-          .get();
-      expect(snap.docs.single.data()['isArchived'], isTrue);
-    });
-
-    test('archived categories disappear from the pickers', () async {
-      await addCategory(name: 'Food');
-      final category = (await repo.watchCategories(testUid).first).single;
-      await repo.deleteOrArchiveCategory(testUid, category,
-          hasTransactions: true);
-
-      expect(await repo.watchCategories(testUid).first, isEmpty);
+    test('a missing "Other" is created for the right type', () async {
+      final other = (await repo.findOrCreateFallback(
+        testUid,
+        TransactionType.income,
+      )).when(success: (c) => c, failure: (_) => fail('no fallback'));
+      expect(other.name, 'Other');
+      expect(other.type, TransactionType.income);
+      expect(await repo.watchCategories(testUid).first, hasLength(1));
     });
   });
 

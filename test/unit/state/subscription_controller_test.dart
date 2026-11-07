@@ -70,17 +70,25 @@ void main() {
     Future<DailyLimitReached?> check(TransactionType type) =>
         container.read(dailyLimitCheckerProvider).check(type);
 
-    test('a free user can add up to 7 of each type', () async {
+    test('a free user can add 14 a day, income and expense together', () async {
       await setUsage(income: 6, expense: 7);
-      expect(await check(TransactionType.income), isNull);
-      final blocked = await check(TransactionType.expense);
+      expect(await check(TransactionType.expense), isNull);
+      await setUsage(income: 6, expense: 8);
+      final blocked = await check(TransactionType.income);
       expect(blocked, isNotNull);
       expect(blocked!.plan, SubscriptionPlan.free);
-      expect(blocked.limit, 7);
+      expect(blocked.limit, 14);
+    });
+
+    test('all 14 may be of one type', () async {
+      await setUsage(expense: 13);
+      expect(await check(TransactionType.expense), isNull);
+      await setUsage(expense: 14);
+      expect(await check(TransactionType.expense), isNotNull);
     });
 
     test('entries not uploaded yet count too', () async {
-      await setUsage(income: 5);
+      await setUsage(income: 6, expense: 6);
       final local = container.read(dailyUsageStoreProvider);
       await local.recordCreated(uid, todayKey(), TransactionType.income);
       await local.recordCreated(uid, todayKey(), TransactionType.income);
@@ -89,13 +97,13 @@ void main() {
 
     test('a paid plan raises the limit', () async {
       await backend.grant(uid, SubscriptionPlan.basic);
-      await setUsage(income: 7);
+      await setUsage(income: 14);
       await settle();
       expect(await check(TransactionType.income), isNull);
-      await setUsage(income: 30);
+      await setUsage(income: 30, expense: 30);
       final blocked = await check(TransactionType.income);
       expect(blocked?.plan, SubscriptionPlan.basic);
-      expect(blocked?.limit, 30);
+      expect(blocked?.limit, 60);
     });
 
     test('an expired plan is back on the free limit', () async {
@@ -104,7 +112,7 @@ void main() {
         SubscriptionPlan.premium,
         validFor: const Duration(days: -1),
       );
-      await setUsage(expense: 7);
+      await setUsage(expense: 14);
       await settle();
       expect(
         (await check(TransactionType.expense))?.plan,
@@ -137,7 +145,7 @@ void main() {
       await start();
       final ui = container.read(subscriptionControllerProvider);
       expect(ui.storeAvailable, isTrue);
-      expect(ui.priceFor(SubscriptionPlan.standard), '₹199.00');
+      expect(ui.priceFor(SubscriptionPlan.standard), '\$2.00');
     });
 
     test('a purchase is verified, then confirmed to the store', () async {
@@ -166,6 +174,58 @@ void main() {
       expect(store.replaced.first, isNull);
       expect(store.replaced.last?.productId, 'accounts_note_basic_monthly');
       expect(container.read(currentPlanProvider), SubscriptionPlan.premium);
+    });
+
+    test('the yearly toggle buys the yearly product', () async {
+      final controller = await start();
+      controller.selectPeriod(BillingPeriod.yearly);
+      expect(
+        container
+            .read(subscriptionControllerProvider)
+            .priceFor(SubscriptionPlan.standard),
+        '\$23.00',
+      );
+      expect(
+        container
+            .read(subscriptionControllerProvider)
+            .yearlySavingFor(SubscriptionPlan.standard),
+        '\$1.00',
+        reason: 'worked out from the store prices: 12 × \$2 − \$23',
+      );
+      await controller.buy(SubscriptionPlan.standard);
+      await settle();
+
+      expect(store.bought, ['accounts_note_standard_yearly']);
+      expect(container.read(currentPlanProvider), SubscriptionPlan.standard);
+    });
+
+    test(
+      'monthly to yearly on the same plan replaces it as an upgrade',
+      () async {
+        final controller = await start();
+        await controller.buy(SubscriptionPlan.basic);
+        await settle();
+        controller.selectPeriod(BillingPeriod.yearly);
+        await controller.buy(SubscriptionPlan.basic);
+        await settle();
+
+        expect(store.bought.last, 'accounts_note_basic_yearly');
+        expect(store.replaced.last?.productId, 'accounts_note_basic_monthly');
+        expect(store.upgrades.last, isTrue);
+      },
+    );
+
+    test('a yearly subscriber sees the yearly prices first', () async {
+      await backend.grant(uid, SubscriptionPlan.premium);
+      await firestore.doc(FirestorePaths.user(uid)).update({
+        'subscriptionProductId': 'accounts_note_premium_yearly',
+      });
+      await start();
+      await settle();
+      expect(
+        container.read(subscriptionControllerProvider).period,
+        BillingPeriod.yearly,
+      );
     });
 
     test('a cancelled purchase changes nothing', () async {

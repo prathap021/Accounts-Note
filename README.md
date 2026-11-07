@@ -16,7 +16,14 @@ Repository: [github.com/prathap021/Accounts-Note](https://github.com/prathap021/
 ## Features
 
 - **Auth**: Google Sign-In, Sign in with Apple, email/password, session
-  persistence, account deletion (wipes Firestore data + Auth account)
+  persistence, log out
+- **Currencies**: every currency Google Play bills in, searchable. On first
+  launch the app offers to use the phone's approximate location (once, on
+  the device) to pick the currency; otherwise it uses the phone's region
+- **Updates and reviews**: Google Play in-app updates (in the background,
+  with a restart prompt; blocking only for high-priority releases) and the
+  store's in-app rating prompt, plus "Rate Accounts Note" and "Check for
+  updates" in Settings
 - **Transactions**: add/edit/delete income & expense, categories, notes,
   date/time, payment method, search, filters, swipe-to-delete, offline sync
 - **Dashboard**: balance, monthly totals, category pie chart, recent activity
@@ -27,12 +34,31 @@ Repository: [github.com/prathap021/Accounts-Note](https://github.com/prathap021/
   Activity by one card or all cards. Every filter shows its total, live in the
   filter sheet as you tap
 - **Categories**: default seeded categories + custom icon/color categories
-- **Subscriptions**: free accounts can add 7 income and 7 expense entries a
-  day. Three monthly plans raise that: Basic ₹99 (30 + 30), Standard ₹199
-  (60 + 60) and Premium ₹299 (100 + 100). Bought through Google Play Billing
+- **Subscriptions**: free accounts can add 14 transactions a day, income and
+  expense in any mix. Three plans raise that: Basic 60 a day (1,800 a month),
+  Standard 120 (3,600) and Premium 200 (6,000), paid monthly (₹99 / ₹199 /
+  ₹299 in India, $1 / $2 / $3 elsewhere) or yearly for twelve months less
+  ₹99 / $1. Bought through Google Play Billing
   or the App Store, verified by Cloud Functions, and enforced by the
   Firestore rules, so a modified app cannot get round the limits
-- **Reports**: week/month/year views, charts, CSV export & share
+- **Backup and import**: one tap saves every transaction, category, card
+  and budget to a file; importing it adds them to any account, the same one
+  or another, without using up the day's allowance. Files are signed by the
+  server, so an edited file is refused
+- **Accounts and transfers**: cash, bank, UPI and wallet accounts with
+  opening balances and live balances; pick one when logging an entry; move
+  money between them with transfers, which are neither income nor expense
+- **Receipts**: attach a photo (camera or gallery) to any entry; stored
+  compressed in `users/{uid}/receipts/{txId}` and fetched only when opened
+- **Import from CSV**: another app's export, a bank statement or this app's
+  own report. The app previews the file; the `importCsvRows` function writes
+  the entries, up to the plan's monthly total per calendar month, and the
+  same file imported twice adds nothing
+- **App lock**: optional 4-digit PIN and fingerprint/face unlock; locks on
+  launch and after 30 s in the background
+- **Reports**: day/week/month/year or any custom period picked on a calendar
+  (including past history), spending and income by category (tap one to see
+  its entries), a trend chart, and export as PDF, Excel or CSV
 - **Security**: per-user Firestore rules — users only access their own data
 - **Offline**: Firestore unlimited local cache; syncs when back online
 - **Tests**: repository and model unit tests
@@ -63,10 +89,14 @@ users/{uid}
   ├─ categories/{categoryId}
   ├─ budgets/{budgetId}
   ├─ creditCards/{cardId}
+  ├─ accounts/{accountId}        cash, bank, UPI and wallet accounts
+  ├─ transfers/{transferId}      money moved between accounts
+  ├─ receipts/{transactionId}    a receipt photo (bytes)
   ├─ recurringTransactions/{recurringId}
   ├─ settings/preferences
   ├─ notifications/{notificationId}
-  └─ usage/{yyyy-MM-dd}          entries added that day, per type (limits)
+  ├─ usage/{yyyy-MM-dd}          entries added that day (daily limit)
+  └─ importUsage/{yyyy-MM}       CSV rows imported that month (Cloud Functions only)
 
 subscriptionLinks/{linkId}       which account owns each store subscription
                                  (Cloud Functions only)
@@ -150,24 +180,34 @@ firebase deploy --only firestore:rules,firestore:indexes
 
 ### 4. Subscriptions (in-app purchases)
 
-The plans are monthly auto-renewing subscriptions with these product ids,
-the same in both stores (they are defined in
+Each plan is an auto-renewing subscription, monthly or yearly, with these
+product ids, the same in both stores (they are defined in
 `lib/models/subscription_plan.dart`, `firestore.rules` and
-`functions/src/subscriptions.ts`, which must agree):
+`functions/src/subscriptions.ts`, which must agree). The limit is one
+allowance per day for income and expense together:
 
-| Plan | Product id | Price | Income / expense per day |
-|---|---|---:|---:|
-| Basic | `accounts_note_basic_monthly` | ₹99 | 30 / 30 |
-| Standard | `accounts_note_standard_monthly` | ₹199 | 60 / 60 |
-| Premium | `accounts_note_premium_monthly` | ₹299 | 100 / 100 |
+| Plan | Product id | India | Elsewhere | Transactions a day (a month) |
+|---|---|---:|---:|---:|
+| Basic | `accounts_note_basic_monthly` | ₹99 | $1 | 60 (1,800) |
+| | `accounts_note_basic_yearly` | ₹1,089 | $11 | |
+| Standard | `accounts_note_standard_monthly` | ₹199 | $2 | 120 (3,600) |
+| | `accounts_note_standard_yearly` | ₹2,289 | $23 | |
+| Premium | `accounts_note_premium_monthly` | ₹299 | $3 | 200 (6,000) |
+| | `accounts_note_premium_yearly` | ₹3,489 | $35 | |
 
-Free accounts get 7 / 7. Prices shown in the app come from the store, so set
-them there.
+Yearly is twelve months less ₹99 / $1. Free accounts get 14 a day. The app
+shows the store's own price for the buyer's country, so set the prices
+there: in Play Console the India price and the USD base price that Play
+converts for other countries (likewise per storefront in App Store
+Connect). Until the
+store answers, the app shows the list price: rupees when the user keeps
+accounts in INR, dollars otherwise.
 
 **Google Play**
 
-1. In Play Console → Monetize → Subscriptions, create the three products,
-   each with one monthly auto-renewing base plan.
+1. In Play Console → Monetize → Subscriptions, create the six products:
+   each monthly one with a monthly auto-renewing base plan, each yearly one
+   with a yearly base plan. Activate the base plans.
 2. Give the Cloud Functions service account
    (`PROJECT_ID@appspot.gserviceaccount.com`) access in Play Console → Users
    and permissions, with "View financial data" and "Manage orders and
@@ -180,9 +220,10 @@ them there.
 
 **App Store**
 
-1. In App Store Connect, create one subscription group with the three
-   products, ordered Premium, Standard, Basic (highest first), so moving
-   between them is treated as an upgrade or downgrade.
+1. In App Store Connect, create one subscription group with the six
+   products, ordered Premium, Standard, Basic (highest first; within a plan,
+   yearly above monthly), so moving between them is treated as an upgrade or
+   downgrade.
 2. Create an In-App Purchase key (Users and Access → Integrations) and set:
 
 ```bash
@@ -209,11 +250,70 @@ cd functions && npm install && cd ..
 firebase deploy --only functions,firestore:rules
 ```
 
+Two things that broke the first deploy, in case they come back:
+
+- **`npm ci` fails in Cloud Build** ("package.json and package-lock.json
+  … are not in sync", missing `@emnapi/*`): Cloud Build uses Node 22's
+  npm 10, and a lock file written by npm 11 leaves those out. Regenerate it
+  with `cd functions && npx npm@10 install`.
+- **The app gets HTTP 403 from a callable function.** Firebase makes a
+  callable public (the function checks the user itself) only when it is
+  first created. If a create failed and a later deploy "updated" it, it
+  stays private: delete it (`firebase functions:delete NAME`) and deploy
+  again. Unauthenticated, a working callable answers "Sign in required."
+
 The app's own check stops the user as soon as a limit is reached, even
 offline. The Firestore rules are what enforce it: a new transaction is
 accepted only in the same write as a +1 to that day's counter, within the
 plan's limit, and the plan fields can only be written by the functions.
 Entries made offline are accepted up to 3 days late.
+
+**Backups** need one more secret, a long random string that signs backup
+files (changing it later makes older files unimportable):
+
+```bash
+openssl rand -hex 32 > /tmp/k && \
+  firebase functions:secrets:set BACKUP_SIGNING_KEY --data-file /tmp/k && rm /tmp/k
+```
+
+The signing and merging are tested on the Firestore emulator:
+
+```bash
+(cd functions && npm run build)
+firebase emulators:exec --only firestore --project demo-accounts-note \
+  "node --test functions/test/backup.test.mjs"
+```
+
+**Going live: if purchases do not work**
+
+Live purchases need every one of these; any one missing breaks them:
+
+- [ ] The functions are deployed. `firebase functions:list` must show
+      `verifySubscription`, `refreshSubscription`, `playBillingNotifications`
+      and `appStoreNotifications`. Without them the app cannot confirm a
+      purchase, no plan is granted, and it retries on every launch.
+- [ ] The new `firestore.rules` are deployed (same command), or uploads of
+      new entries are checked against the old rules.
+- [ ] A real package name. Google Play does not accept `com.example.*`:
+      change `applicationId` in `android/app/build.gradle.kts` (and
+      `AppLinks.androidPackage`, `PLAY_PACKAGE_NAME`), register that package
+      in Firebase, and download the new `google-services.json`.
+- [ ] A release signing key. Release builds are signed with the debug key
+      today, which Play rejects. Create an upload keystore and point
+      `signingConfigs` at it.
+- [ ] The app uploaded to a Play track (internal testing is enough) with
+      the `in_app_purchase` build, and the six products created and
+      activated in Play Console with exactly the ids above.
+- [ ] Testers added under Settings → License testing, and the test build
+      installed from the Play testing link (not side-loaded) with that
+      Google account signed in to the Play Store.
+- [ ] Google Play Android Developer API enabled in the Firebase project's
+      Google Cloud console, and the functions' service account invited in
+      Play Console with financial and orders permissions (step 2 above).
+      Without it `verifySubscription` answers "Could not reach Google Play".
+- [ ] For the App Store: the Paid Apps agreement signed, the products ready
+      for review, the API key secret set, and testing done with a sandbox
+      account.
 
 ### 5. Run
 

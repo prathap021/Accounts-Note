@@ -12,7 +12,7 @@ class StoreProduct {
   final String id;
   final String title;
 
-  /// Formatted for the user's storefront, e.g. "₹99.00".
+  /// Formatted for the user's storefront, e.g. "\$1.00".
   final String price;
 
   /// The plugin's own object, needed to start a purchase.
@@ -22,8 +22,15 @@ class StoreProduct {
     required this.id,
     required this.title,
     required this.price,
+    this.rawPrice,
+    this.currencyCode,
     this.native,
   });
+
+  /// The price as a number and its currency, for working out the yearly
+  /// saving in the buyer's own money.
+  final double? rawPrice;
+  final String? currencyCode;
 }
 
 enum StorePurchaseStatus { pending, purchased, restored, canceled, error }
@@ -131,7 +138,14 @@ class InAppPurchaseSubscriptionStore implements SubscriptionStore {
     for (final p in response.productDetails) {
       products.putIfAbsent(
         p.id,
-        () => StoreProduct(id: p.id, title: p.title, price: p.price, native: p),
+        () => StoreProduct(
+          id: p.id,
+          title: p.title,
+          price: p.price,
+          rawPrice: p.rawPrice,
+          currencyCode: p.currencyCode,
+          native: p,
+        ),
       );
     }
     return products;

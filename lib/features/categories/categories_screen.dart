@@ -5,9 +5,8 @@ import '../../core/constants/app_constants.dart';
 import '../../core/constants/category_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/category_model.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/category_provider.dart';
-import '../../providers/transaction_provider.dart';
+import '../../providers/sync_provider.dart';
 
 class CategoriesScreen extends ConsumerStatefulWidget {
   const CategoriesScreen({super.key});
@@ -183,6 +182,7 @@ class _CategoryList extends ConsumerWidget {
                       ],
                     ),
                   ),
+                  if (!CategoryActionsNotifier.isFallback(c))
                   IconButton(
                     tooltip: 'Remove category',
                     icon: Icon(
@@ -225,13 +225,22 @@ class _CategoryList extends ConsumerWidget {
     WidgetRef ref,
     CategoryModel category,
   ) async {
+    final used = ref
+        .read(offlineTransactionRepositoryProvider)
+        .currentTransactions()
+        .where((t) => t.categoryId == category.id)
+        .length;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Remove "${category.name}"?'),
-        content: Text(category.isDefault
-            ? 'This default category will be hidden from pickers but past transactions keep their history.'
-            : 'This will permanently delete the category if it has no transactions, otherwise it will be archived.'),
+        content: Text(
+          used == 0
+              ? 'No transactions use this category.'
+              : '$used ${used == 1 ? 'transaction uses' : 'transactions use'} '
+                    'this category. ${used == 1 ? 'It' : 'They'} will move to '
+                    '"Other" and stay in your history and totals.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -248,23 +257,24 @@ class _CategoryList extends ConsumerWidget {
         ],
       ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true || !context.mounted) return;
 
-    // Cheap heuristic: check if any transaction currently references this
-    // category before deciding delete vs archive. Fails safe to "archive"
-    // (rather than hard-delete) if the uid is missing or the read fails.
-    final uid = ref.read(currentUidProvider);
-    var hasTransactions = true;
-    if (uid != null) {
-      final txs = await ref.read(transactionRepositoryProvider).fetchPage(uid: uid);
-      hasTransactions = txs.when(
-        success: (list) => list.any((t) => t.categoryId == category.id),
-        failure: (_) => true,
-      );
-    }
-    await ref
+    final messenger = ScaffoldMessenger.of(context);
+    final moved = await ref
         .read(categoryActionsProvider.notifier)
-        .removeCategory(category, hasTransactions: hasTransactions);
+        .removeCategory(category);
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text(
+          moved == null
+              ? 'Could not remove "${category.name}". Please try again.'
+              : moved == 0
+              ? 'Removed "${category.name}".'
+              : 'Removed "${category.name}". $moved moved to Other.',
+        ),
+      ),
+    );
   }
 }
 

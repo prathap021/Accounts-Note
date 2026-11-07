@@ -1,12 +1,14 @@
 import 'dart:async';
 
-import 'package:cloud_functions/cloud_functions.dart' as cf;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../test/support/fake_csv_import.dart';
+import '../../test/support/fake_notifications.dart';
 import '../../test/support/fake_subscriptions.dart';
 
+export '../../test/support/fake_notifications.dart';
 export '../../test/support/fake_subscriptions.dart';
 
 /// In-memory stand-ins for every network dependency the app has, so the
@@ -14,7 +16,7 @@ export '../../test/support/fake_subscriptions.dart';
 /// a device without ever touching the production Firebase project.
 ///
 /// The fakes are deliberately stricter than `firebase_auth_mocks`: accounts
-/// persist, wrong passwords are rejected, and verification, deletion and
+/// persist, wrong passwords are rejected, and verification and
 /// sign-out notify the app the same way Firebase does. A flow test that a
 /// lenient fake lets through proves nothing.
 class FakeBackend {
@@ -23,10 +25,34 @@ class FakeBackend {
   final FakeFirebaseFirestore firestore = FakeFirebaseFirestore();
   final FakeFirebaseAuth auth;
   final FakeConnectivity connectivity = FakeConnectivity();
-  final cf.FirebaseFunctions functions = UnavailableFunctions();
 
   /// The device's app store: sells the three plans, answers at once.
   final FakeSubscriptionStore store = FakeSubscriptionStore();
+
+  /// What would be shown or scheduled as a notification.
+  final FakeNotifications notifications = FakeNotifications();
+
+  /// The phone's fingerprint reader; off unless a test turns it on.
+  final FakeBiometrics biometrics = FakeBiometrics();
+
+  /// The camera / gallery for receipt photos.
+  final FakeReceiptPicker receiptPicker = FakeReceiptPicker();
+
+  /// The CSV import function and its file picker.
+  late final FakeCsvImportService csvImport = FakeCsvImportService(
+    firestore: firestore,
+    currentUid: () => auth.currentUser?.uid,
+  );
+
+  /// Backups built from and imported into the fake Firestore.
+  late final FakeBackupService backups = FakeBackupService(
+    firestore: firestore,
+    currentUid: () => auth.currentUser?.uid,
+  );
+
+  /// The share sheet and file picker: a shared backup can be picked again,
+  /// as if saved to Files and opened in another account.
+  final FakeBackupFiles backupFiles = FakeBackupFiles();
 
   /// The backend's purchase verifier; writes the plan to the profile.
   late final FakeSubscriptionBackend subscriptions = FakeSubscriptionBackend(
@@ -166,12 +192,6 @@ class FakeFirebaseAuth implements FirebaseAuth {
   @override
   Future<void> signOut() async => _setCurrent(null);
 
-  void _deleteAccount(FakeAccount account) {
-    _accounts.remove(_key(account.email));
-    // Deleting the signed-in user signs them out, as Firebase does.
-    if (_current?.uid == account.uid) _setCurrent(null);
-  }
-
   @override
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError(
     'FakeFirebaseAuth does not support ${invocation.memberName}. '
@@ -229,9 +249,6 @@ class _FakeUser implements User {
   Future<void> updateDisplayName(String? displayName) async {
     _account.displayName = displayName;
   }
-
-  @override
-  Future<void> delete() async => _auth._deleteAccount(_account);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError(
@@ -299,10 +316,3 @@ class FakeConnectivity implements Connectivity {
   Stream<List<ConnectivityResult>> get onConnectivityChanged => _changes.stream;
 }
 
-/// Cloud Functions are server code; the app already falls back to the client
-/// when a callable is unreachable, which is the path this exercises.
-class UnavailableFunctions implements cf.FirebaseFunctions {
-  @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      throw UnsupportedError('Cloud Functions are unavailable in tests');
-}

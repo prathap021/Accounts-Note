@@ -59,6 +59,9 @@ export const PLAN_BY_PRODUCT: Record<string, Plan> = {
   "accounts_note_basic_monthly": "basic",
   "accounts_note_standard_monthly": "standard",
   "accounts_note_premium_monthly": "premium",
+  "accounts_note_basic_yearly": "basic",
+  "accounts_note_standard_yearly": "standard",
+  "accounts_note_premium_yearly": "premium",
 };
 
 /** A subscription as the store reports it right now. */
@@ -202,7 +205,7 @@ export async function fetchPlaySubscription(
     const status = (err as {code?: number}).code;
     if (status === 400 || status === 404 || status === 410) {
       throw new functions.https.HttpsError(
-        "not-found", "Google Play does not recognise this purchase.");
+        "invalid-argument", "Google Play does not recognise this purchase.");
     }
     console.error("Play Developer API call failed", err);
     throw new functions.https.HttpsError(
@@ -327,7 +330,8 @@ export async function fetchAppleSubscription(
         }
       }
       throw new functions.https.HttpsError(
-        "not-found", "The App Store has no subscription for this purchase.");
+        "invalid-argument",
+        "The App Store has no subscription for this purchase.");
     } catch (err) {
       if (err instanceof APIException && err.httpStatusCode === 404) {
         continue; // Not in this environment; try the next.
@@ -339,7 +343,7 @@ export async function fetchAppleSubscription(
     }
   }
   throw new functions.https.HttpsError(
-    "not-found", "The App Store does not recognise this purchase.");
+    "invalid-argument", "The App Store does not recognise this purchase.");
 }
 
 // ------------------------------------------------------- Linking and applying
@@ -476,11 +480,25 @@ function refetch(
 const appleSecrets = {secrets: ["APPLE_IAP_PRIVATE_KEY"]};
 
 /**
+ * Callable and webhook functions must be reachable without Cloud IAM: the
+ * app calls them with a Firebase ID token (checked in code, not by IAM), and
+ * Apple's servers have no Google identity at all. Firebase grants this only
+ * when a function is first created, so it is declared to hold on every
+ * deploy.
+ */
+const publicAccess = {invoker: "public" as const};
+
+/**
  * Callable. The app sends the store's proof right after a purchase or
  * restore; the plan is written to the profile only once the store confirms.
  */
 export const verifySubscription = functions
-  .runWith({...appleSecrets, timeoutSeconds: 60, memory: "256MB"})
+  .runWith({
+    ...appleSecrets,
+    ...publicAccess,
+    timeoutSeconds: 60,
+    memory: "256MB",
+  })
   .https.onCall(async (data, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError(
@@ -522,7 +540,12 @@ export const verifySubscription = functions
  * when the paid period ended and a renewal notification may have been lost.
  */
 export const refreshSubscription = functions
-  .runWith({...appleSecrets, timeoutSeconds: 60, memory: "256MB"})
+  .runWith({
+    ...appleSecrets,
+    ...publicAccess,
+    timeoutSeconds: 60,
+    memory: "256MB",
+  })
   .https.onCall(async (_data, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError(
@@ -584,7 +607,12 @@ export const playBillingNotifications = functions.pubsub
  * subscription changed; its state is then read from Apple's API.
  */
 export const appStoreNotifications = functions
-  .runWith({...appleSecrets, timeoutSeconds: 60, memory: "256MB"})
+  .runWith({
+    ...appleSecrets,
+    ...publicAccess,
+    timeoutSeconds: 60,
+    memory: "256MB",
+  })
   .https.onRequest(async (req, res) => {
     if (req.method !== "POST") {
       res.status(405).send("Method Not Allowed");
@@ -609,14 +637,3 @@ export const appStoreNotifications = functions
       res.status(500).send("error");
     }
   });
-
-/**
- * Releases every store subscription linked to [uid], when the account is
- * deleted. The store keeps billing until the user cancels there.
- * @param {string} uid The account being deleted.
- */
-export async function releaseLinks(uid: string): Promise<void> {
-  const links = await db().collection("subscriptionLinks")
-    .where("uid", "==", uid).get();
-  await Promise.all(links.docs.map((d) => d.ref.delete()));
-}

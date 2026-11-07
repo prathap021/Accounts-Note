@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/settings_provider.dart';
 import '../../widgets/app_logo.dart';
+import 'currency_setup_dialog.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -25,8 +26,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     super.dispose();
   }
 
-  void _finishOnboarding() {
-    ref.read(settingsProvider.notifier).setHasSeenOnboarding(true);
+  Future<void> _finishOnboarding() async {
+    // First run: settle the currency before anything is logged in it.
+    await chooseStartingCurrency(context, ref);
+    if (!mounted) return;
+    await ref.read(settingsProvider.notifier).setHasSeenOnboarding(true);
+    if (!mounted) return;
     context.go('/login');
   }
 

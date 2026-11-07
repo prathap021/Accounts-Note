@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:income_expense_tracker/core/constants/app_constants.dart';
 
+import '../../features/accounts/accounts_screen.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/verify_email_screen.dart';
 import '../../features/budgets/budgets_screen.dart';
@@ -10,6 +11,7 @@ import '../../features/categories/categories_screen.dart';
 import '../../features/credit_cards/credit_cards_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/reports/reports_screen.dart';
+import '../../features/recurring/recurring_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/subscription/subscription_screen.dart';
 import '../../features/splash/splash_screen.dart';
@@ -111,10 +113,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
       GoRoute(
+        path: '/recurring',
+        builder: (_, _) => const RecurringScreen(),
+      ),
+      GoRoute(
         path: '/subscription',
         builder: (_, _) => const SubscriptionScreen(),
       ),
       GoRoute(path: '/categories', builder: (_, _) => const CategoriesScreen()),
+      GoRoute(path: '/accounts', builder: (_, _) => const AccountsScreen()),
       GoRoute(
         path: '/credit-cards',
         builder: (_, _) => const CreditCardsScreen(),

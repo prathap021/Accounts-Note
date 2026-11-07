@@ -1,9 +1,13 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:number_to_words/number_to_words.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/category_icons.dart';
@@ -11,9 +15,11 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/result.dart';
 import '../../core/utils/snackbar_helper.dart';
+import '../../models/account_model.dart';
 import '../../models/category_model.dart';
 import '../../models/credit_card_model.dart';
 import '../../models/transaction_model.dart';
+import '../../providers/account_provider.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/credit_card_provider.dart';
 import '../../providers/dashboard_provider.dart';
@@ -21,8 +27,15 @@ import '../../providers/settings_provider.dart';
 import '../../providers/subscription_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../widgets/credit_card_visual.dart';
+import '../../widgets/undo_delete.dart';
+import '../accounts/accounts_screen.dart';
 import '../credit_cards/credit_cards_screen.dart';
 import '../subscription/limit_reached_sheet.dart';
+import '../../data/repositories/receipt_repository.dart';
+import '../../data/repositories/recurring_repository.dart';
+import '../../models/recurring_rule.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/automation_provider.dart';
 
 const _paymentMethods = ['Cash', 'Card', 'UPI', 'Bank Transfer', 'Wallet', 'Other'];
 
@@ -85,7 +98,21 @@ class _AddEditTransactionScreenState
 
   /// The card's name as last stored, shown if the card has since been deleted.
   String? _creditCardName;
+
+  /// The account the money moved in or out of, when the user keeps accounts.
+  String? _accountId;
+  String? _accountName;
+
+  /// A newly taken or picked receipt photo, not saved yet.
+  Uint8List? _receiptBytes;
+
+  /// The saved receipt was removed in this edit.
+  bool _receiptRemoved = false;
   bool _saving = false;
+
+  /// "Repeat": how often, or null for a one-off. New entries only.
+  RecurrenceFrequency? _repeat;
+  DateTime? _repeatUntil;
   bool _categoryMissing = false;
 
   bool get _isEditing => widget.existing != null;
@@ -102,6 +129,11 @@ class _AddEditTransactionScreenState
       _paymentMethod = existing.paymentMethod ?? _paymentMethods.first;
       _creditCardId = existing.creditCardId;
       _creditCardName = existing.creditCardName;
+      _accountId = existing.accountId;
+      _accountName = existing.accountName;
+    } else {
+      // A new entry starts on the account used last.
+      _accountId = ref.read(lastAccountIdProvider);
     }
   }
 
@@ -127,6 +159,8 @@ class _AddEditTransactionScreenState
     final currency = ref.watch(settingsProvider).currency;
     final categoriesAsync = ref.watch(categoriesStreamProvider(_type));
     final card = ref.watch(creditCardLookupProvider)[_creditCardId];
+    final accounts = ref.watch(accountsStreamProvider).asData?.value ?? [];
+    final account = ref.watch(accountLookupProvider)[_accountId];
 
     // Pre-select the existing category once the stream resolves.
     categoriesAsync.whenData((categories) {
@@ -315,9 +349,81 @@ class _AddEditTransactionScreenState
                         _paymentMethod,
                     onTap: _pickPaymentMethod,
                   ),
+                  // Card charges are debt on the card, not money leaving
+                  // an account.
+                  if (_creditCardId == null &&
+                      (accounts.isNotEmpty || _accountId != null)) ...[
+                    Divider(height: 1, color: scheme.outlineVariant),
+                    _DetailRow(
+                      key: const Key('account-row'),
+                      icon: account?.kind.icon ??
+                          Icons.account_balance_outlined,
+                      label: 'Account',
+                      value: account?.name ?? _accountName ?? 'None',
+                      onTap: () => _pickAccount(accounts),
+                    ),
+                  ],
                 ],
               ),
             ),
+            if (!_isEditing) ...[
+              const SizedBox(height: AppSpacing.xl),
+              const SectionLabel('Repeat'),
+              AppCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      key: const Key('repeat-switch'),
+                      secondary: const Icon(Icons.repeat_rounded),
+                      title: const Text('Repeat'),
+                      subtitle: Text(
+                        _repeat == null
+                            ? 'Salary, rent, EMI, subscriptions'
+                            : '${_repeat!.label}, added automatically',
+                      ),
+                      value: _repeat != null,
+                      onChanged: (on) => setState(
+                        () => _repeat = on ? RecurrenceFrequency.monthly : null,
+                      ),
+                    ),
+                    if (_repeat != null) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.lg,
+                          0,
+                          AppSpacing.lg,
+                          AppSpacing.sm,
+                        ),
+                        child: Wrap(
+                          spacing: AppSpacing.sm,
+                          children: [
+                            for (final f in RecurrenceFrequency.values)
+                              ChoiceChip(
+                                label: Text(f.label),
+                                selected: _repeat == f,
+                                onSelected: (_) => setState(() => _repeat = f),
+                              ),
+                          ],
+                        ),
+                      ),
+                      Divider(height: 1, color: scheme.outlineVariant),
+                      _DetailRow(
+                        icon: Icons.event_busy_rounded,
+                        label: 'Ends',
+                        value: _repeatUntil == null
+                            ? 'Never'
+                            : DateFormat('d MMM yyyy').format(_repeatUntil!),
+                        onTap: _pickRepeatEnd,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: AppSpacing.xl),
+            const SectionLabel('Receipt'),
+            _receiptSection(scheme),
             const SizedBox(height: AppSpacing.xl),
             const SectionLabel('Note'),
             TextFormField(
@@ -332,6 +438,19 @@ class _AddEditTransactionScreenState
         ),
       ),
     );
+  }
+
+  Future<void> _pickRepeatEnd() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _repeatUntil ?? DateTime(_date.year + 1, _date.month, _date.day),
+      firstDate: _date,
+      lastDate: DateTime(2100),
+      helpText: 'Repeat until',
+      cancelText: 'No end date',
+    );
+    if (!mounted) return;
+    setState(() => _repeatUntil = picked);
   }
 
   Future<void> _pickDateTime() async {
@@ -382,6 +501,182 @@ class _AddEditTransactionScreenState
     }
   }
 
+  bool get _hasSavedReceipt =>
+      (widget.existing?.hasReceipt ?? false) && !_receiptRemoved;
+
+  Widget _receiptSection(ColorScheme scheme) {
+    final AsyncValue<Uint8List?> image = _receiptBytes != null
+        ? AsyncData(_receiptBytes)
+        : _hasSavedReceipt
+        ? ref.watch(receiptImageProvider(widget.existing!.id))
+        : const AsyncData(null);
+    final bytes = image.asData?.value;
+    if (!image.isLoading && bytes == null) {
+      return AppCard(
+        padding: EdgeInsets.zero,
+        child: _DetailRow(
+          key: const Key('receipt-add'),
+          icon: Icons.receipt_long_outlined,
+          label: 'Photo',
+          value: 'Add a photo',
+          onTap: _pickReceipt,
+        ),
+      );
+    }
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Row(
+        children: [
+          InkWell(
+            key: const Key('receipt-thumbnail'),
+            onTap: bytes == null ? null : () => _viewReceipt(bytes),
+            borderRadius: BorderRadius.circular(8),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 72,
+                height: 72,
+                child: bytes == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : Image.memory(bytes, fit: BoxFit.cover),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          const Expanded(child: Text('Receipt attached')),
+          IconButton(
+            tooltip: 'Replace photo',
+            icon: const Icon(Icons.photo_camera_outlined),
+            onPressed: _pickReceipt,
+          ),
+          IconButton(
+            tooltip: 'Remove photo',
+            icon: const Icon(Icons.delete_outline_rounded),
+            onPressed: () => setState(() {
+              _receiptBytes = null;
+              _receiptRemoved = true;
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickReceipt() async {
+    final source = await showModalBottomSheet<ReceiptSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(ctx, ReceiptSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(ctx, ReceiptSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+    final bytes = await ref.read(receiptPickerProvider).pick(source);
+    if (!mounted) return;
+    if (bytes == null) {
+      return;
+    }
+    setState(() {
+      _receiptBytes = bytes;
+      _receiptRemoved = widget.existing?.hasReceipt ?? false;
+    });
+  }
+
+  void _viewReceipt(Uint8List bytes) => showDialog<void>(
+    context: context,
+    builder: (ctx) => Dialog(
+      insetPadding: const EdgeInsets.all(AppSpacing.md),
+      child: Stack(
+        children: [
+          InteractiveViewer(
+            maxScale: 5,
+            child: Image.memory(bytes, key: const Key('receipt-full')),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: IconButton.filledTonal(
+              tooltip: 'Close',
+              icon: const Icon(Icons.close_rounded),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Future<void> _pickAccount(List<AccountModel> accounts) async {
+    const none = '';
+    const add = '+';
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ListTile(title: Text('Which account?')),
+              for (final a in accounts)
+                ListTile(
+                  leading: Icon(a.kind.icon),
+                  title: Text(a.name),
+                  subtitle: Text(a.kind.label),
+                  trailing: a.id == _accountId
+                      ? const Icon(Icons.check_rounded)
+                      : null,
+                  onTap: () => Navigator.pop(ctx, a.id),
+                ),
+              ListTile(
+                leading: const Icon(Icons.block_rounded),
+                title: const Text('No account'),
+                trailing: _accountId == null
+                    ? const Icon(Icons.check_rounded)
+                    : null,
+                onTap: () => Navigator.pop(ctx, none),
+              ),
+              ListTile(
+                leading: const Icon(Icons.add_rounded),
+                title: const Text('Add account'),
+                onTap: () => Navigator.pop(ctx, add),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    if (picked == add) {
+      final created = await showAccountForm(context);
+      if (created != null && mounted) {
+        setState(() {
+          _accountId = created.id;
+          _accountName = created.name;
+        });
+      }
+      return;
+    }
+    setState(() {
+      _accountId = picked == none ? null : picked;
+      _accountName = null;
+    });
+  }
+
   void _selectCard(CreditCardModel card) {
     setState(() {
       _paymentMethod = kCreditCardPaymentMethod;
@@ -401,8 +696,16 @@ class _AddEditTransactionScreenState
     final amount = double.parse(_amountController.text);
     final now = DateTime.now();
     final card = ref.read(creditCardLookupProvider)[_creditCardId];
+    final accountId = _creditCardId == null ? _accountId : null;
+    final account = ref.read(accountLookupProvider)[accountId];
+    final hasReceipt = _receiptBytes != null || _hasSavedReceipt;
     final tx = TransactionModel(
-      id: widget.existing?.id ?? '',
+      // A receipt is stored under the entry's id, so a new one with a photo
+      // gets its id here rather than in the repository.
+      id:
+          widget.existing?.id ??
+          (_receiptBytes != null ? const Uuid().v4() : ''),
+      hasReceipt: hasReceipt,
       type: _type,
       amount: amount,
       categoryId: _selectedCategory!.id,
@@ -418,14 +721,80 @@ class _AddEditTransactionScreenState
       creditCardName: _creditCardId == null
           ? null
           : card?.displayName ?? _creditCardName,
+      accountId: accountId,
+      accountName: accountId == null ? null : account?.name ?? _accountName,
       createdAt: widget.existing?.createdAt ?? now,
       updatedAt: now,
     );
 
     final notifier = ref.read(transactionActionsProvider.notifier);
+    final uid = ref.read(currentUidProvider);
+    final repeat = _isEditing || uid == null ? null : _repeat;
+    final recurring = ref.read(recurringRepositoryProvider);
+    final ruleId = repeat == null ? null : recurring.newId(uid!);
+    final toSave = ruleId == null
+        ? tx
+        : TransactionModel(
+            id: tx.id,
+            type: tx.type,
+            amount: tx.amount,
+            categoryId: tx.categoryId,
+            categoryName: tx.categoryName,
+            note: tx.note,
+            date: tx.date,
+            paymentMethod: tx.paymentMethod,
+            creditCardId: tx.creditCardId,
+            creditCardName: tx.creditCardName,
+            accountId: tx.accountId,
+            accountName: tx.accountName,
+            hasReceipt: tx.hasReceipt,
+            isRecurring: true,
+            recurringId: ruleId,
+            createdAt: tx.createdAt,
+            updatedAt: tx.updatedAt,
+          );
     final success = _isEditing
-        ? await notifier.updateTransaction(tx)
-        : await notifier.addTransaction(tx) != false;
+        ? await notifier.updateTransaction(toSave)
+        : await notifier.addTransaction(toSave) != false;
+    if (success && uid != null) {
+      final receipts = ref.read(receiptRepositoryProvider);
+      if (_receiptBytes != null) {
+        unawaited(receipts.save(uid, toSave.id, _receiptBytes!));
+      } else if (_receiptRemoved && (widget.existing?.hasReceipt ?? false)) {
+        unawaited(receipts.delete(uid, toSave.id));
+      }
+      ref.invalidate(receiptImageProvider(toSave.id));
+    }
+    if (success && !_isEditing && accountId != null) {
+      unawaited(
+        ref.read(accountActionsProvider.notifier).rememberLast(accountId),
+      );
+    }
+    if (success && ruleId != null) {
+      // This entry is the first occurrence; later ones are made on time.
+      await recurring.save(
+        uid!,
+        RecurringRule(
+          id: ruleId,
+          type: tx.type,
+          amount: tx.amount,
+          categoryId: tx.categoryId,
+          categoryName: tx.categoryName,
+          note: tx.note,
+          paymentMethod: tx.paymentMethod,
+          creditCardId: tx.creditCardId,
+          creditCardName: tx.creditCardName,
+          accountId: tx.accountId,
+          accountName: tx.accountName,
+          frequency: repeat!,
+          startDate: tx.date,
+          endDate: _repeatUntil,
+          lastGenerated: tx.date,
+          createdAt: DateTime.now(),
+        ),
+      );
+      unawaited(ref.read(recurringRunnerProvider).scheduleBillReminders());
+    }
 
     if (!mounted) return;
     setState(() => _saving = false);
@@ -434,7 +803,11 @@ class _AddEditTransactionScreenState
       ref.invalidate(dashboardSummaryProvider);
       SnackbarHelper.showSuccess(
         context,
-        _isEditing ? 'Transaction updated' : 'Transaction added',
+        _isEditing
+            ? 'Transaction updated'
+            : repeat == null
+            ? 'Transaction added'
+            : 'Transaction added. It repeats ${repeat.label.toLowerCase()}.',
       );
       Navigator.of(context).pop();
     } else {
@@ -477,11 +850,13 @@ class _AddEditTransactionScreenState
       ),
     );
     if (confirmed == true && widget.existing != null && mounted) {
-      await ref
-          .read(transactionActionsProvider.notifier)
-          .deleteTransaction(widget.existing!.id);
+      final messenger = ScaffoldMessenger.of(context);
+      final actions = ref.read(transactionActionsProvider.notifier);
+      final previous = await actions.deleteTransaction(widget.existing!.id);
       ref.invalidate(dashboardSummaryProvider);
-      if (mounted) Navigator.of(context).pop();
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      if (previous != null) showUndoDelete(messenger, actions, previous);
     }
   }
 }
@@ -626,6 +1001,7 @@ class _DetailRow extends StatelessWidget {
   final VoidCallback onTap;
 
   const _DetailRow({
+    super.key,
     required this.icon,
     required this.label,
     required this.value,

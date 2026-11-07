@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart' as cf;
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart';
@@ -13,29 +12,20 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/result.dart';
 import '../../models/app_user_model.dart';
+import 'default_categories.dart';
 
 /// Wraps FirebaseAuth + platform-native sign-in SDKs behind one clean API.
 /// The UI/state layer never touches FirebaseAuth or GoogleSignIn directly.
 class AuthRepository {
   final fb.FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
-  final cf.FirebaseFunctions? _functionsOverride;
   Future<void>? _googleSignInReady;
 
   AuthRepository({
     fb.FirebaseAuth? auth,
     FirebaseFirestore? firestore,
-    cf.FirebaseFunctions? functions,
   })  : _auth = auth ?? fb.FirebaseAuth.instance,
-        _firestore = firestore ?? FirebaseFirestore.instance,
-        _functionsOverride = functions;
-
-  /// Resolved lazily: creating it eagerly would make merely constructing this
-  /// repository require an initialized Firebase app. Same region as the other
-  /// callables in this project.
-  cf.FirebaseFunctions get _functions =>
-      _functionsOverride ??
-      cf.FirebaseFunctions.instanceFor(region: 'us-central1');
+        _firestore = firestore ?? FirebaseFirestore.instance;
 
   /// Prefer [userChanges] so displayName / photoURL updates refresh the UI.
   Stream<fb.User?> authStateChanges() => _auth.userChanges();
@@ -336,193 +326,6 @@ class AuthRepository {
     ]);
   }
 
-  /// Deletes the account in this order:
-  /// 1. Re-authenticate (Firebase requires a recent login for Auth delete)
-  /// 2. Delete all Firestore cloud data for the user
-  /// 3. Delete the Firebase Auth user account
-  /// Signs out of Google only when the account actually used it. Calling the
-  /// plugin for an email-only account is pointless and can throw on platforms
-  /// where it is unavailable.
-  Future<void> _signOutOfGoogleIfUsed(Set<String> providers) async {
-    if (!providers.contains('google.com')) return;
-    try {
-      await GoogleSignIn.instance.signOut();
-    } catch (_) {
-      // Already signed out, or unavailable — the account is gone either way.
-    }
-  }
-
-  /// Closes the account: cloud data first, then the Auth user.
-  ///
-  /// Prefers a server-side delete. Removing a user from the client requires a
-  /// recent sign-in, which means re-authenticating in the middle of leaving —
-  /// and for email/password accounts that meant asking for the password again.
-  /// The callable proves identity with the existing ID token instead, so both
-  /// Google and email accounts delete without a second prompt.
-  Future<Result<void>> deleteAccount() async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      return Result.failure(const AppFailure('No signed-in user.', code: 'no-user'));
-    }
-    final uid = user.uid;
-    final providers = user.providerData.map((p) => p.providerId).toSet();
-
-    // Preferred path: one server-side call does data then account.
-    final viaServer = await _deleteAccountOnServer(providers);
-    if (viaServer != null) return viaServer;
-
-    // Fallback for when the function is not deployed or unreachable.
-    try {
-      // Cloud data first: once the Auth account is gone the client loses the
-      // credentials needed to clean up anything left behind.
-      await _deleteUserDataRecursively(uid);
-
-      final latest = _auth.currentUser;
-      if (latest == null) {
-        return Result.failure(
-          const AppFailure(
-            'Signed out during deletion. Cloud data was removed; sign in again if the account still appears.',
-            code: 'no-user',
-          ),
-        );
-      }
-
-      // Try without prompting first — a recent sign-in is usually still valid.
-      try {
-        await latest.delete();
-      } on fb.FirebaseAuthException catch (e) {
-        if (e.code != 'requires-recent-login') rethrow;
-        // Only now is a fresh credential unavoidable. Google and Apple can do
-        // it silently; email/password cannot without the password.
-        await _reauthenticateForSensitiveAction(latest);
-        await _auth.currentUser?.delete();
-      }
-
-      await _signOutOfGoogleIfUsed(providers);
-      return Result.success(null);
-    } on fb.FirebaseAuthException catch (e) {
-      return Result.failure(AppFailure(_mapAuthError(e), code: e.code));
-    } on GoogleSignInException catch (e) {
-      return Result.failure(
-        AppFailure(_mapGoogleSignInError(e), code: e.code.name),
-      );
-    } catch (e) {
-      return Result.failure(AppFailure.fromException(e));
-    }
-  }
-
-  /// Runs the server-side delete.
-  ///
-  /// Returns null when the function is unavailable, so the caller can fall
-  /// back to deleting from the client. A real failure is returned as-is —
-  /// retrying on the client would only repeat it.
-  Future<Result<void>?> _deleteAccountOnServer(Set<String> providers) async {
-    try {
-      await _functions.httpsCallable('deleteAccountAndData').call<void>();
-      await _auth.signOut().catchError((_) {});
-      await _signOutOfGoogleIfUsed(providers);
-      return Result.success(null);
-    } on cf.FirebaseFunctionsException catch (e) {
-      // Not deployed / no network: let the client path try.
-      if (e.code == 'not-found' ||
-          e.code == 'unavailable' ||
-          e.code == 'internal' && e.message == null) {
-        debugPrint('Server delete unavailable (${e.code}); falling back.');
-        return null;
-      }
-      return Result.failure(
-        AppFailure(e.message ?? 'Could not delete your account.', code: e.code),
-      );
-    } catch (e) {
-      debugPrint('Server delete failed, falling back: $e');
-      return null;
-    }
-  }
-
-  Future<void> _reauthenticateForSensitiveAction(fb.User user) async {
-    final providers = user.providerData.map((p) => p.providerId).toSet();
-
-    if (providers.contains('google.com')) {
-      await _ensureGoogleSignInInitialized();
-      final googleUser = await GoogleSignIn.instance.authenticate();
-      final idToken = googleUser.authentication.idToken;
-      if (idToken == null) {
-        throw fb.FirebaseAuthException(
-          code: 'missing-id-token',
-          message: 'Google re-authentication did not return an ID token.',
-        );
-      }
-      final authz = await googleUser.authorizationClient
-          .authorizationForScopes(['email', 'profile']);
-      final credential = fb.GoogleAuthProvider.credential(
-        accessToken: authz?.accessToken,
-        idToken: idToken,
-      );
-      await user.reauthenticateWithCredential(credential);
-      return;
-    }
-
-    if (providers.contains('apple.com')) {
-      final rawNonce = _generateNonce();
-      final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
-      final appleCredential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-        nonce: hashedNonce,
-      );
-      final credential = fb.OAuthProvider('apple.com').credential(
-        idToken: appleCredential.identityToken,
-        rawNonce: rawNonce,
-      );
-      await user.reauthenticateWithCredential(credential);
-      return;
-    }
-
-    if (providers.contains('password')) {
-      // Email/password needs the password interactively; ask user to re-login.
-      throw fb.FirebaseAuthException(
-        code: 'requires-recent-login',
-        message: 'Please sign out and sign in again, then retry delete.',
-      );
-    }
-
-    // Unknown provider — still attempt; Auth may accept a fresh session.
-  }
-
-  /// Firestore batch writes are capped at 500 ops; delete in pages of 400.
-  /// Order: every user subcollection, then the parent users/{uid} document.
-  Future<void> _deleteUserDataRecursively(String uid) async {
-    final userRef = _firestore.collection(FirestoreCollections.users).doc(uid);
-    for (final sub in [
-      FirestoreCollections.transactions,
-      FirestoreCollections.categories,
-      FirestoreCollections.budgets,
-      FirestoreCollections.creditCards,
-      FirestoreCollections.recurringTransactions,
-      FirestoreCollections.settings,
-      FirestoreCollections.notifications,
-    ]) {
-      await _deleteCollectionInChunks(userRef.collection(sub));
-    }
-    // Parent user profile document last (after all nested cloud data).
-    await userRef.delete();
-  }
-
-  Future<void> _deleteCollectionInChunks(CollectionReference<Map<String, dynamic>> ref) async {
-    const chunkSize = 400;
-    while (true) {
-      final snap = await ref.limit(chunkSize).get();
-      if (snap.docs.isEmpty) break;
-      final batch = _firestore.batch();
-      for (final doc in snap.docs) {
-        batch.delete(doc.reference);
-      }
-      await batch.commit();
-    }
-  }
-
   Future<void> _ensureUserDocument(
     fb.User user, {
     String? fallbackDisplayName,
@@ -542,35 +345,8 @@ class AuthRepository {
     }
   }
 
-  Future<void> _seedDefaultCategories(String uid) async {
-    final batch = _firestore.batch();
-    final catRef = _firestore.collection(FirestorePaths.categories(uid));
-    for (final c in kDefaultExpenseCategories) {
-      final doc = catRef.doc();
-      batch.set(doc, {
-        'name': c['name'],
-        'icon': c['icon'],
-        'color': c['color'],
-        'type': TransactionType.expense.name,
-        'isDefault': true,
-        'isArchived': false,
-        'createdAt': Timestamp.now(),
-      });
-    }
-    for (final c in kDefaultIncomeCategories) {
-      final doc = catRef.doc();
-      batch.set(doc, {
-        'name': c['name'],
-        'icon': c['icon'],
-        'color': c['color'],
-        'type': TransactionType.income.name,
-        'isDefault': true,
-        'isArchived': false,
-        'createdAt': Timestamp.now(),
-      });
-    }
-    await batch.commit();
-  }
+  Future<void> _seedDefaultCategories(String uid) =>
+      seedDefaultCategories(_firestore, uid);
 
   String _generateNonce([int length = 32]) {
     const charset =
@@ -616,7 +392,7 @@ class AuthRepository {
       case 'invalid-email':
         return 'Please enter a valid email address.';
       case 'requires-recent-login':
-        return 'Please confirm your identity, then try deleting again.';
+        return 'Please sign in again to continue.';
       case 'missing-id-token':
         return 'Google confirmation failed. Check SHA fingerprints in Firebase and try again.';
       case 'too-many-requests':
@@ -624,7 +400,7 @@ class AuthRepository {
       case 'network-request-failed':
         return 'Network error. Check your connection and try again.';
       case 'canceled':
-        return 'Account deletion was canceled.';
+        return 'Sign-in was canceled.';
       default:
         return 'Authentication failed. Please try again.';
     }

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
 
+import 'support/steps.dart';
 import 'support/test_app.dart';
 
 void main() {
@@ -16,6 +17,26 @@ void main() {
       await $('Privacy first').waitUntilVisible();
 
       await $('Get started').tap();
+
+      // First run: the currency, from the phone's location if allowed.
+      await $('Set your currency').waitUntilVisible();
+      expect($(RegExp("isn't saved or sent anywhere")), findsOneWidget);
+      await $('Use my location').tap();
+      if (await $.platform.mobile.isPermissionDialogVisible(
+        timeout: const Duration(seconds: 5),
+      )) {
+        await $.platform.mobile.grantPermissionWhenInUse();
+      }
+      // The emulator places itself in the US. Without a geocoder it cannot
+      // name the country, and the region's currency is kept instead.
+      await $.eventually(
+        () async =>
+            $(RegExp(r'^Currency set to ')).exists ||
+            $(RegExp("Couldn't find your location")).exists,
+        timeout: const Duration(seconds: 20),
+        reason: 'the location lookup finishes either way',
+      );
+      if ($('Continue').exists) await $('Continue').tap();
       await $('Continue with Email').waitUntilVisible();
 
       // A returning user goes straight to sign-in.

@@ -4,6 +4,8 @@ import '../core/constants/app_constants.dart';
 import '../data/repositories/offline_transaction_repository.dart';
 import 'sync_provider.dart';
 import 'transaction_provider.dart';
+import '../core/utils/money_month.dart';
+import 'period_provider.dart';
 
 class DashboardSummary {
   /// Income dated this month only.
@@ -60,9 +62,11 @@ class DashboardSummary {
 DashboardSummary buildDashboardSummary(
   OfflineTransactionRepository repo, {
   required DateTime now,
+  MoneyMonth? month,
 }) {
-  final start = DateTime(now.year, now.month, 1);
-  final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+  final period = month ?? MoneyMonth.containing(now);
+  final start = period.start;
+  final end = period.end;
 
   final sums = repo.sumByType(start: start, end: end, cashOnly: true);
   final breakdown = repo.categoryBreakdown(
@@ -104,5 +108,6 @@ final dashboardSummaryProvider = Provider<DashboardSummary>((ref) {
   return buildDashboardSummary(
     ref.watch(offlineTransactionRepositoryProvider),
     now: DateTime.now(),
+    month: ref.watch(dashboardMonthProvider),
   );
 });
