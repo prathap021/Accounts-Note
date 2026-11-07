@@ -40,41 +40,9 @@ class OfflineTransactionRepository {
   Stream<List<TransactionModel>> watchTransactions({
     TransactionFilter filter = const TransactionFilter(),
   }) {
-    return store.watch().map((items) => _applyFilter(items, filter));
-  }
-
-  List<TransactionModel> _applyFilter(
-    List<TransactionModel> items,
-    TransactionFilter filter,
-  ) {
-    var result = items;
-    if (filter.startDate != null) {
-      final start = filter.startDate!;
-      result = result.where((t) => !t.date.isBefore(start)).toList();
-    }
-    if (filter.endDate != null) {
-      final end = filter.endDate!;
-      result = result.where((t) => !t.date.isAfter(end)).toList();
-    }
-    if (filter.type != null) {
-      result = result.where((t) => t.type == filter.type).toList();
-    }
-    if (filter.categoryId != null) {
-      result = result.where((t) => t.categoryId == filter.categoryId).toList();
-    }
-    if (filter.paymentMethod != null) {
-      result =
-          result.where((t) => t.paymentMethod == filter.paymentMethod).toList();
-    }
-    final query = filter.searchQuery?.trim().toLowerCase();
-    if (query != null && query.isNotEmpty) {
-      result = result.where((t) {
-        return t.categoryName.toLowerCase().contains(query) ||
-            (t.note?.toLowerCase().contains(query) ?? false) ||
-            (t.paymentMethod?.toLowerCase().contains(query) ?? false);
-      }).toList();
-    }
-    return result;
+    return store.watch().map(
+          (items) => filter.isEmpty ? items : items.where(filter.matches).toList(),
+        );
   }
 
   /// Saves locally and returns at once. The id is generated on the device so
@@ -147,13 +115,20 @@ class OfflineTransactionRepository {
   }
 
   /// Totals computed over the local store, so the dashboard works offline.
+  /// Income and expense totals for the window.
+  ///
+  /// [cashOnly] drops anything charged to a credit card, which is what the
+  /// dashboard wants: a card swipe is debt, not cash out. Off by default so
+  /// reports and budgets keep totalling every transaction.
   Map<TransactionType, double> sumByType({
     required DateTime start,
     required DateTime end,
+    bool cashOnly = false,
   }) {
     double income = 0, expense = 0;
     for (final t in store.getAll()) {
       if (t.date.isBefore(start) || t.date.isAfter(end)) continue;
+      if (cashOnly && t.isOnCard) continue;
       if (t.type == TransactionType.income) {
         income += t.amount;
       } else {
@@ -172,10 +147,11 @@ class OfflineTransactionRepository {
   /// earlier month. Derived from the ledger rather than stored, so editing or
   /// deleting an old transaction corrects every later month automatically.
   /// Negative when earlier spending exceeded earlier income.
-  double balanceBefore(DateTime before) {
+  double balanceBefore(DateTime before, {bool cashOnly = false}) {
     double net = 0;
     for (final t in store.getAll()) {
       if (!t.date.isBefore(before)) continue;
+      if (cashOnly && t.isOnCard) continue;
       net += t.type == TransactionType.income ? t.amount : -t.amount;
     }
     return net;
@@ -185,14 +161,29 @@ class OfflineTransactionRepository {
     required DateTime start,
     required DateTime end,
     TransactionType type = TransactionType.expense,
+    bool cashOnly = false,
   }) {
     final totals = <String, double>{};
     for (final t in store.getAll()) {
       if (t.type != type) continue;
       if (t.date.isBefore(start) || t.date.isAfter(end)) continue;
+      if (cashOnly && t.isOnCard) continue;
       totals[t.categoryName] = (totals[t.categoryName] ?? 0) + t.amount;
     }
     return totals;
+  }
+
+  /// What was charged to credit cards in the window — the other half of
+  /// [sumByType] with `cashOnly: true`. Only expenses count; a refund credited
+  /// back to a card reduces the balance owed rather than adding to spend.
+  double creditCardSpend({required DateTime start, required DateTime end}) {
+    double total = 0;
+    for (final t in store.getAll()) {
+      if (!t.isOnCard || t.type != TransactionType.expense) continue;
+      if (t.date.isBefore(start) || t.date.isAfter(end)) continue;
+      total += t.amount;
+    }
+    return total;
   }
 
   /// Fire-and-forget: a write must never wait on the network.

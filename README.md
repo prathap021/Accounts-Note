@@ -21,6 +21,11 @@ Repository: [github.com/prathap021/Accounts-Note](https://github.com/prathap021/
   date/time, payment method, search, filters, swipe-to-delete, offline sync
 - **Dashboard**: balance, monthly totals, category pie chart, recent activity
 - **Budgets**: overall or per-category monthly budgets with progress warnings
+- **Credit cards**: add any number of cards (name, colour, optional limit, and
+  only the last 4 digits — never the full number), pick a card as the payment
+  method when logging an expense, see each card's spend this month, and filter
+  Activity by one card or all cards. Every filter shows its total, live in the
+  filter sheet as you tap
 - **Categories**: default seeded categories + custom icon/color categories
 - **Reports**: week/month/year views, charts, CSV export & share
 - **Security**: per-user Firestore rules — users only access their own data
@@ -52,6 +57,7 @@ users/{uid}
   ├─ transactions/{transactionId}
   ├─ categories/{categoryId}
   ├─ budgets/{budgetId}
+  ├─ creditCards/{cardId}
   ├─ recurringTransactions/{recurringId}
   ├─ settings/preferences
   └─ notifications/{notificationId}

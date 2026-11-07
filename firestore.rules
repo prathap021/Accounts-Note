@@ -15,6 +15,39 @@ service cloud.firestore {
         && request.resource.data.date is timestamp;
     }
 
+    // A credit card the user pays with (users/{uid}/creditCards/{cardId}):
+    //   name        string, required — e.g. "HDFC Millennia"
+    //   last4       string, optional — exactly four digits, nothing more
+    //   color       int, required    — ARGB
+    //   creditLimit number, optional — positive
+    //   createdAt   timestamp, required, never changes
+    //
+    // The schema is closed (hasOnly) and last4 is pinned to four digits, so a
+    // full card number cannot be stored in the card fields; a long digit run
+    // is refused in the name for the same reason.
+    //
+    // createdAt is deliberately not compared to request.time: cards can be
+    // added offline, and a write queued for hours would fail a recency check
+    // when it finally reaches the server.
+    function isValidCreditCard(card) {
+      return card.keys().hasAll(['name', 'color', 'createdAt'])
+        && card.keys().hasOnly(['name', 'last4', 'color', 'creditLimit', 'createdAt'])
+        && card.name is string
+        && card.name.trim().size() > 0
+        && card.name.size() <= 100
+        && !card.name.replace('[ -]', '').matches('.*[0-9]{12,}.*')
+        && (card.get('last4', null) == null
+            || (card.last4 is string && card.last4.matches('^[0-9]{4}$')))
+        && card.color is int
+        && card.color >= 0
+        && card.color <= 4294967295
+        && (card.get('creditLimit', null) == null
+            || (card.creditLimit is number
+                && card.creditLimit > 0
+                && card.creditLimit < 1000000000000))
+        && card.createdAt is timestamp;
+    }
+
     // Stripe contribution fields are server-owned (Cloud Functions Admin SDK).
     function contributionFieldsUnchanged() {
       return !request.resource.data.diff(resource.data).affectedKeys()
@@ -53,6 +86,14 @@ service cloud.firestore {
 
       match /budgets/{budgetId} {
         allow read, write: if isOwner(uid);
+      }
+
+      match /creditCards/{cardId} {
+        allow read, delete: if isOwner(uid);
+        allow create: if isOwner(uid) && isValidCreditCard(request.resource.data);
+        allow update: if isOwner(uid)
+          && isValidCreditCard(request.resource.data)
+          && request.resource.data.createdAt == resource.data.createdAt;
       }
 
       match /recurringTransactions/{recId} {

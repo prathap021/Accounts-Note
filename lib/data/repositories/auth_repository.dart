@@ -499,6 +499,7 @@ class AuthRepository {
       FirestoreCollections.transactions,
       FirestoreCollections.categories,
       FirestoreCollections.budgets,
+      FirestoreCollections.creditCards,
       FirestoreCollections.recurringTransactions,
       FirestoreCollections.settings,
       FirestoreCollections.notifications,

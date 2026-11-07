@@ -19,6 +19,7 @@ import '../../core/utils/backup_service.dart';
 import 'delete_account_progress.dart';
 import '../../core/utils/user_facing_error.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/credit_card_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/contribution_provider.dart';
 import '../../widgets/app_logo.dart';
@@ -226,6 +227,7 @@ class SettingsScreen extends ConsumerWidget {
     final actions = ref.read(authActionsProvider.notifier);
     final isContributor = profile?.isContributor ?? false;
     final settings = ref.watch(settingsProvider);
+    final cardCount = ref.watch(creditCardLookupProvider).length;
     // Resolved the same way as the dashboard greeting so one name is shown
     // for the user everywhere in the app.
     final name = resolveDisplayName(
@@ -278,6 +280,16 @@ class SettingsScreen extends ConsumerWidget {
                 title: 'Manage categories',
                 subtitle: 'Income and expense categories',
                 onTap: () => context.push('/categories'),
+              ),
+              _SettingsTile(
+                icon: Icons.credit_card_rounded,
+                title: 'Credit cards',
+                subtitle: switch (cardCount) {
+                  0 => 'Add the cards you pay with',
+                  1 => '1 card',
+                  _ => '$cardCount cards',
+                },
+                onTap: () => context.push('/credit-cards'),
               ),
               _SettingsTile(
                 icon: Icons.payments_outlined,

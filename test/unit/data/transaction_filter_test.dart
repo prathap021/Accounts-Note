@@ -157,4 +157,71 @@ void main() {
     await repo.deleteTransaction('a');
     expect(await idsFor(const TransactionFilter()), ['b', 'c']);
   });
+
+  group('credit cards', () {
+    final hdfc = creditCardFixture();
+    final sbi = creditCardFixture(
+      id: 'card-sbi',
+      name: 'SBI SimplyClick',
+      last4: '9876',
+    );
+
+    setUp(() async {
+      await hive.store.putAll([
+        cardTxFixture(hdfc, id: 'h1', amount: 1200, date: DateTime(2026, 9, 14)),
+        cardTxFixture(sbi, id: 's1', amount: 300, date: DateTime(2026, 9, 13)),
+      ]);
+    });
+
+    test('one card shows only what was charged to it', () async {
+      expect(
+        await idsFor(const TransactionFilter(creditCardId: 'card-hdfc')),
+        ['h1'],
+      );
+    });
+
+    test('"All cards" covers every card and nothing paid another way',
+        () async {
+      expect(
+        await idsFor(
+          const TransactionFilter(paymentMethod: kCreditCardPaymentMethod),
+        ),
+        ['h1', 's1'],
+      );
+    });
+
+    test("search finds a card's entries by its name or last four digits",
+        () async {
+      expect(await idsFor(const TransactionFilter(searchQuery: 'millennia')),
+          ['h1']);
+      expect(await idsFor(const TransactionFilter(searchQuery: '9876')), ['s1']);
+    });
+
+    test('a card filter combines with the others', () async {
+      final ids = await idsFor(TransactionFilter(
+        creditCardId: 'card-hdfc',
+        startDate: DateTime(2026, 9, 15),
+        endDate: DateTime(2026, 9, 30),
+      ));
+      expect(ids, isEmpty, reason: 'the HDFC charge is dated the 14th');
+    });
+
+    test('a card filter alone counts as filtering', () {
+      expect(const TransactionFilter(creditCardId: 'card-hdfc').isEmpty, isFalse,
+          reason: 'otherwise Activity hides the chip and the total');
+    });
+
+    test('matches agrees with the list, entry by entry', () async {
+      // The filter sheet totals its selection with matches(); Activity lists
+      // it through the repository. They must pick the same entries.
+      const filter = TransactionFilter(
+        type: TransactionType.expense,
+        paymentMethod: kCreditCardPaymentMethod,
+      );
+      final viaMatches =
+          hive.store.getAll().where(filter.matches).map((t) => t.id);
+
+      expect(await idsFor(filter), viaMatches.toList());
+    });
+  });
 }

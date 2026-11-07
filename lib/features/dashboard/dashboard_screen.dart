@@ -14,12 +14,14 @@ import '../../data/repositories/transaction_repository.dart';
 import '../../models/transaction_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/category_provider.dart';
+import '../../providers/credit_card_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/sync_provider.dart';
 import '../../providers/contribution_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../widgets/add_transaction_sheet.dart';
+import '../../widgets/credit_card_usage.dart';
 import '../../widgets/summary_card.dart';
 import '../../widgets/transaction_tile.dart';
 
@@ -135,6 +137,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final photoUrl = profile?.photoUrl ?? user?.photoURL;
     final displayGreetingName = greetingName(name);
     final categories = ref.watch(categoryLookupProvider);
+    final cards = ref.watch(creditCardLookupProvider);
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
@@ -183,6 +186,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       onRetry: () => ref.invalidate(localStoreReadyProvider),
                     ),
                   ),
+                  const _CreditCardSection(),
                   const SizedBox(height: AppSpacing.xxl),
                   SectionHeader(
                     title: "Today's activity",
@@ -230,6 +234,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 currency: settings.currency,
                                 transaction: recent[i],
                                 category: categories[recent[i].categoryId],
+                                creditCard: cards[recent[i].creditCardId],
                                 // Every row is from today, so the date would
                                 // repeat on each one; the time is enough.
                                 showDate: false,
@@ -403,6 +408,64 @@ class _SummarySection extends ConsumerWidget {
             ),
           ),
         ],
+      ],
+    );
+  }
+}
+
+/// Credit cards and what has been charged to each this month.
+///
+/// Separate from the cash cards above on purpose: a card swipe creates debt
+/// rather than moving the user's own money, so mixing the two would make the
+/// available balance read low and the card look free. Hidden entirely until
+/// the user has added a card.
+///
+/// Live by construction — both providers recompute from the local Hive
+/// ledger on every write, so a card expense lands here the moment it is
+/// saved, online or off.
+class _CreditCardSection extends ConsumerWidget {
+  const _CreditCardSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cards = ref.watch(creditCardsStreamProvider).asData?.value ?? const [];
+    if (cards.isEmpty) return const SizedBox.shrink();
+
+    final spend = ref.watch(creditCardSpendProvider);
+    final currency = ref.watch(settingsProvider).currency;
+    final total = cards.fold<double>(
+      0,
+      (sum, card) => sum + (spend[card.id] ?? 0),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: AppSpacing.xxl),
+        SectionHeader(
+          title: 'Credit cards',
+          subtitle:
+              '${CurrencyFormatter.format(total, currencyCode: currency)} charged this month',
+          actionLabel: 'Manage',
+          onAction: () => context.push('/credit-cards'),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        AppCard(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+          child: Column(
+            children: [
+              for (var i = 0; i < cards.length; i++) ...[
+                if (i > 0) const Divider(height: 1, indent: AppSpacing.md),
+                CreditCardUsageTile(
+                  card: cards[i],
+                  spent: spend[cards[i].id] ?? 0,
+                  currency: currency,
+                  onTap: () => context.push('/credit-cards'),
+                ),
+              ],
+            ],
+          ),
+        ),
       ],
     );
   }

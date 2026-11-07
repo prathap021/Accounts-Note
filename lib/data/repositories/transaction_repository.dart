@@ -10,6 +10,7 @@ class TransactionFilter {
   final TransactionType? type;
   final String? categoryId;
   final String? paymentMethod;
+  final String? creditCardId;
   final String? searchQuery;
 
   const TransactionFilter({
@@ -18,6 +19,7 @@ class TransactionFilter {
     this.type,
     this.categoryId,
     this.paymentMethod,
+    this.creditCardId,
     this.searchQuery,
   });
 
@@ -27,7 +29,31 @@ class TransactionFilter {
       type == null &&
       categoryId == null &&
       paymentMethod == null &&
+      creditCardId == null &&
       (searchQuery == null || searchQuery!.isEmpty);
+
+  /// Whether [t] passes every constraint (they combine with AND). Both date
+  /// bounds are inclusive.
+  ///
+  /// The single definition of what a filter means, so the Activity list and
+  /// the live total in the filter sheet can never disagree.
+  bool matches(TransactionModel t) {
+    if (startDate != null && t.date.isBefore(startDate!)) return false;
+    if (endDate != null && t.date.isAfter(endDate!)) return false;
+    if (type != null && t.type != type) return false;
+    if (categoryId != null && t.categoryId != categoryId) return false;
+    if (paymentMethod != null && t.paymentMethod != paymentMethod) return false;
+    if (creditCardId != null && t.creditCardId != creditCardId) return false;
+
+    final query = searchQuery?.trim().toLowerCase();
+    if (query != null && query.isNotEmpty) {
+      return t.categoryName.toLowerCase().contains(query) ||
+          (t.note?.toLowerCase().contains(query) ?? false) ||
+          (t.paymentMethod?.toLowerCase().contains(query) ?? false) ||
+          (t.creditCardName?.toLowerCase().contains(query) ?? false);
+    }
+    return true;
+  }
 }
 
 /// All reads/writes for a signed-in user's transactions live here.
@@ -65,6 +91,7 @@ class TransactionRepository {
     final needsClientFilter = filter.type != null ||
         filter.categoryId != null ||
         filter.paymentMethod != null ||
+        filter.creditCardId != null ||
         (filter.searchQuery != null && filter.searchQuery!.isNotEmpty);
     query = query.limit(needsClientFilter ? (limit * 15).clamp(limit, 300) : limit);
 
@@ -79,6 +106,10 @@ class TransactionRepository {
       if (filter.paymentMethod != null) {
         items =
             items.where((t) => t.paymentMethod == filter.paymentMethod).toList();
+      }
+      if (filter.creditCardId != null) {
+        items =
+            items.where((t) => t.creditCardId == filter.creditCardId).toList();
       }
       if (filter.searchQuery != null && filter.searchQuery!.isNotEmpty) {
         final q = filter.searchQuery!.toLowerCase();

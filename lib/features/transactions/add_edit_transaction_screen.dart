@@ -12,11 +12,15 @@ import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/result.dart';
 import '../../core/utils/snackbar_helper.dart';
 import '../../models/category_model.dart';
+import '../../models/credit_card_model.dart';
 import '../../models/transaction_model.dart';
 import '../../providers/category_provider.dart';
+import '../../providers/credit_card_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/transaction_provider.dart';
+import '../../widgets/credit_card_visual.dart';
+import '../credit_cards/credit_cards_screen.dart';
 
 const _paymentMethods = ['Cash', 'Card', 'UPI', 'Bank Transfer', 'Wallet', 'Other'];
 
@@ -27,7 +31,27 @@ const _paymentIcons = <String, IconData>{
   'Bank Transfer': Icons.account_balance_rounded,
   'Wallet': Icons.account_balance_wallet_outlined,
   'Other': Icons.more_horiz_rounded,
+  kCreditCardPaymentMethod: Icons.credit_card_rounded,
 };
+
+/// What the payment sheet hands back.
+sealed class _PaymentChoice {
+  const _PaymentChoice();
+}
+
+class _MethodChoice extends _PaymentChoice {
+  final String method;
+  const _MethodChoice(this.method);
+}
+
+class _CardChoice extends _PaymentChoice {
+  final CreditCardModel card;
+  const _CardChoice(this.card);
+}
+
+class _AddCardChoice extends _PaymentChoice {
+  const _AddCardChoice();
+}
 
 class AddEditTransactionScreen extends ConsumerStatefulWidget {
   final TransactionType initialType;
@@ -53,6 +77,12 @@ class _AddEditTransactionScreenState
   CategoryModel? _selectedCategory;
   DateTime _date = DateTime.now();
   String _paymentMethod = _paymentMethods.first;
+
+  /// Set when the payment method is one of the user's credit cards.
+  String? _creditCardId;
+
+  /// The card's name as last stored, shown if the card has since been deleted.
+  String? _creditCardName;
   bool _saving = false;
   bool _categoryMissing = false;
 
@@ -68,6 +98,8 @@ class _AddEditTransactionScreenState
       _noteController.text = existing.note ?? '';
       _date = existing.date;
       _paymentMethod = existing.paymentMethod ?? _paymentMethods.first;
+      _creditCardId = existing.creditCardId;
+      _creditCardName = existing.creditCardName;
     }
   }
 
@@ -92,6 +124,7 @@ class _AddEditTransactionScreenState
     final scheme = theme.colorScheme;
     final currency = ref.watch(settingsProvider).currency;
     final categoriesAsync = ref.watch(categoriesStreamProvider(_type));
+    final card = ref.watch(creditCardLookupProvider)[_creditCardId];
 
     // Pre-select the existing category once the stream resolves.
     categoriesAsync.whenData((categories) {
@@ -275,7 +308,9 @@ class _AddEditTransactionScreenState
                     icon: _paymentIcons[_paymentMethod] ??
                         Icons.account_balance_wallet_outlined,
                     label: 'Payment method',
-                    value: _paymentMethod,
+                    value: card?.displayName ??
+                        _creditCardName ??
+                        _paymentMethod,
                     onTap: _pickPaymentMethod,
                   ),
                 ],
@@ -316,43 +351,41 @@ class _AddEditTransactionScreenState
   }
 
   Future<void> _pickPaymentMethod() async {
-    final picked = await showModalBottomSheet<String>(
+    final picked = await showModalBottomSheet<_PaymentChoice>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                0,
-                AppSpacing.xl,
-                AppSpacing.md,
-              ),
-              child: Text(
-                'Payment method',
-                style: Theme.of(ctx).textTheme.titleLarge,
-              ),
-            ),
-            for (final m in _paymentMethods)
-              ListTile(
-                leading: Icon(_paymentIcons[m] ?? Icons.more_horiz_rounded),
-                title: Text(m),
-                trailing: m == _paymentMethod
-                    ? Icon(
-                        Icons.check_circle_rounded,
-                        color: Theme.of(ctx).colorScheme.primary,
-                      )
-                    : null,
-                onTap: () => Navigator.pop(ctx, m),
-              ),
-            const SizedBox(height: AppSpacing.md),
-          ],
-        ),
+      // Grows with the number of cards; scrolls rather than overflowing, and
+      // stops below the status bar.
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _PaymentMethodSheet(
+        method: _paymentMethod,
+        creditCardId: _creditCardId,
       ),
     );
-    if (picked != null) setState(() => _paymentMethod = picked);
+    if (picked == null || !mounted) return;
+
+    switch (picked) {
+      case _MethodChoice(:final method):
+        setState(() {
+          _paymentMethod = method;
+          _creditCardId = null;
+          _creditCardName = null;
+        });
+      case _CardChoice(:final card):
+        _selectCard(card);
+      case _AddCardChoice():
+        // A card added from here is the one being paid with.
+        final card = await showCreditCardForm(context);
+        if (card != null && mounted) _selectCard(card);
+    }
+  }
+
+  void _selectCard(CreditCardModel card) {
+    setState(() {
+      _paymentMethod = kCreditCardPaymentMethod;
+      _creditCardId = card.id;
+      _creditCardName = card.displayName;
+    });
   }
 
   Future<void> _save() async {
@@ -365,6 +398,7 @@ class _AddEditTransactionScreenState
 
     final amount = double.parse(_amountController.text);
     final now = DateTime.now();
+    final card = ref.read(creditCardLookupProvider)[_creditCardId];
     final tx = TransactionModel(
       id: widget.existing?.id ?? '',
       type: _type,
@@ -376,6 +410,12 @@ class _AddEditTransactionScreenState
           : _noteController.text.trim(),
       date: _date,
       paymentMethod: _paymentMethod,
+      creditCardId: _creditCardId,
+      // The card's current name if it still exists, so a rename since it was
+      // picked is what gets stored.
+      creditCardName: _creditCardId == null
+          ? null
+          : card?.displayName ?? _creditCardName,
       createdAt: widget.existing?.createdAt ?? now,
       updatedAt: now,
     );
@@ -613,6 +653,86 @@ class _DetailRow extends StatelessWidget {
         ),
       ),
       trailing: Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+    );
+  }
+}
+
+/// The plain payment methods, then the user's own credit cards, so marking an
+/// expense against a particular card is a single tap.
+class _PaymentMethodSheet extends ConsumerWidget {
+  final String method;
+  final String? creditCardId;
+
+  const _PaymentMethodSheet({required this.method, this.creditCardId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final cards = ref.watch(creditCardsStreamProvider).asData?.value ?? const [];
+    final check = Icon(Icons.check_circle_rounded, color: scheme.primary);
+    // Card swatches are wider than icons; a shared leading width keeps every
+    // title on one line of alignment.
+    const leadingWidth = 32.0;
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                0,
+                AppSpacing.xl,
+                AppSpacing.md,
+              ),
+              child: Text('Payment method', style: theme.textTheme.titleLarge),
+            ),
+            for (final m in _paymentMethods)
+              ListTile(
+                minLeadingWidth: leadingWidth,
+                leading: Icon(_paymentIcons[m] ?? Icons.more_horiz_rounded),
+                title: Text(m),
+                trailing: creditCardId == null && m == method ? check : null,
+                onTap: () => Navigator.pop(context, _MethodChoice(m)),
+              ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.lg,
+                0,
+              ),
+              child: SectionLabel('Credit cards'),
+            ),
+            for (final c in cards)
+              ListTile(
+                minLeadingWidth: leadingWidth,
+                leading:
+                    CreditCardSwatch(color: Color(c.color), width: leadingWidth),
+                title: Text(c.name),
+                subtitle: c.last4 == null ? null : Text('•••• ${c.last4}'),
+                trailing: c.id == creditCardId ? check : null,
+                onTap: () => Navigator.pop(context, _CardChoice(c)),
+              ),
+            ListTile(
+              minLeadingWidth: leadingWidth,
+              leading: Icon(Icons.add_card_rounded, color: scheme.primary),
+              title: Text(
+                cards.isEmpty ? 'Add your first credit card' : 'Add a credit card',
+                style: TextStyle(
+                  color: scheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onTap: () => Navigator.pop(context, const _AddCardChoice()),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+        ),
+      ),
     );
   }
 }

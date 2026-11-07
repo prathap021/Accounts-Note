@@ -240,4 +240,43 @@ void main() {
       expect(find.text('Food'), findsOneWidget);
     });
   });
+
+  group('credit card', () {
+    final card = creditCardFixture();
+
+    testWidgets('names the card instead of the generic method',
+        (tester) async {
+      await pumpTile(
+        tester,
+        TransactionTile(transaction: cardTxFixture(card), creditCard: card),
+      );
+
+      expect(find.textContaining('HDFC Millennia ••4321'), findsOneWidget);
+      expect(find.textContaining(kCreditCardPaymentMethod), findsNothing);
+    });
+
+    testWidgets("shows the card's current name after a rename",
+        (tester) async {
+      await pumpTile(
+        tester,
+        TransactionTile(
+          transaction: cardTxFixture(card),
+          creditCard: card.copyWith(name: 'HDFC Regalia'),
+        ),
+      );
+
+      expect(find.textContaining('HDFC Regalia ••4321'), findsOneWidget);
+    });
+
+    testWidgets('keeps the stored name once the card is deleted',
+        (tester) async {
+      await pumpTile(
+        tester,
+        TransactionTile(transaction: cardTxFixture(card)),
+      );
+
+      expect(find.textContaining('HDFC Millennia ••4321'), findsOneWidget,
+          reason: 'history must still say which card paid');
+    });
+  });
 }

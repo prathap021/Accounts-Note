@@ -44,6 +44,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+# Kotlin 2.x build cache, written during an Android build.
+/android/.kotlin/
 
 # ---- Secrets / local Firebase config (do not commit) ----
 # Generate locally with: dart pub global activate flutterfire_cli && flutterfire configure

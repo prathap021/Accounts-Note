@@ -69,17 +69,22 @@ genhtml coverage/lcov.info -o coverage/html   # needs lcov installed
 | `unit/greeting_test.dart` | Time-of-day greeting buckets and display-name resolution |
 | `unit/models/transaction_model_test.dart` | Hive and Firestore serialization round-trips, including maps written by older builds |
 | `unit/data/local_store_test.dart` | Ordering, the pending queue, `watch()` notifications, cloud reconciliation, per-user isolation |
-| `unit/data/transaction_filter_test.dart` | The Activity filter flow: type, category, payment method, date range, search |
+| `unit/data/transaction_filter_test.dart` | The Activity filter flow: type, category, payment method, credit card, date range, search |
 | `unit/data/aggregation_test.dart` | The numbers behind the dashboard, Reports and Budgets |
 | `unit/data/offline_sync_test.dart` | Offline writes, tombstoned deletes, replay de-duplication, failure and retry |
 | `unit/data/category_repository_test.dart` | Category CRUD and the delete-vs-archive rule |
 | `unit/data/budget_repository_test.dart` | Budget upsert keying, period scoping |
+| `unit/data/credit_card_repository_test.dart` | Card CRUD, ordering, per-user isolation, and writes the server never acknowledges (offline) |
+| `unit/models/credit_card_model_test.dart` | Card serialization, display name, and the guards that keep a full card number out |
+| `unit/credit_card_totals_test.dart` | The total for a filter, and each card's spend this month across month boundaries |
 | `unit/state/settings_provider_test.dart` | Theme, currency and onboarding persistence |
 | `unit/state/sync_state_test.dart` | The Synced / Syncing / Pending / Failed labels |
 | `unit/email_verification_test.dart` | Who is gated behind verification — email/password yes, Google and Apple never |
 | `unit/password_reset_test.dart` | Reset failure wording, including the unregistered-address case |
 | `unit/delete_account_test.dart` | Account deletion for email accounts, and that cloud data goes first |
-| `widget/transaction_tile_test.dart` | Activity row content, amount sign and colour, category icon, swipe-to-delete confirmation |
+| `widget/transaction_tile_test.dart` | Activity row content, amount sign and colour, category icon, card name, swipe-to-delete confirmation |
+| `widget/credit_card_filter_test.dart` | Activity filtered by card: the live total in the filter sheet, the applied total, net with refunds, whole-day date ranges |
+| `widget/credit_card_form_test.dart` | The add/edit card form: what it saves and hands back, digits-only last 4, refusing a card number |
 | `widget/sync_status_chip_test.dart` | Sync chip and failure banner states |
 | `widget/verify_email_screen_test.dart` | Email-verification gate: address shown, resend cooldown, silent re-check on resume vs. reporting on manual check |
 | `widget/forgot_password_sheet_test.dart` | Password reset: validation, carried-over email, confirmation |

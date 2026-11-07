@@ -8,10 +8,13 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../data/repositories/transaction_repository.dart';
 import '../../models/transaction_model.dart';
+import '../../models/transaction_totals.dart';
 import '../../providers/category_provider.dart';
+import '../../providers/credit_card_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../widgets/add_transaction_sheet.dart';
+import '../../widgets/credit_card_visual.dart';
 import '../../widgets/sync_status_chip.dart';
 import '../../widgets/transaction_tile.dart';
 
@@ -66,6 +69,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       type: f.type,
       categoryId: f.categoryId,
       paymentMethod: f.paymentMethod,
+      creditCardId: f.creditCardId,
       searchQuery: value,
     ));
   }
@@ -91,6 +95,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     final txsAsync = ref.watch(transactionsStreamProvider);
     final filter = ref.watch(transactionFilterProvider);
     final hasFilters = !filter.isEmpty;
+    final filtered = txsAsync.asData?.value;
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
@@ -129,7 +134,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                     controller: _searchController,
                     textInputAction: TextInputAction.search,
                     decoration: InputDecoration(
-                      hintText: 'Search notes or categories',
+                      hintText: 'Search notes, categories or cards',
                       prefixIcon: const Icon(Icons.search_rounded),
                       suffixIcon: (filter.searchQuery?.isNotEmpty ?? false)
                           ? IconButton(
@@ -160,6 +165,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                         _setSearch(null);
                       },
                     ),
+                    if (filtered != null && filtered.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      _FilterTotalsCard(
+                        totals: TransactionTotals.of(filtered),
+                        currency: settings.currency,
+                      ),
+                    ],
                   ],
                 ],
               ),
@@ -240,6 +252,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      // Tall enough with the card section and total to reach the top; keep it
+      // below the status bar.
+      useSafeArea: true,
       builder: (ctx) => _FilterSheet(
         current: ref.read(transactionFilterProvider),
         onApply: (filter) {
@@ -299,18 +314,23 @@ class _ActiveFilterChips extends ConsumerWidget {
             .where((c) => c.id == filter.categoryId)
             .map((c) => c.name)
             .firstOrNull;
+    final card = ref.watch(creditCardLookupProvider)[filter.creditCardId];
+    final anyCard = filter.paymentMethod == kCreditCardPaymentMethod;
 
     TransactionFilter without({
       bool type = false,
       bool category = false,
       bool dates = false,
+      bool payment = false,
+      bool creditCard = false,
     }) {
       return TransactionFilter(
         startDate: dates ? null : filter.startDate,
         endDate: dates ? null : filter.endDate,
         type: type ? null : filter.type,
         categoryId: category ? null : filter.categoryId,
-        paymentMethod: filter.paymentMethod,
+        paymentMethod: payment ? null : filter.paymentMethod,
+        creditCardId: creditCard ? null : filter.creditCardId,
         searchQuery: filter.searchQuery,
       );
     }
@@ -335,6 +355,21 @@ class _ActiveFilterChips extends ConsumerWidget {
             label: categoryName ?? 'Category',
             icon: Icons.sell_outlined,
             onRemove: () => onChanged(without(category: true)),
+          ),
+        if (filter.paymentMethod != null)
+          _RemovableChip(
+            label: anyCard ? 'All credit cards' : filter.paymentMethod!,
+            icon: anyCard
+                ? Icons.credit_card_rounded
+                : Icons.account_balance_wallet_outlined,
+            onRemove: () => onChanged(without(payment: true)),
+          ),
+        if (filter.creditCardId != null)
+          _RemovableChip(
+            // A card deleted since the filter was set has no name to show.
+            label: card?.displayName ?? 'Credit card',
+            icon: Icons.credit_card_rounded,
+            onRemove: () => onChanged(without(creditCard: true)),
           ),
         if (filter.startDate != null && filter.endDate != null)
           _RemovableChip(
@@ -431,6 +466,109 @@ class _DayTotal extends StatelessWidget {
   }
 }
 
+/// The total for whatever the filters narrow the ledger to — "how much did I
+/// put on this card?" answered without adding up the rows by hand.
+///
+/// Leads with the figure the selection is really about: spending when it is
+/// all expenses, money received when it is all income, and the net with both
+/// sides spelled out when it mixes the two.
+class _FilterTotalsCard extends StatelessWidget {
+  final TransactionTotals totals;
+  final String currency;
+
+  const _FilterTotalsCard({required this.totals, required this.currency});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final mixed = totals.income > 0 && totals.expense > 0;
+    final onlyIncome = !mixed && totals.income > 0;
+
+    final String label;
+    final String amount;
+    final Color color;
+    if (mixed) {
+      label = 'Net total';
+      color = totals.net >= 0 ? AppColors.income : AppColors.expense;
+      amount = '${totals.net >= 0 ? '+' : '−'}'
+          '${CurrencyFormatter.format(totals.net.abs(), currencyCode: currency)}';
+    } else if (onlyIncome) {
+      label = 'Total received';
+      color = AppColors.income;
+      amount = CurrencyFormatter.format(totals.income, currencyCode: currency);
+    } else {
+      label = 'Total spent';
+      color = AppColors.expense;
+      amount = CurrencyFormatter.format(totals.expense, currencyCode: currency);
+    }
+
+    return AppCard(
+      color: color.withValues(alpha: 0.06),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label.toUpperCase(),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+              Text(
+                totals.count == 1
+                    ? '1 transaction'
+                    : '${totals.count} transactions',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              amount,
+              maxLines: 1,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          if (mixed) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.lg,
+              runSpacing: AppSpacing.xs,
+              children: [
+                _DayTotal(
+                  amount: totals.income,
+                  isIncome: true,
+                  currency: currency,
+                ),
+                _DayTotal(
+                  amount: totals.expense,
+                  isIncome: false,
+                  currency: currency,
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _DaySection extends ConsumerWidget {
   final _DayGroup group;
   final String currency;
@@ -454,6 +592,7 @@ class _DaySection extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final categories = ref.watch(categoryLookupProvider);
+    final cards = ref.watch(creditCardLookupProvider);
     final income = group.income;
     final expense = group.expense;
 
@@ -522,6 +661,7 @@ class _DaySection extends ConsumerWidget {
                   currency: currency,
                   transaction: group.items[i],
                   category: categories[group.items[i].categoryId],
+                  creditCard: cards[group.items[i].creditCardId],
                   showDate: false,
                   onTap: () => context.push(
                     '/transaction/edit',
@@ -586,11 +726,18 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
   String? _categoryId;
   DateTimeRange? _range;
 
+  /// [kCreditCardPaymentMethod] for "any credit card"; one card is picked
+  /// with [_creditCardId] instead.
+  String? _paymentMethod;
+  String? _creditCardId;
+
   @override
   void initState() {
     super.initState();
     _type = widget.current.type;
     _categoryId = widget.current.categoryId;
+    _paymentMethod = widget.current.paymentMethod;
+    _creditCardId = widget.current.creditCardId;
     if (widget.current.startDate != null && widget.current.endDate != null) {
       _range = DateTimeRange(
         start: widget.current.startDate!,
@@ -599,12 +746,44 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
     }
   }
 
+  /// The picker hands back midnight at the start of the last day, which would
+  /// leave out everything logged on that day after 00:00.
+  static DateTime _endOfDay(DateTime d) =>
+      DateTime(d.year, d.month, d.day, 23, 59, 59, 999);
+
+  /// What Apply would set, so the sheet can total it before it is applied.
+  TransactionFilter get _pending => TransactionFilter(
+        type: _type,
+        categoryId: _categoryId,
+        paymentMethod: _paymentMethod,
+        creditCardId: _creditCardId,
+        startDate: _range?.start,
+        endDate: _range == null ? null : _endOfDay(_range!.end),
+        // Keep any text already typed in the search box.
+        searchQuery: widget.current.searchQuery,
+      );
+
+  void _selectCard({String? id, bool anyCard = false}) => setState(() {
+        _creditCardId = id;
+        _paymentMethod = anyCard ? kCreditCardPaymentMethod : null;
+      });
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final categoriesAsync = ref.watch(categoriesStreamProvider(_type));
+    final cards = ref.watch(creditCardsStreamProvider).asData?.value ?? const [];
     final dateFormat = DateFormat('MMM d, yyyy');
+
+    // Recomputed on every tap, from the same rule the list uses, so the total
+    // shown here is the total Apply will show.
+    final pending = _pending;
+    final all = ref.watch(allTransactionsStreamProvider).asData?.value ??
+        const <TransactionModel>[];
+    final preview = pending.isEmpty
+        ? null
+        : TransactionTotals.of(all.where(pending.matches));
 
     return Padding(
       padding: EdgeInsets.only(
@@ -664,6 +843,49 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
               error: (e, st) => const SizedBox.shrink(),
             ),
             const SizedBox(height: AppSpacing.xl),
+            const SectionLabel('Credit card'),
+            if (cards.isEmpty)
+              ActionChip(
+                avatar: Icon(Icons.add_card_rounded, color: scheme.primary),
+                label: const Text('Add a credit card'),
+                onPressed: () {
+                  // Resolve the router before the sheet leaves the tree.
+                  final router = GoRouter.of(context);
+                  Navigator.pop(context);
+                  router.push('/credit-cards');
+                },
+              )
+            else
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  ChoiceChip(
+                    label: const Text('Any'),
+                    selected: _creditCardId == null &&
+                        _paymentMethod != kCreditCardPaymentMethod,
+                    onSelected: (_) => _selectCard(),
+                  ),
+                  ChoiceChip(
+                    label: const Text('All cards'),
+                    selected: _creditCardId == null &&
+                        _paymentMethod == kCreditCardPaymentMethod,
+                    onSelected: (_) => _selectCard(anyCard: true),
+                  ),
+                  for (final c in cards)
+                    ChoiceChip(
+                      // Chips force the avatar square; centring keeps the
+                      // swatch card-shaped.
+                      avatar: Center(
+                        child: CreditCardSwatch(color: Color(c.color), width: 18),
+                      ),
+                      label: Text(c.displayName),
+                      selected: _creditCardId == c.id,
+                      onSelected: (_) => _selectCard(id: c.id),
+                    ),
+                ],
+              ),
+            const SizedBox(height: AppSpacing.xl),
             const SectionLabel('Date range'),
             AppCard(
               padding: const EdgeInsets.symmetric(
@@ -709,6 +931,26 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
               ),
             ),
             const SizedBox(height: AppSpacing.xl),
+            if (preview == null)
+              Text(
+                'Tap any filter to see its total here.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              )
+            else if (preview.isEmpty)
+              Text(
+                'No transactions match this selection.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              )
+            else
+              _FilterTotalsCard(
+                totals: preview,
+                currency: ref.watch(settingsProvider).currency,
+              ),
+            const SizedBox(height: AppSpacing.xl),
             Row(
               children: [
                 Expanded(
@@ -720,16 +962,7 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: FilledButton(
-                    onPressed: () {
-                      // Keep any text already typed in the search box.
-                      widget.onApply(TransactionFilter(
-                        type: _type,
-                        categoryId: _categoryId,
-                        startDate: _range?.start,
-                        endDate: _range?.end,
-                        searchQuery: widget.current.searchQuery,
-                      ));
-                    },
+                    onPressed: () => widget.onApply(pending),
                     child: const Text('Apply'),
                   ),
                 ),

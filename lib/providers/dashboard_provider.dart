@@ -9,8 +9,15 @@ class DashboardSummary {
   /// Income dated this month only.
   final double totalIncome;
 
-  /// Expenses dated this month only.
+  /// Cash expenses dated this month only.
+  ///
+  /// Excludes anything charged to a credit card: that is debt, not money
+  /// leaving the user's pocket, and it is reported under [creditCardSpend].
   final double totalExpense;
+
+  /// Charged to credit cards this month. Shown in its own section rather
+  /// than netted against cash, so neither number misleads.
+  final double creditCardSpend;
 
   /// What was left over from every earlier month. Negative if earlier
   /// spending ran ahead of earlier income.
@@ -23,6 +30,7 @@ class DashboardSummary {
   const DashboardSummary({
     required this.totalIncome,
     required this.totalExpense,
+    required this.creditCardSpend,
     required this.carriedForward,
     required this.balance,
     required this.expenseByCategory,
@@ -31,6 +39,7 @@ class DashboardSummary {
   static const empty = DashboardSummary(
     totalIncome: 0,
     totalExpense: 0,
+    creditCardSpend: 0,
     carriedForward: 0,
     balance: 0,
     expenseByCategory: {},
@@ -42,6 +51,12 @@ class DashboardSummary {
 /// Income and expense cover this month alone, but the balance does not reset
 /// on the 1st: it opens with whatever earlier months left over. [now] is
 /// injected so the month rollover can be tested without the wall clock.
+///
+/// Every figure here is cash. Credit-card charges are deliberately kept out
+/// of the balance, the expense total, the carry-forward and the category
+/// breakdown: the card issuer has paid the merchant, so the user's own money
+/// has not moved. Card spend is reported separately as [creditCardSpend] and
+/// broken down per card on the dashboard.
 DashboardSummary buildDashboardSummary(
   OfflineTransactionRepository repo, {
   required DateTime now,
@@ -49,20 +64,22 @@ DashboardSummary buildDashboardSummary(
   final start = DateTime(now.year, now.month, 1);
   final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
 
-  final sums = repo.sumByType(start: start, end: end);
+  final sums = repo.sumByType(start: start, end: end, cashOnly: true);
   final breakdown = repo.categoryBreakdown(
     start: start,
     end: end,
     type: TransactionType.expense,
+    cashOnly: true,
   );
 
   final income = sums[TransactionType.income] ?? 0;
   final expense = sums[TransactionType.expense] ?? 0;
-  final carriedForward = repo.balanceBefore(start);
+  final carriedForward = repo.balanceBefore(start, cashOnly: true);
 
   return DashboardSummary(
     totalIncome: income,
     totalExpense: expense,
+    creditCardSpend: repo.creditCardSpend(start: start, end: end),
     carriedForward: carriedForward,
     balance: carriedForward + income - expense,
     expenseByCategory: breakdown,

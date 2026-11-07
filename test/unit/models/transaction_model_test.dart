@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart' show SetOptions;
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:income_expense_tracker/core/constants/app_constants.dart';
@@ -85,6 +86,27 @@ void main() {
       final map = txFixture().toLocalMap()..['amount'] = 250;
       expect(TransactionModel.fromLocalMap(map).amount, 250.0);
     });
+
+    test('round-trips the credit card it was charged to', () {
+      final original = cardTxFixture(creditCardFixture());
+
+      final restored = TransactionModel.fromLocalMap(original.toLocalMap());
+
+      expect(restored.paymentMethod, kCreditCardPaymentMethod);
+      expect(restored.creditCardId, 'card-hdfc');
+      expect(restored.creditCardName, 'HDFC Millennia ••4321');
+    });
+
+    test('an entry saved before credit cards existed has no card', () {
+      final map = txFixture().toLocalMap()
+        ..remove('creditCardId')
+        ..remove('creditCardName');
+
+      final restored = TransactionModel.fromLocalMap(map);
+
+      expect(restored.creditCardId, isNull);
+      expect(restored.creditCardName, isNull);
+    });
   });
 
   group('cloud serialization', () {
@@ -103,6 +125,44 @@ void main() {
       expect(restored.amount, 99.5);
       expect(restored.categoryName, original.categoryName);
       expect(restored.date, original.date);
+    });
+
+    test('round-trips the credit card through Firestore', () async {
+      final firestore = FakeFirebaseFirestore();
+      await seedCloudTransactions(
+        firestore,
+        [cardTxFixture(creditCardFixture(), id: 'tx-card')],
+      );
+
+      final doc = await firestore
+          .collection(FirestorePaths.transactions(testUid))
+          .doc('tx-card')
+          .get();
+      final restored = TransactionModel.fromDoc(doc);
+
+      expect(restored.creditCardId, 'card-hdfc');
+      expect(restored.creditCardName, 'HDFC Millennia ••4321');
+    });
+
+    test('moving an entry off a card clears the card in the cloud', () async {
+      // Sync pushes with a merge, which keeps any field the write leaves out.
+      // The card keys must therefore be written even when null.
+      final firestore = FakeFirebaseFirestore();
+      final ref = firestore
+          .collection(FirestorePaths.transactions(testUid))
+          .doc('tx-1');
+      await ref.set(cardTxFixture(creditCardFixture(), id: 'tx-1').toMap());
+
+      await ref.set(
+        txFixture(id: 'tx-1', paymentMethod: 'Cash').toMap(),
+        SetOptions(merge: true),
+      );
+      final restored = TransactionModel.fromDoc(await ref.get());
+
+      expect(restored.paymentMethod, 'Cash');
+      expect(restored.creditCardId, isNull,
+          reason: 'a stale card id would keep counting it in card totals');
+      expect(restored.creditCardName, isNull);
     });
 
     test('anything read from the cloud counts as synced', () async {

@@ -164,7 +164,15 @@ class ReportsScreen extends ConsumerWidget {
                 !t.date.isBefore(range.start) && !t.date.isAfter(range.end))
             .toList();
         final rows = <List<dynamic>>[
-          ['Date', 'Type', 'Category', 'Amount', 'Payment Method', 'Note'],
+          [
+            'Date',
+            'Type',
+            'Category',
+            'Amount',
+            'Payment Method',
+            'Credit Card',
+            'Note',
+          ],
           for (final t in txs)
             [
               DateFormat('yyyy-MM-dd HH:mm').format(t.date),
@@ -172,6 +180,7 @@ class ReportsScreen extends ConsumerWidget {
               t.categoryName,
               t.amount,
               t.paymentMethod ?? '',
+              t.creditCardName ?? '',
               t.note ?? '',
             ],
         ];

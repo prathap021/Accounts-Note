@@ -83,6 +83,21 @@ void main() {
     expect(txs.docs, isEmpty, reason: 'subcollections go with it');
   });
 
+  test('saved credit cards are removed too', () async {
+    final user = emailUser();
+    await seedUserData(user.uid);
+    final cards = firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('creditCards');
+    await cards.doc('card-hdfc').set(creditCardFixture().toMap());
+
+    await repoFor(user).deleteAccount();
+
+    expect((await cards.get()).docs, isEmpty,
+        reason: 'a closed account must not leave card details behind');
+  });
+
   test('deleting with no data to remove still succeeds', () async {
     final repo = repoFor(emailUser());
     final result = await repo.deleteAccount();

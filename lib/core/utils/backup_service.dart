@@ -50,6 +50,7 @@ class BackupService {
       TextCellValue('Category'),
       TextCellValue('Amount'),
       TextCellValue('Payment Method'),
+      TextCellValue('Credit Card'),
       TextCellValue('Note'),
     ]);
 
@@ -60,6 +61,7 @@ class BackupService {
         TextCellValue(catMap[tx.categoryId] ?? tx.categoryId),
         DoubleCellValue(tx.amount),
         TextCellValue(tx.paymentMethod ?? ''),
+        TextCellValue(tx.creditCardName ?? ''),
         TextCellValue(tx.note ?? ''),
       ]);
     }

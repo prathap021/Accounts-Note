@@ -12,6 +12,14 @@ class TransactionModel extends Equatable {
   final String? note;
   final DateTime date;
   final String? paymentMethod;
+
+  /// The credit card this was charged to, when the payment method is
+  /// [kCreditCardPaymentMethod].
+  final String? creditCardId;
+
+  /// The card's display name at the time — denormalized like [categoryName],
+  /// so history still reads correctly after the card is renamed or deleted.
+  final String? creditCardName;
   final bool isRecurring;
   final String? recurringId; // link back to the recurring template, if any
   final DateTime createdAt;
@@ -36,6 +44,8 @@ class TransactionModel extends Equatable {
     this.note,
     required this.date,
     this.paymentMethod,
+    this.creditCardId,
+    this.creditCardName,
     this.isRecurring = false,
     this.recurringId,
     required this.createdAt,
@@ -53,6 +63,17 @@ class TransactionModel extends Equatable {
   /// Tombstoned locally — hidden from lists until the cloud delete lands.
   bool get isDeleted => pendingOp == PendingOp.delete;
 
+  /// Charged to a credit card rather than settled in cash.
+  ///
+  /// This is the line between the two halves of the dashboard. Swiping a card
+  /// moves no money out of the user's pocket — it creates debt the card issuer
+  /// bills later — so a card charge must not reduce the available balance or
+  /// count as a cash expense. It is tracked against the card instead.
+  bool get isOnCard => creditCardId != null;
+
+  /// Settled in cash, bank or UPI — money that actually moved.
+  bool get isCash => !isOnCard;
+
   TransactionModel copyWith({
     String? id,
     TransactionType? type,
@@ -62,6 +83,8 @@ class TransactionModel extends Equatable {
     String? note,
     DateTime? date,
     String? paymentMethod,
+    String? creditCardId,
+    String? creditCardName,
     bool? isRecurring,
     String? recurringId,
     DateTime? createdAt,
@@ -81,6 +104,8 @@ class TransactionModel extends Equatable {
       note: note ?? this.note,
       date: date ?? this.date,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      creditCardId: creditCardId ?? this.creditCardId,
+      creditCardName: creditCardName ?? this.creditCardName,
       isRecurring: isRecurring ?? this.isRecurring,
       recurringId: recurringId ?? this.recurringId,
       createdAt: createdAt ?? this.createdAt,
@@ -102,6 +127,10 @@ class TransactionModel extends Equatable {
       'note': note,
       'date': Timestamp.fromDate(date),
       'paymentMethod': paymentMethod,
+      // Written even when null: the sync upsert merges, so leaving the keys
+      // out would keep a card on an entry the user moved back to cash.
+      'creditCardId': creditCardId,
+      'creditCardName': creditCardName,
       'isRecurring': isRecurring,
       'recurringId': recurringId,
       'createdAt': Timestamp.fromDate(createdAt),
@@ -122,6 +151,8 @@ class TransactionModel extends Equatable {
       'note': note,
       'date': date.millisecondsSinceEpoch,
       'paymentMethod': paymentMethod,
+      'creditCardId': creditCardId,
+      'creditCardName': creditCardName,
       'isRecurring': isRecurring,
       'recurringId': recurringId,
       'createdAt': createdAt.millisecondsSinceEpoch,
@@ -150,6 +181,8 @@ class TransactionModel extends Equatable {
       note: map['note'] as String?,
       date: dateFrom(map['date']),
       paymentMethod: map['paymentMethod'] as String?,
+      creditCardId: map['creditCardId'] as String?,
+      creditCardName: map['creditCardName'] as String?,
       isRecurring: map['isRecurring'] as bool? ?? false,
       recurringId: map['recurringId'] as String?,
       createdAt: dateFrom(map['createdAt']),
@@ -175,6 +208,8 @@ class TransactionModel extends Equatable {
       note: data['note'] as String?,
       date: (data['date'] as Timestamp).toDate(),
       paymentMethod: data['paymentMethod'] as String?,
+      creditCardId: data['creditCardId'] as String?,
+      creditCardName: data['creditCardName'] as String?,
       isRecurring: data['isRecurring'] as bool? ?? false,
       recurringId: data['recurringId'] as String?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -194,6 +229,8 @@ class TransactionModel extends Equatable {
         note,
         date,
         paymentMethod,
+        creditCardId,
+        creditCardName,
         isRecurring,
         recurringId,
         createdAt,

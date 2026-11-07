@@ -7,6 +7,7 @@ import '../core/theme/app_theme.dart';
 import '../core/theme/responsive.dart';
 import '../core/utils/currency_formatter.dart';
 import '../models/category_model.dart';
+import '../models/credit_card_model.dart';
 import '../models/transaction_model.dart';
 
 class TransactionTile extends StatelessWidget {
@@ -16,6 +17,10 @@ class TransactionTile extends StatelessWidget {
   /// The transaction's category, when it could be resolved. Supplies the row
   /// icon and colour; a missing category falls back to a direction arrow.
   final CategoryModel? category;
+
+  /// The card this was charged to, when it still exists. Its current name
+  /// wins over the one stored on the transaction, so a rename shows at once.
+  final CreditCardModel? creditCard;
 
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
@@ -29,6 +34,7 @@ class TransactionTile extends StatelessWidget {
     required this.transaction,
     this.currency = 'INR',
     this.category,
+    this.creditCard,
     this.onTap,
     this.onDelete,
     this.showDate = true,
@@ -36,16 +42,18 @@ class TransactionTile extends StatelessWidget {
 
   bool get _isIncome => transaction.type == TransactionType.income;
 
-  /// Time / date plus payment method — the quiet third line.
+  /// Time / date plus how it was paid — the quiet third line. A card charge
+  /// names the card rather than the generic "Credit Card".
   String _metaLine() {
+    final payment = creditCard?.displayName ??
+        transaction.creditCardName ??
+        transaction.paymentMethod;
     final parts = <String>[
       if (showDate)
         DateFormat('MMM d, yyyy · h:mm a').format(transaction.date)
       else
         DateFormat('h:mm a').format(transaction.date),
-      if (transaction.paymentMethod != null &&
-          transaction.paymentMethod!.isNotEmpty)
-        transaction.paymentMethod!,
+      if (payment != null && payment.isNotEmpty) payment,
     ];
     return parts.join('  ·  ');
   }

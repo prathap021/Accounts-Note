@@ -5,6 +5,7 @@ class FirestoreCollections {
   static const transactions = 'transactions';
   static const categories = 'categories';
   static const budgets = 'budgets';
+  static const creditCards = 'creditCards';
   static const recurringTransactions = 'recurringTransactions';
   static const settings = 'settings';
   static const notifications = 'notifications';
@@ -35,6 +36,9 @@ class FirestorePaths {
   static String budget(String uid, String budgetId) =>
       '${budgets(uid)}/$budgetId';
 
+  static String creditCards(String uid) =>
+      '${user(uid)}/${FirestoreCollections.creditCards}';
+
   static String recurring(String uid) =>
       '${user(uid)}/${FirestoreCollections.recurringTransactions}';
 
@@ -43,6 +47,11 @@ class FirestorePaths {
 }
 
 enum TransactionType { income, expense }
+
+/// The payment method stored on anything charged to one of the user's credit
+/// cards. Which card it was is recorded separately, in `creditCardId`, so
+/// filtering on this method means "any credit card".
+const kCreditCardPaymentMethod = 'Credit Card';
 
 /// User access tier — separate from income/expense transaction types.
 /// Contribution marks the user as a [contributor]; it is never logged as a

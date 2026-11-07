@@ -6,6 +6,7 @@ import 'package:income_expense_tracker/core/constants/app_constants.dart';
 import 'package:income_expense_tracker/data/local/transaction_local_store.dart';
 import 'package:income_expense_tracker/models/budget_model.dart';
 import 'package:income_expense_tracker/models/category_model.dart';
+import 'package:income_expense_tracker/models/credit_card_model.dart';
 import 'package:income_expense_tracker/models/transaction_model.dart';
 
 /// Shared builders and harnesses for the test suite.
@@ -28,6 +29,8 @@ TransactionModel txFixture({
   String? note = 'Lunch',
   DateTime? date,
   String? paymentMethod = 'Cash',
+  String? creditCardId,
+  String? creditCardName,
   DateTime? createdAt,
   DateTime? updatedAt,
 }) {
@@ -41,8 +44,53 @@ TransactionModel txFixture({
     note: note,
     date: when,
     paymentMethod: paymentMethod,
+    creditCardId: creditCardId,
+    creditCardName: creditCardName,
     createdAt: createdAt ?? when,
     updatedAt: updatedAt ?? when,
+  );
+}
+
+/// A transaction charged to [card], set up the way the expense form saves
+/// one: the credit-card payment method, the card's id and its display name.
+TransactionModel cardTxFixture(
+  CreditCardModel card, {
+  String id = 'tx-card',
+  TransactionType type = TransactionType.expense,
+  double amount = 100,
+  String categoryId = 'cat-food',
+  String categoryName = 'Food',
+  String? note,
+  DateTime? date,
+}) {
+  return txFixture(
+    id: id,
+    type: type,
+    amount: amount,
+    categoryId: categoryId,
+    categoryName: categoryName,
+    note: note,
+    date: date,
+    paymentMethod: kCreditCardPaymentMethod,
+    creditCardId: card.id,
+    creditCardName: card.displayName,
+  );
+}
+
+CreditCardModel creditCardFixture({
+  String id = 'card-hdfc',
+  String name = 'HDFC Millennia',
+  String? last4 = '4321',
+  int color = 0xFF1E3A8A,
+  double? creditLimit,
+}) {
+  return CreditCardModel(
+    id: id,
+    name: name,
+    last4: last4,
+    color: color,
+    creditLimit: creditLimit,
+    createdAt: fixedNow,
   );
 }
 
