@@ -25,16 +25,23 @@ export PATH="$ANDROID_HOME/platform-tools:$PATH:$HOME/.pub-cache/bin"
 Start an emulator (or plug in a device), then:
 
 ```bash
-patrol test                                         # the whole suite
-patrol test -t patrol_test/auth_test.dart           # one file
-patrol test --exclude patrol_test/settings_test.dart  # all but one file
-patrol develop -t patrol_test/auth_test.dart        # hot-restart loop while writing a test
+# The whole suite, in one app session (see "One app session" below)
+patrol test --dart-define-from-file=patrol_test/single_session.json
+
+# One file
+patrol test -t patrol_test/auth_test.dart --dart-define-from-file=patrol_test/single_session.json
+
+# Hot-restart loop while writing a test
+patrol develop -t patrol_test/auth_test.dart
 ```
+
+Run one `patrol test` at a time per device. A second run reinstalls the
+app, which kills the first one mid-test ("Process crashed").
 
 `flutter test` does **not** run these tests. Patrol needs its native test
 runner to drive the device.
 
-A full run takes 7 to 14 minutes on an emulator.
+A full run takes about 4½ minutes on an emulator.
 
 **If a run reports `Total: 0` after about 4–5 minutes**, the APK never
 installed. Check
@@ -56,13 +63,27 @@ before Patrol starts ignoring it, Flutter counts one extra semantics handle
 (see leancodepl/patrol#1474). It has shown up once in roughly 400 test
 executions. Re-run the file.
 
-The stack trace about `Unknown package` at the very end of every run is
-harmless. The orchestrator has already uninstalled the app when patrol_cli
-tries to.
+### One app session for the whole run
 
-Each test gets a fresh install (`clearPackageData` plus the Android Test
-Orchestrator), so no Hive box or preference carries over from one test to
-the next.
+The app is launched once and all tests run in that session, one after
+another, the way `integration_test` runs (no Android Test Orchestrator, no
+reinstall between tests).
+
+Patrol 4.11 only serves more than one test per app process when it is
+built with `PATROL_BS_COVERAGE=true`, which is what
+[`single_session.json`](single_session.json) sets. That flag belongs to
+Patrol's device-farm coverage feature. Its only other effect here is a
+small line-coverage snapshot of the app's own code after each test.
+Without the file, the first test passes and every later one fails with
+`PatrolAppServiceClientException: Invalid response 500`, because the app
+service accepts only one test per process. `launchApp` puts the device back to a fresh
+install at the start of every test: it unmounts the previous test's app,
+deletes every Hive box and clears shared preferences. Each test also gets
+its own `FakeBackend`, so no account or cloud data carries over.
+
+A new test that writes somewhere else on the device (a file, a new
+plugin's storage) has to clear it in `_wipeDeviceStorage` too, or the tests
+after it will see it.
 
 ## What is covered
 

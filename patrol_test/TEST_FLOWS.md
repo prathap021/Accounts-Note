@@ -6,15 +6,20 @@ For how to run the suite and how the test harness works, see
 [README.md](README.md).
 
 **Last full run:** 44 of 44 passed, 7 Nov 2026, on the `Pixel` Android emulator
-(Android 7.1.1, API 25), in about 7 minutes.
+(Android 7.1.1, API 25), in one app session, in about 4½ minutes.
 
 ## How to read this
 
 - Each flow has an **ID** (`AUTH-06`), the **test file**, and the **test
   name** exactly as it appears in the run output. Run one file with
   `patrol test -t patrol_test/<file>`.
+- All flows run one after another in a single app session, like
+  `integration_test`: the app is launched once, not reinstalled per test
+  (run with `--dart-define-from-file=patrol_test/single_session.json`).
+  Each test first wipes the local ledger and preferences, so it still
+  starts from the same state as a fresh install.
 - **Starts from** is the state before the first step. Unless it says
-  otherwise, the app is a fresh install with onboarding already seen.
+  otherwise, that is a freshly wiped app with onboarding already seen.
 - **Step** is what the user does. **Expected** is what the test asserts.
   Assertions marked _(cloud)_ are checked against the fake Firestore, not
   the screen.
@@ -93,7 +98,7 @@ running on Android.
 ### ONB-01 · First launch shows onboarding once
 
 `onboarding_test.dart` › _first launch walks through onboarding to sign-in, and only once_
-**Starts from:** fresh install, onboarding never seen.
+**Starts from:** freshly wiped app, onboarding never seen.
 
 | # | Step | Expected |
 |---|---|---|
@@ -105,7 +110,7 @@ running on Android.
 ### ONB-02 · Swiping between intro pages
 
 `onboarding_test.dart` › _swiping through the intro pages works as well as the buttons_
-**Starts from:** fresh install, onboarding never seen.
+**Starts from:** freshly wiped app, onboarding never seen.
 
 | # | Step | Expected |
 |---|---|---|

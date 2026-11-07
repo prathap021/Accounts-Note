@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +25,7 @@ import 'package:income_expense_tracker/providers/credit_card_provider.dart';
 import 'package:income_expense_tracker/providers/settings_provider.dart';
 import 'package:income_expense_tracker/providers/sync_provider.dart';
 import 'package:income_expense_tracker/providers/transaction_provider.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:patrol/patrol.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -53,8 +56,10 @@ Future<FakeBackend> launchApp(
     _deviceStorageReady = true;
   }
 
-  // Android's test orchestrator already gives each test a fresh install; this
-  // keeps the guarantee on platforms and runners that do not.
+  // Every test runs in the same app session, one after another, so each one
+  // starts by putting the device back to a fresh install: no ledger and no
+  // preferences left behind by the test before it.
+  await _wipeDeviceStorage($);
   final prefs = await SharedPreferences.getInstance();
   await prefs.clear();
   if (hasSeenOnboarding) {
@@ -117,6 +122,22 @@ Future<void> restartApp(PatrolIntegrationTester $, FakeBackend backend) async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.reload();
   await _pumpApp($, backend, prefs);
+}
+
+/// Removes every Hive box the app has written, as uninstalling would.
+///
+/// The previous test's app is unmounted first so its providers close their
+/// boxes; a box still open is closed and deleted by [Hive.deleteBoxFromDisk].
+Future<void> _wipeDeviceStorage(PatrolIntegrationTester $) async {
+  await $.pumpWidget(const SizedBox.shrink());
+  await $.pump(const Duration(milliseconds: 100));
+  final dir = await getApplicationDocumentsDirectory();
+  for (final file in dir.listSync().whereType<File>()) {
+    final name = file.uri.pathSegments.last;
+    if (name.endsWith('.hive')) {
+      await Hive.deleteBoxFromDisk(name.substring(0, name.length - 5));
+    }
+  }
 }
 
 Future<void> _pumpApp(
