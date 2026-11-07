@@ -66,16 +66,20 @@ class CreditCardsScreen extends ConsumerWidget {
       body: cardsAsync.when(
         data: (cards) {
           if (cards.isEmpty) {
+            // Scrollable so it does not overflow when the add-card sheet's
+            // keyboard shrinks the screen behind it.
             return Center(
-              child: EmptyState(
-                icon: Icons.credit_card_rounded,
-                title: 'No credit cards yet',
-                message:
-                    'Add the cards you pay with, then choose one as the payment '
-                    'method when you log an expense to see what each card has '
-                    'spent.',
-                actionLabel: 'Add card',
-                onAction: () => showCreditCardForm(context),
+              child: SingleChildScrollView(
+                child: EmptyState(
+                  icon: Icons.credit_card_rounded,
+                  title: 'No credit cards yet',
+                  message:
+                      'Add the cards you pay with, then choose one as the '
+                      'payment method when you log an expense to see what '
+                      'each card has spent.',
+                  actionLabel: 'Add card',
+                  onAction: () => showCreditCardForm(context),
+                ),
               ),
             );
           }

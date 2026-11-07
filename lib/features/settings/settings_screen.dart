@@ -146,30 +146,35 @@ class SettingsScreen extends ConsumerWidget {
   ) async {
     final picked = await showModalBottomSheet<String>(
       context: context,
+      // Four currencies do not fit a default sheet (capped at 9/16 of the
+      // screen) on a 16:9 phone; let it grow, and scroll if it still can't.
+      isScrollControlled: true,
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                0,
-                AppSpacing.xl,
-                AppSpacing.md,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xl,
+                  0,
+                  AppSpacing.xl,
+                  AppSpacing.md,
+                ),
+                child: Text('Currency', style: Theme.of(ctx).textTheme.titleLarge),
               ),
-              child: Text('Currency', style: Theme.of(ctx).textTheme.titleLarge),
-            ),
-            for (final entry in _currencies.entries)
-              _ChoiceTile(
-                leadingText: CurrencyFormatter.symbolFor(entry.key),
-                title: entry.value,
-                subtitle: entry.key,
-                selected: entry.key == current,
-                onTap: () => Navigator.pop(ctx, entry.key),
-              ),
-            const SizedBox(height: AppSpacing.md),
-          ],
+              for (final entry in _currencies.entries)
+                _ChoiceTile(
+                  leadingText: CurrencyFormatter.symbolFor(entry.key),
+                  title: entry.value,
+                  subtitle: entry.key,
+                  selected: entry.key == current,
+                  onTap: () => Navigator.pop(ctx, entry.key),
+                ),
+              const SizedBox(height: AppSpacing.md),
+            ],
+          ),
         ),
       ),
     );

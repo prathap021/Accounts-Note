@@ -22,16 +22,28 @@ import '../../features/onboarding/onboarding_screen.dart';
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/double_back_to_exit.dart';
 
+/// One router for the life of the app.
+///
+/// The auth and settings state is read inside [GoRouter.redirect], not
+/// watched here. Watching would build a fresh router, back at `/splash`, every
+/// time `userChanges()` emits. Firebase emits on every profile reload and ID
+/// token refresh, so saving a display name or simply staying signed in for an
+/// hour would throw the user out of whatever screen they were on. Changes
+/// reach the router through [GoRouterRefreshStream] instead, which re-runs
+/// [GoRouter.redirect] without touching the navigation stack.
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
-  final hasSeenOnboarding = ref.watch(settingsProvider).hasSeenOnboarding;
-  // Only email/password accounts are gated; Google and Apple verify the
-  // address themselves.
-  final needsVerification = ref.watch(needsEmailVerificationProvider);
+  final refresh = GoRouterRefreshStream(ref);
+  ref.onDispose(refresh.dispose);
 
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: '/splash',
     redirect: (context, state) {
+      final authState = ref.read(authStateProvider);
+      final hasSeenOnboarding = ref.read(settingsProvider).hasSeenOnboarding;
+      // Only email/password accounts are gated; Google and Apple verify the
+      // address themselves.
+      final needsVerification = ref.read(needsEmailVerificationProvider);
+
       final isLoading = authState.isLoading;
       final isLoggedIn = authState.asData?.value != null;
       final loc = state.matchedLocation;
@@ -57,7 +69,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (isLoggedIn && (loc == '/login' || loc == '/splash' || loc == '/onboarding')) return '/dashboard';
       return null;
     },
-    refreshListenable: GoRouterRefreshStream(ref),
+    refreshListenable: refresh,
     routes: [
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
       GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
@@ -120,13 +132,21 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  ref.onDispose(router.dispose);
+  return router;
 });
 
-/// Bridges a Riverpod stream to GoRouter's Listenable-based refresh API so
-/// login/logout immediately triggers a redirect re-evaluation.
+/// Bridges Riverpod state to GoRouter's Listenable-based refresh API, so
+/// sign-in, sign-out, verification and finishing onboarding immediately
+/// re-run the redirect.
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(Ref ref) {
     ref.listen(authStateProvider, (_, _) => notifyListeners());
+    ref.listen(needsEmailVerificationProvider, (_, _) => notifyListeners());
+    ref.listen(
+      settingsProvider.select((s) => s.hasSeenOnboarding),
+      (_, _) => notifyListeners(),
+    );
   }
 }
 

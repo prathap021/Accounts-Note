@@ -28,36 +28,41 @@ class _AddTransactionSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // Scrollable because the form this opens autofocuses its amount field:
+    // the keyboard rises while this sheet is still animating away, and the
+    // shrunken space would otherwise overflow it for those frames.
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.xl,
-          0,
-          AppSpacing.xl,
-          AppSpacing.xl,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('What would you like to add?', style: theme.textTheme.titleLarge),
-            const SizedBox(height: AppSpacing.xl),
-            _TypeOption(
-              icon: Icons.south_west_rounded,
-              color: AppColors.income,
-              title: 'Income',
-              subtitle: 'Salary, freelance, refunds…',
-              onTap: () => _open(context, TransactionType.income),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            _TypeOption(
-              icon: Icons.north_east_rounded,
-              color: AppColors.expense,
-              title: 'Expense',
-              subtitle: 'Food, travel, bills…',
-              onTap: () => _open(context, TransactionType.expense),
-            ),
-          ],
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xl,
+            0,
+            AppSpacing.xl,
+            AppSpacing.xl,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('What would you like to add?', style: theme.textTheme.titleLarge),
+              const SizedBox(height: AppSpacing.xl),
+              _TypeOption(
+                icon: Icons.south_west_rounded,
+                color: AppColors.income,
+                title: 'Income',
+                subtitle: 'Salary, freelance, refunds…',
+                onTap: () => _open(context, TransactionType.income),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _TypeOption(
+                icon: Icons.north_east_rounded,
+                color: AppColors.expense,
+                title: 'Expense',
+                subtitle: 'Food, travel, bills…',
+                onTap: () => _open(context, TransactionType.expense),
+              ),
+            ],
+          ),
         ),
       ),
     );
