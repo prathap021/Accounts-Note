@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:income_expense_tracker/core/utils/currency_formatter.dart';
 import 'package:income_expense_tracker/features/reports/reports_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:patrol/patrol.dart';
@@ -62,6 +63,53 @@ void main() {
     final today = DateFormat('MMM d').format(DateTime.now());
     await $(const Key('report-period')).$('$today – $today').waitUntilVisible();
     expect($(money(2750)), findsWidgets, reason: "today's spending");
+  });
+
+  patrolTest('the dashboard chart lists only your own categories', ($) async {
+    const spending = {
+      'Rent': 18000.0,
+      'Shopping': 2499.0,
+      'Food': 1690.0,
+      'Bills': 1150.0,
+      'Health': 800.0,
+      'Entertainment': 649.0,
+      'Transport': 320.0,
+    };
+    await launchSignedIn(
+      $,
+      seed: (backend, user) async {
+        for (final e in spending.entries) {
+          await backend.seedTransaction(
+            user.uid,
+            id: 'spend-${e.key}',
+            amount: e.value,
+            category: e.key,
+          );
+        }
+      },
+    );
+
+    final chart = $('Where your money went');
+    await $.reveal(chart, scrollIn: find.byType(Scrollable).first);
+    final rent = $(const Key('breakdown-Rent'));
+    await $.reveal(rent, scrollIn: find.byType(Scrollable).first);
+    expect(rent.$(CurrencyFormatter.formatCompact(18000)), findsOneWidget);
+    expect(
+      $('Everything else'),
+      findsNothing,
+      reason: 'no made-up group in place of a real category',
+    );
+
+    // Seven categories: the six largest, then all seven on request.
+    expect($(const Key('breakdown-Transport')), findsNothing);
+    final toggle = $(const Key('breakdown-toggle'));
+    await $.reveal(toggle, scrollIn: find.byType(Scrollable).first);
+    expect(toggle.$('Show all 7 categories'), findsOneWidget);
+    await toggle.tap();
+    final transport = $(const Key('breakdown-Transport'));
+    await $.reveal(transport, scrollIn: find.byType(Scrollable).first);
+    expect(transport.$('Transport'), findsOneWidget);
+    expect($('Everything else'), findsNothing);
   });
 
   patrolTest('a receipt photo is attached to an expense and opens full size', (

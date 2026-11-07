@@ -5,11 +5,13 @@ covers: where each flow starts, what the test does, and what it checks.
 For how to run the suite and how the test harness works, see
 [README.md](README.md).
 
-**Last full run:** 67 of 70 passed, 7 Nov 2026, on the `Pixel` Android emulator
-(Android 7.1.1, API 25), in one app session, in about 10 minutes. The three
-failures (CARD-02, CARD-03, SET-02) tapped Settings tiles that the new
-Accounts tile had pushed below the fold; the tests now scroll to them, and
-both files pass in full (11 of 11) on rerun.
+**Last full run:** 69 of 71 passed, 8 Nov 2026, on the `Pixel` Android emulator
+(Android 7.1.1, API 25), in one app session, in about 9 minutes, after the
+colourful redesign. The two failures (TXN-04, TXN-06) checked the balance
+after scrolling down to a row; the taller dashboard header had scrolled it
+out of view. The tests now scroll back up to it, and `transactions_test.dart`
+passes in full (6 of 6). (`screenshots_test.dart` is reported as skipped: it
+only runs when asked for; see the README.)
 
 ## How to read this
 
@@ -117,8 +119,9 @@ on another device. The app pulls them down through its normal sync.
 | [INS-01](#ins-01--spending-by-category-tap-through-and-day) | Spending by category, tap-through, and Day | `insights_test.dart` | |
 | [INS-02](#ins-02--receipt-photo) | Receipt photo | `insights_test.dart` | |
 | [INS-03](#ins-03--import-from-csv) | Import from CSV | `insights_test.dart` | |
+| [INS-04](#ins-04--the-dashboard-chart-shows-only-your-categories) | The dashboard chart shows only your categories | `insights_test.dart` | |
 
-70 flows in total. NAV-02 and NAV-03 are skipped automatically when not
+71 flows in total. NAV-02 and NAV-03 are skipped automatically when not
 running on Android.
 
 ---
@@ -899,6 +902,16 @@ The fingerprint reader is a fake that answers as the test sets it.
 | 2 | **Import** | "Imported 2 entries."; Activity lists both |
 | 3 | Import the same file again | "Imported 0 entries (2 already here)." |
 
+### INS-04 · The dashboard chart shows only your categories
+
+`insights_test.dart` › _the dashboard chart lists only your own categories_
+**Starts from:** this month's spending in seven categories: Rent 18,000, Shopping 2,499, Food 1,690, Bills 1,150, Health 800, Entertainment 649, Transport 320.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Scroll to **Where your money went** | Rent ₹18,000 and the other largest categories, each with its own icon and colour; no "Everything else" row |
+| 2 | Tap **Show all 7 categories** | Transport is listed as itself; still no "Everything else" |
+
 ## Bugs these flows found
 
 All four are fixed in `lib/`, and the flows above guard against their
@@ -906,6 +919,7 @@ return.
 
 | Found by | Problem | Fix |
 |---|---|---|
+| INS-04 | The dashboard chart rolled every category past the sixth into an "Everything else" row, which read as a category the user did not have and hid real ones (Transport, here). Slices were also coloured by rank, not by the category's own colour | `features/dashboard/dashboard_screen.dart` and `features/reports/report_charts.dart`: one slice per real category in its own colour; a long legend shows the top six with **Show all** |
 | SET-03 | The router was rebuilt every time Firebase's `userChanges()` emitted. That happens on every profile reload and on the roughly hourly ID-token refresh. Saving a display name, or simply staying signed in, threw the user back to the dashboard | `core/router/app_router.dart`: one router for the app's lifetime. Auth state is read inside `redirect`, and changes reach it through `GoRouterRefreshStream` |
 | CARD-01, CARD-03 | "No credit cards yet" overflowed by 5.8px when the add-card form raised the keyboard | `features/credit_cards/credit_cards_screen.dart`: the empty state scrolls |
 | SET-01 | The currency picker overflowed by 32px on 16:9 phones, clipping the last currency | `features/settings/settings_screen.dart`: the sheet can grow and scroll |

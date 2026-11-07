@@ -109,6 +109,8 @@ void main() {
     await waitForScreen($, 'Transaction updated');
     await $('Cab home (late night)').scrollTo();
     expect($(signedMoney(180, type: TransactionType.expense)), findsOneWidget);
+    // The balance sits in the header, back at the top.
+    await $(balance(-180)).scrollTo(scrollDirection: AxisDirection.up);
     expect($(balance(-180)), findsOneWidget);
 
     await $.eventually(() async {
@@ -169,6 +171,7 @@ void main() {
       // Saved instantly and visible, but marked as still owing a sync.
       await $('Chai on the train').scrollTo();
       expect($('Syncing'), findsOneWidget);
+      await $(balance(-60)).scrollTo(scrollDirection: AxisDirection.up);
       expect($(balance(-60)), findsOneWidget);
       expect(await backend.cloudTransactions(user.uid), isEmpty);
 

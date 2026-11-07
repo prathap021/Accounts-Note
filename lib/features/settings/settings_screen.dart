@@ -912,7 +912,9 @@ class _SettingsTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final accent = scheme.primary;
+    // Each row keeps its own colour, so a setting is found by colour as
+    // well as by name.
+    final accent = AppColors.tileColorFor(title);
 
     return ListTile(
       onTap: onTap,
@@ -921,15 +923,7 @@ class _SettingsTile extends StatelessWidget {
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.xs,
       ),
-      leading: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, size: 19, color: accent),
-      ),
+      leading: IconTile(icon: icon, color: accent, size: 40),
       title: Text(
         title,
         style: theme.textTheme.bodyLarge?.copyWith(
@@ -1109,7 +1103,10 @@ class _NotificationToggles extends ConsumerWidget {
       children: [
         SwitchListTile(
           key: const Key('daily-reminder'),
-          secondary: const Icon(Icons.notifications_active_outlined),
+          secondary: IconTile(
+            icon: Icons.notifications_active_outlined,
+            color: AppColors.tileColorFor('Daily reminder'),
+          ),
           title: const Text('Daily reminder'),
           subtitle: Text(
             s.dailyReminder
@@ -1130,20 +1127,26 @@ class _NotificationToggles extends ConsumerWidget {
         ),
         if (s.dailyReminder)
           ListTile(
-            leading: const SizedBox(width: 24),
+            leading: const SizedBox(width: 40),
             title: const Text('Reminder time'),
             trailing: Text(time),
             onTap: pickTime,
           ),
         SwitchListTile(
-          secondary: const Icon(Icons.pie_chart_outline_rounded),
+          secondary: IconTile(
+            icon: Icons.pie_chart_outline_rounded,
+            color: AppColors.tileColorFor('Budget alerts'),
+          ),
           title: const Text('Budget alerts'),
           subtitle: const Text('When spending reaches a budget\'s alert line and its limit'),
           value: s.budgetAlerts,
           onChanged: n.setBudgetAlerts,
         ),
         SwitchListTile(
-          secondary: const Icon(Icons.event_note_outlined),
+          secondary: IconTile(
+            icon: Icons.event_note_outlined,
+            color: AppColors.tileColorFor('Bill reminders'),
+          ),
           title: const Text('Bill reminders'),
           subtitle: const Text('The day before a recurring expense is added'),
           value: s.billReminders,
@@ -1186,7 +1189,10 @@ class _SecurityToggles extends ConsumerWidget {
       children: [
         SwitchListTile(
           key: const Key('app-lock'),
-          secondary: const Icon(Icons.lock_outline_rounded),
+          secondary: IconTile(
+            icon: Icons.lock_outline_rounded,
+            color: AppColors.tileColorFor('App lock'),
+          ),
           title: const Text('App lock'),
           subtitle: Text(
             lock.enabled
@@ -1199,7 +1205,10 @@ class _SecurityToggles extends ConsumerWidget {
         if (lock.enabled)
           SwitchListTile(
             key: const Key('biometric-unlock'),
-            secondary: const Icon(Icons.fingerprint_rounded),
+            secondary: IconTile(
+              icon: Icons.fingerprint_rounded,
+              color: AppColors.tileColorFor('Unlock with fingerprint'),
+            ),
             title: const Text('Unlock with fingerprint'),
             subtitle: const Text('Or face, where the phone supports it'),
             value: lock.biometrics,
@@ -1215,7 +1224,7 @@ class _SecurityToggles extends ConsumerWidget {
           ),
         if (lock.enabled)
           ListTile(
-            leading: const SizedBox(width: 24),
+            leading: const SizedBox(width: 40),
             title: const Text('Change PIN'),
             onTap: () async {
               final current = await askPin(context, 'Enter your current PIN');

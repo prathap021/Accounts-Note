@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/constants/category_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/responsive.dart';
 import '../../core/utils/currency_formatter.dart';
@@ -12,9 +13,11 @@ import '../../core/utils/money_month.dart';
 import '../../core/utils/snackbar_helper.dart';
 import '../../data/repositories/transaction_repository.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/category_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/sync_provider.dart';
 import '../../providers/transaction_provider.dart';
+import '../../widgets/summary_card.dart';
 import 'report_export.dart';
 import 'report_insights.dart';
 import 'report_charts.dart';
@@ -183,6 +186,11 @@ class ReportsScreen extends ConsumerWidget {
       ref.read(offlineTransactionRepositoryProvider).currentTransactions(),
       dateRange,
     );
+    // Each category is drawn in its own colour, as everywhere else.
+    final categoryColors = {
+      for (final c in ref.watch(categoryLookupProvider).values)
+        c.id: categoryColor(c.color),
+    };
 
     return Scaffold(
       body: CustomScrollView(
@@ -284,6 +292,7 @@ class ReportsScreen extends ConsumerWidget {
                     expense: expense,
                     currency: currency,
                     insights: insights,
+                    categoryColors: categoryColors,
                     onCategoryTap: (c, type) => _openCategory(
                       context,
                       ref,
@@ -427,6 +436,7 @@ class _ReportBody extends StatelessWidget {
   final double expense;
   final String currency;
   final ReportInsights insights;
+  final Map<String, Color> categoryColors;
   final void Function(CategoryTotal, TransactionType) onCategoryTap;
 
   const _ReportBody({
@@ -434,6 +444,7 @@ class _ReportBody extends StatelessWidget {
     required this.expense,
     required this.currency,
     required this.insights,
+    required this.categoryColors,
     required this.onCategoryTap,
   });
 
@@ -464,7 +475,7 @@ class _ReportBody extends StatelessWidget {
                 label: 'Expenses',
                 value: CurrencyFormatter.format(expense, currencyCode: currency),
                 icon: Icons.north_east_rounded,
-                color: AppColors.expense,
+                color: AppColors.coral,
               ),
             ),
           ],
@@ -570,7 +581,14 @@ class _ReportBody extends StatelessWidget {
                   BarChartGroupData(x: 0, barRods: [
                     BarChartRodData(
                       toY: income,
-                      color: AppColors.income,
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          AppColors.income.withValues(alpha: 0.7),
+                          const Color(0xFF34D399),
+                        ],
+                      ),
                       width: 44.rw,
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(12),
@@ -580,7 +598,14 @@ class _ReportBody extends StatelessWidget {
                   BarChartGroupData(x: 1, barRods: [
                     BarChartRodData(
                       toY: expense,
-                      color: AppColors.expense,
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          AppColors.expense.withValues(alpha: 0.75),
+                          AppColors.coral,
+                        ],
+                      ),
                       width: 44.rw,
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(12),
@@ -651,6 +676,7 @@ class _ReportBody extends StatelessWidget {
             key: const Key('report-spending'),
             totals: insights.spending,
             currency: currency,
+            categoryColors: categoryColors,
             onTap: (c) => onCategoryTap(c, TransactionType.expense),
           ),
         ],
@@ -685,6 +711,7 @@ class _ReportBody extends StatelessWidget {
   }
 }
 
+/// Income or expenses for the period, in the dashboard's colourful card.
 class _StatTile extends StatelessWidget {
   final String label;
   final String value;
@@ -699,45 +726,6 @@ class _StatTile extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 16, color: color),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              maxLines: 1,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.3,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      SummaryCard(label: label, value: value, icon: icon, color: color);
 }

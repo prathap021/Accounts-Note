@@ -155,38 +155,51 @@ class _AppScaffoldState extends ConsumerState<AppScaffold>
       );
     });
 
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    const barRadius = BorderRadius.all(Radius.circular(28));
+
     return Scaffold(
+      // The bar floats on the canvas, but pages stop above it (no
+      // extendBody): each tab's own Scaffold places its button relative to
+      // its own bottom edge, which would otherwise sit behind the bar.
       body: widget.child,
-      bottomNavigationBar: DecoratedBox(
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainer,
-          border: Border(top: BorderSide(color: scheme.outlineVariant)),
-          boxShadow: [
-            BoxShadow(
-              color: Theme.of(context).shadowColor.withValues(alpha: 0.05),
-              blurRadius: 20,
-              offset: const Offset(0, -6),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          top: false,
-          child: NavigationBar(
-            selectedIndex: currentIndex,
-            onDestinationSelected: (i) {
-              if (i == currentIndex) return;
-              HapticFeedback.selectionClick();
-              context.go(_tabs[i].$1);
-            },
-            destinations: [
-              for (final tab in _tabs)
-                NavigationDestination(
-                  icon: Icon(tab.$2),
-                  selectedIcon: Icon(tab.$3),
-                  label: tab.$4,
-                  tooltip: tab.$4,
+      bottomNavigationBar: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.only(bottom: 10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: barRadius,
+              border: dark ? Border.all(color: scheme.outlineVariant) : null,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: dark ? 0.4 : 0.10),
+                  blurRadius: 28,
+                  offset: const Offset(0, 10),
                 ),
-            ],
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: barRadius,
+              child: NavigationBar(
+                selectedIndex: currentIndex,
+                onDestinationSelected: (i) {
+                  if (i == currentIndex) return;
+                  HapticFeedback.selectionClick();
+                  context.go(_tabs[i].$1);
+                },
+                destinations: [
+                  for (final tab in _tabs)
+                    NavigationDestination(
+                      icon: Icon(tab.$2),
+                      selectedIcon: Icon(tab.$3),
+                      label: tab.$4,
+                      tooltip: tab.$4,
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

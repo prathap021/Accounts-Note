@@ -135,7 +135,7 @@ class _CategoryList extends ConsumerWidget {
           separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
           itemBuilder: (context, i) {
             final c = categories[i];
-            final color = Color(c.color);
+            final color = categoryColor(c.color);
 
             return AppCard(
               padding: const EdgeInsets.symmetric(

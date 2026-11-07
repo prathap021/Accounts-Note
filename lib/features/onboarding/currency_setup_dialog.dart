@@ -71,7 +71,7 @@ class _CurrencySetupDialogState extends ConsumerState<_CurrencySetupDialog> {
     final theme = Theme.of(context);
 
     return AlertDialog(
-      icon: const Icon(Icons.public_rounded, color: AppColors.brand),
+      icon: const Icon(Icons.public_rounded, color: AppColors.primary),
       title: const Text('Set your currency'),
       content: Column(
         mainAxisSize: MainAxisSize.min,

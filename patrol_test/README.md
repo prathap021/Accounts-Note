@@ -41,7 +41,7 @@ app, which kills the first one mid-test ("Process crashed").
 `flutter test` does **not** run these tests. Patrol needs its native test
 runner to drive the device.
 
-A full run (70 flows) takes about 10 minutes on an emulator.
+A full run (71 flows) takes about 10 minutes on an emulator.
 
 **If a run reports `Total: 0` after about 4–5 minutes**, the APK never
 installed. Check
@@ -62,6 +62,28 @@ UiAutomator turns Android accessibility on, and if that lands in the moment
 before Patrol starts ignoring it, Flutter counts one extra semantics handle
 (see leancodepl/patrol#1474). It has shown up once in roughly 400 test
 executions. Re-run the file.
+
+### Screenshots
+
+`screenshots_test.dart` is a tour of the main screens with realistic data
+(salary, rent, everyday spending, two accounts, a credit card and budgets),
+in light and dark mode: useful for design review and for store
+screenshots. It is skipped in normal runs and only runs when built with
+`screenshots.json`. Each time it reaches a screen it prints `SHOT:<name>`
+and holds still for three seconds, so a script on the computer can grab
+the emulator's screen when that line reaches logcat:
+
+```bash
+mkdir -p shots
+adb logcat -c
+adb logcat -v raw -s flutter:I | while IFS= read -r line; do
+  case "$line" in *SHOT:*) n="${line##*SHOT:}"
+    adb exec-out screencap -p > "shots/${n//[^A-Za-z0-9_-]/}.png";; esac
+done &
+patrol test -t patrol_test/screenshots_test.dart \
+  --dart-define-from-file=patrol_test/screenshots.json
+kill %1
+```
 
 ### One app session for the whole run
 
@@ -87,7 +109,7 @@ after it will see it.
 
 ## What is covered
 
-[TEST_FLOWS.md](TEST_FLOWS.md) describes all 70 flows step by step, with
+[TEST_FLOWS.md](TEST_FLOWS.md) describes all 71 flows step by step, with
 their starting state and expected results. In summary:
 
 | File | Flows |
@@ -105,7 +127,7 @@ their starting state and expected results. In summary:
 | `automation_test.dart` | Recurring entries caught up on launch, pause and resume; Repeat from the add form; the daily reminder and its tap; a budget alert at 80% |
 | `security_test.dart` | PIN lock on launch with a wrong-PIN countdown; fingerprint unlock (fake reader); Forgot PIN signs out |
 | `accounts_test.dart` | Accounts with opening balances; a transfer that moves money without changing the total, and deleting it; an expense from an account and the remembered default |
-| `insights_test.dart` | Spending by category with tap-through to Activity, and the Day period; a receipt photo (fake gallery) shown full size; CSV import, and importing the same file again |
+| `insights_test.dart` | Spending by category with tap-through to Activity, and the Day period; the dashboard chart listing only the user's own categories; a receipt photo (fake gallery) shown full size; CSV import, and importing the same file again |
 
 ### Not covered, on purpose
 

@@ -974,7 +974,7 @@ class _CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Color(category.color);
+    final color = categoryColor(category.color);
 
     return ChoiceChip(
       selected: selected,
@@ -984,8 +984,8 @@ class _CategoryChip extends StatelessWidget {
       selectedColor: color.withValues(alpha: 0.16),
       side: BorderSide(
         color: selected
-            ? color.withValues(alpha: 0.6)
-            : Theme.of(context).colorScheme.outlineVariant,
+            ? color.withValues(alpha: 0.7)
+            : Colors.transparent,
       ),
       labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
             fontWeight: selected ? FontWeight.w700 : FontWeight.w600,

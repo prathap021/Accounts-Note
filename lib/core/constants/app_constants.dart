@@ -105,22 +105,22 @@ class AppLinks {
 }
 
 const List<Map<String, dynamic>> kDefaultExpenseCategories = [
-  {'name': 'Food', 'icon': 'restaurant', 'color': 0xFFEF6C00},
-  {'name': 'Transport', 'icon': 'directions_car', 'color': 0xFF1E88E5},
-  {'name': 'Shopping', 'icon': 'shopping_bag', 'color': 0xFFD81B60},
-  {'name': 'Bills', 'icon': 'receipt_long', 'color': 0xFF6D4C41},
-  {'name': 'Rent', 'icon': 'home', 'color': 0xFF5D4037},
-  {'name': 'Entertainment', 'icon': 'movie', 'color': 0xFF8E24AA},
-  {'name': 'Health', 'icon': 'local_hospital', 'color': 0xFFE53935},
-  {'name': 'Education', 'icon': 'school', 'color': 0xFF3949AB},
-  {'name': 'Other', 'icon': 'category', 'color': 0xFF757575},
+  {'name': 'Food', 'icon': 'restaurant', 'color': 0xFFF97316},
+  {'name': 'Transport', 'icon': 'directions_car', 'color': 0xFF3B82F6},
+  {'name': 'Shopping', 'icon': 'shopping_bag', 'color': 0xFFEC4899},
+  {'name': 'Bills', 'icon': 'receipt_long', 'color': 0xFFF59E0B},
+  {'name': 'Rent', 'icon': 'home', 'color': 0xFF7C5CFC},
+  {'name': 'Entertainment', 'icon': 'movie', 'color': 0xFF06B6D4},
+  {'name': 'Health', 'icon': 'local_hospital', 'color': 0xFFEF4444},
+  {'name': 'Education', 'icon': 'school', 'color': 0xFF6366F1},
+  {'name': 'Other', 'icon': 'category', 'color': 0xFF64748B},
 ];
 
 const List<Map<String, dynamic>> kDefaultIncomeCategories = [
-  {'name': 'Salary', 'icon': 'work', 'color': 0xFF2E7D32},
-  {'name': 'Business', 'icon': 'store', 'color': 0xFF00897B},
-  {'name': 'Freelance', 'icon': 'laptop', 'color': 0xFF0288D1},
-  {'name': 'Gift', 'icon': 'card_giftcard', 'color': 0xFFC2185B},
-  {'name': 'Investment', 'icon': 'trending_up', 'color': 0xFF43A047},
-  {'name': 'Other', 'icon': 'category', 'color': 0xFF757575},
+  {'name': 'Salary', 'icon': 'work', 'color': 0xFF22C55E},
+  {'name': 'Business', 'icon': 'store', 'color': 0xFF14B8A6},
+  {'name': 'Freelance', 'icon': 'laptop', 'color': 0xFF0EA5E9},
+  {'name': 'Gift', 'icon': 'card_giftcard', 'color': 0xFFF472B6},
+  {'name': 'Investment', 'icon': 'trending_up', 'color': 0xFFEAB308},
+  {'name': 'Other', 'icon': 'category', 'color': 0xFF64748B},
 ];

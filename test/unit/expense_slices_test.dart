@@ -2,23 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:income_expense_tracker/features/dashboard/dashboard_screen.dart';
 
-/// The dashboard donut rolls everything past the top few categories into one
-/// wedge. That wedge used to be labelled "Other" — which is also a real
-/// default category, so the legend could show "Other" twice with different
-/// amounts and no way to tell them apart.
+/// The dashboard donut shows the user's own categories, and only those.
+///
+/// It used to roll everything past the top six into an "Everything else"
+/// wedge. That read as a category the user did not have, and hid real ones
+/// (a month with seven categories lost the smallest into it).
 void main() {
-  const palette = [
-    Colors.red,
-    Colors.blue,
-    Colors.green,
-    Colors.orange,
-    Colors.purple,
-    Colors.teal,
-    Colors.brown,
-  ];
+  // Stand-ins for the user's category colours.
+  const colors = {
+    'Food': Colors.orange,
+    'Bills': Colors.red,
+    'Gym': Colors.green,
+  };
+  Color colorOf(String name, int rank) => colors[name] ?? Colors.grey;
 
-  List<ExpenseSlice> slicesOf(Map<String, double> data, {int max = 6}) =>
-      buildExpenseSlices(data, palette: palette, maxSlices: max);
+  List<ExpenseSlice> slicesOf(Map<String, double> data) =>
+      buildExpenseSlices(data, colorOf: colorOf);
 
   test('an empty breakdown yields no slices', () {
     expect(slicesOf(const {}), isEmpty);
@@ -29,61 +28,48 @@ void main() {
     expect(slices.map((s) => s.label), ['Bills', 'Gym', 'Food']);
   });
 
-  test('keeps every category when there are few enough', () {
-    final slices = slicesOf({'Food': 70, 'Bills': 100});
-    expect(slices, hasLength(2));
-    expect(slices.map((s) => s.label), isNot(contains(kOtherSlicesLabel)));
-  });
-
   test('drops zero-valued categories', () {
     final slices = slicesOf({'Food': 70, 'Unused': 0});
     expect(slices.map((s) => s.label), ['Food']);
   });
 
-  group('rolling up the tail', () {
-    test('combines everything past the cap into one wedge', () {
-      final data = {
-        for (var i = 0; i < 9; i++) 'Cat$i': (9 - i) * 100.0,
-      };
-      final slices = slicesOf(data);
+  test('every category keeps its own wedge, however many there are', () {
+    final data = {
+      'Rent': 18000.0,
+      'Shopping': 2499.0,
+      'Food': 1690.0,
+      'Bills': 1150.0,
+      'Health': 800.0,
+      'Entertainment': 649.0,
+      'Transport': 320.0,
+      'Pets': 134.0,
+      'Gifts': 99.0,
+    };
+    final labels = slicesOf(data).map((s) => s.label).toList();
 
-      expect(slices, hasLength(7), reason: '6 named + 1 rollup');
-      expect(slices.last.label, kOtherSlicesLabel);
-      // Cat6..Cat8 => 300 + 200 + 100
-      expect(slices.last.amount, 600);
-    });
-
-    test('does not collide with a real category named Other', () {
-      final data = {
-        'Bills': 6170.0,
-        'Education': 2000.0,
-        'Gym': 1575.0,
-        'Food': 1050.0,
-        'Other': 520.0,
-        'Entertainment': 500.0,
-        'Travel': 200.0,
-        'Pets': 134.0,
-      };
-      final slices = slicesOf(data);
-      final labels = slices.map((s) => s.label).toList();
-
-      expect(labels.where((l) => l == 'Other'), hasLength(1),
-          reason: "the user's own 'Other' category stays exactly once");
-      expect(labels, contains(kOtherSlicesLabel));
-      expect(labels.toSet(), hasLength(labels.length),
-          reason: 'no duplicate labels in the legend');
-    });
-
-    test('adds no rollup wedge when nothing is left over', () {
-      final data = {
-        for (var i = 0; i < 6; i++) 'Cat$i': 100.0,
-      };
-      expect(slicesOf(data).map((s) => s.label),
-          isNot(contains(kOtherSlicesLabel)));
-    });
+    expect(labels, hasLength(9));
+    expect(labels.toSet(), data.keys.toSet(),
+        reason: 'only the categories the user spent in, nothing invented');
+    expect(labels, contains('Transport'),
+        reason: 'the seventh category used to vanish into "Everything else"');
   });
 
-  test('the rollup preserves the overall total', () {
+  test("a real category named Other is listed once, as itself", () {
+    final slices = slicesOf({'Bills': 600, 'Other': 520, 'Food': 100});
+    expect(slices.where((s) => s.label == 'Other'), hasLength(1));
+    expect(slices.firstWhere((s) => s.label == 'Other').amount, 520);
+  });
+
+  test("each wedge takes its category's colour", () {
+    final slices = slicesOf({'Food': 70, 'Bills': 100, 'Renamed': 10});
+    final byLabel = {for (final s in slices) s.label: s.color};
+    expect(byLabel['Food'], Colors.orange);
+    expect(byLabel['Bills'], Colors.red);
+    expect(byLabel['Renamed'], Colors.grey,
+        reason: 'a name the user no longer has gets the neutral colour');
+  });
+
+  test('the wedges add up to what was spent', () {
     final data = {
       for (var i = 0; i < 10; i++) 'Cat$i': (i + 1) * 10.0,
     };
@@ -91,13 +77,6 @@ void main() {
     final actual =
         slicesOf(data).fold<double>(0, (sum, s) => sum + s.amount);
 
-    expect(actual, expected,
-        reason: 'the donut must add up to what was spent');
-  });
-
-  test('assigns a colour to every slice', () {
-    final data = {for (var i = 0; i < 8; i++) 'Cat$i': 10.0 * (8 - i)};
-    final slices = slicesOf(data);
-    expect(slices.every((s) => s.color != const Color(0x00000000)), isTrue);
+    expect(actual, expected);
   });
 }

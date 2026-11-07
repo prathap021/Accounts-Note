@@ -41,7 +41,8 @@ Widget _host(Widget child, ThemeData theme) => MaterialApp(
     );
 
 void main() {
-  // AppTheme builds a google_fonts text theme, which needs the binding.
+  // AppTheme reads the screen size for its scale factors, which needs the
+  // binding.
   TestWidgetsFlutterBinding.ensureInitialized();
 
   final gallery = Column(
@@ -123,7 +124,7 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
 
-      // Built inside the test so google_fonts resolves within the test zone.
+      // Built inside the test, at the size set above.
       final theme = brightness == Brightness.light
           ? AppTheme.light()
           : AppTheme.dark();

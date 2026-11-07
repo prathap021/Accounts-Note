@@ -1,0 +1,6 @@
+{
+  "PATROL_BS_COVERAGE": "true",
+  "PATROL_BS_COVERAGE_PACKAGES": "^package:income_expense_tracker/",
+  "PATROL_BS_COVERAGE_FORCE_COMPILE": "false",
+  "SCREENSHOTS": "true"
+}

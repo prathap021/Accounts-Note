@@ -8,8 +8,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import 'report_insights.dart';
 
-/// Colours for category slices, in rank order. The legend rows carry the
-/// name, amount and share, so nothing is read from colour alone.
+/// Fallback colours, by rank, for a category the user no longer has. Each
+/// of the user's own categories is drawn in its own colour.
 const kCategoryPalette = [
   Color(0xFF279698),
   Color(0xFF0EA5E9),
@@ -20,11 +20,12 @@ const kCategoryPalette = [
   Color(0xFF64748B),
 ];
 
-/// Slices shown on the donut before the rest are grouped.
-const _maxSlices = 6;
-
 /// A donut of the categories plus a row per category with its amount and
 /// share. Tapping a row calls [onTap] with it.
+///
+/// Every slice and row is one of the user's categories, in that category's
+/// colour ([categoryColors], by id); nothing is grouped into a made-up
+/// "other" slice.
 class CategoryBreakdownCard extends StatelessWidget {
   const CategoryBreakdownCard({
     super.key,
@@ -33,6 +34,7 @@ class CategoryBreakdownCard extends StatelessWidget {
     required this.onTap,
     this.showChart = true,
     this.color,
+    this.categoryColors = const {},
   });
 
   final List<CategoryTotal> totals;
@@ -40,21 +42,22 @@ class CategoryBreakdownCard extends StatelessWidget {
   final ValueChanged<CategoryTotal> onTap;
   final bool showChart;
 
-  /// One colour for every row; otherwise each takes its slice colour.
+  /// One colour for every row; otherwise each takes its category's colour.
   final Color? color;
+
+  /// The user's category colours, by category id.
+  final Map<String, Color> categoryColors;
 
   Color _colorAt(int i) =>
       color ??
-      kCategoryPalette[math.min(i, _maxSlices) % kCategoryPalette.length];
+      categoryColors[totals[i].categoryId] ??
+      kCategoryPalette[i % kCategoryPalette.length];
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final total = totals.fold<double>(0, (s, c) => s + c.amount);
-    final rest = totals
-        .skip(_maxSlices)
-        .fold<double>(0, (s, c) => s + c.amount);
 
     return AppCard(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
@@ -69,25 +72,14 @@ class CategoryBreakdownCard extends StatelessWidget {
                   PieChart(
                     PieChartData(
                       sectionsSpace: 2,
-                      centerSpaceRadius: 54,
+                      centerSpaceRadius: 52,
                       startDegreeOffset: -90,
                       sections: [
-                        for (
-                          var i = 0;
-                          i < math.min(totals.length, _maxSlices);
-                          i++
-                        )
+                        for (var i = 0; i < totals.length; i++)
                           PieChartSectionData(
                             value: totals[i].amount,
                             color: _colorAt(i),
-                            radius: 20,
-                            showTitle: false,
-                          ),
-                        if (rest > 0)
-                          PieChartSectionData(
-                            value: rest,
-                            color: _colorAt(_maxSlices),
-                            radius: 20,
+                            radius: 24,
                             showTitle: false,
                           ),
                       ],
@@ -252,11 +244,17 @@ class TrendChartCard extends StatelessWidget {
                           toY: points[i].income,
                           color: AppColors.income,
                           width: barWidth,
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(barWidth / 2),
+                          ),
                         ),
                         BarChartRodData(
                           toY: points[i].expense,
-                          color: AppColors.expense,
+                          color: AppColors.coral,
                           width: barWidth,
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(barWidth / 2),
+                          ),
                         ),
                       ],
                     ),
@@ -321,7 +319,7 @@ class TrendChartCard extends StatelessWidget {
             children: [
               _Legend(color: AppColors.income, label: 'Income'),
               SizedBox(width: AppSpacing.lg),
-              _Legend(color: AppColors.expense, label: 'Spent'),
+              _Legend(color: AppColors.coral, label: 'Spent'),
             ],
           ),
         ],

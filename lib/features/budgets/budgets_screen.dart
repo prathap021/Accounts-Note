@@ -74,7 +74,7 @@ class BudgetsScreen extends ConsumerWidget {
         label: const Text('New budget'),
       ),
       body: RefreshIndicator(
-        color: AppColors.brand,
+        color: AppColors.primary,
         onRefresh: () async => ref.invalidate(budgetProgressProvider),
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -248,7 +248,7 @@ class _BudgetOverview extends StatelessWidget {
               value: ratio.toDouble(),
               minHeight: 8.rh,
               backgroundColor: scheme.surfaceContainerHighest,
-              color: over ? AppColors.expense : AppColors.brand,
+              color: over ? AppColors.expense : AppColors.primary,
             ),
           ),
           const SizedBox(height: AppSpacing.md),

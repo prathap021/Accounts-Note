@@ -283,7 +283,8 @@ class _CategoryAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = category != null ? Color(category!.color) : fallbackColor;
+    final color =
+        category != null ? categoryColor(category!.color) : fallbackColor;
     final icon = category != null
         ? iconFor(category!.icon)
         : (isIncome ? Icons.south_west_rounded : Icons.north_east_rounded);

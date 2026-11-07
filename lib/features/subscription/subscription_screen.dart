@@ -259,7 +259,7 @@ class _StatusCard extends StatelessWidget {
             label: 'Transactions',
             used: usage.total,
             limit: plan.dailyLimit,
-            color: AppColors.brand,
+            color: AppColors.primary,
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
@@ -397,7 +397,7 @@ class _PlanCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           _LimitRow(
             icon: Icons.receipt_long_rounded,
-            color: AppColors.brand,
+            color: AppColors.primary,
             text: '${_count(plan.monthlyLimit)} transactions a month',
           ),
           const SizedBox(height: AppSpacing.xs),

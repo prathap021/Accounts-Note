@@ -30,7 +30,7 @@ void _configEasyLoading() {
     ..displayDuration = const Duration(milliseconds: 2000)
     ..loadingStyle = EasyLoadingStyle.custom
     ..backgroundColor = AppColors.ink
-    ..indicatorColor = AppColors.brand
+    ..indicatorColor = AppColors.primaryLight
     ..textColor = Colors.white
     ..maskColor = AppColors.ink.withValues(alpha: 0.35)
     ..maskType = EasyLoadingMaskType.custom
@@ -51,7 +51,7 @@ void _configEasyLoading() {
     ..userInteractions = false
     ..dismissOnTap = false
     ..indicatorWidget = const SpinKitWave(
-      color: AppColors.brand,
+      color: AppColors.primaryLight,
       size: 30.0,
     );
 }
