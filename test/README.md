@@ -9,6 +9,11 @@ flutter analyze              # static analysis; run this too
 
 A green run means the behaviours below still hold.
 
+Whole user flows (sign-up, logging transactions, filters, budgets, cards,
+settings, offline sync) are covered end-to-end on a device by the Patrol
+suite in [`patrol_test/`](../patrol_test/README.md). Run it with
+`patrol test`; `flutter test` covers only this folder.
+
 ### While working on one area
 
 ```bash

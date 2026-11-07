@@ -83,3 +83,6 @@ firebase-adminsdk*.json
 .firebase/
 skills-lock.json
 
+
+# Patrol: generated on every `patrol test` / `patrol develop` run
+patrol_test/test_bundle.dart

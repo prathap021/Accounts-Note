@@ -329,6 +329,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.15"
+  dispose_scope:
+    dependency: transitive
+    description:
+      name: dispose_scope
+      sha256: "48ec38ca2631c53c4f8fa96b294c801e55c335db5e3fb9f82cede150cfe5a2af"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.0"
   equatable:
     dependency: "direct main"
     description:
@@ -1076,10 +1084,10 @@ packages:
     dependency: transitive
     description:
       name: matcher
-      sha256: "31bd099b47c10cd1aeb55146a2d46ce0277630ecef3f7dae54ad7873f36696cd"
+      sha256: dc0b7dc7651697ea4ff3e69ef44b0407ea32c487a39fff6a4004fa585e901861
       url: "https://pub.dev"
     source: hosted
-    version: "0.12.20"
+    version: "0.12.19"
   material_color_utilities:
     dependency: transitive
     description:
@@ -1092,10 +1100,10 @@ packages:
     dependency: transitive
     description:
       name: meta
-      sha256: "307249ce4ff29d58a18e97f6345f539382eb9c9c29ecda628900f31de0443dd9"
+      sha256: "1741988757a65eb6b36abe716829688cf01910bbf91c34354ff7ec1c3de2b349"
       url: "https://pub.dev"
     source: hosted
-    version: "1.19.0"
+    version: "1.18.0"
   mime:
     dependency: transitive
     description:
@@ -1248,6 +1256,30 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.0"
+  patrol:
+    dependency: "direct dev"
+    description:
+      name: patrol
+      sha256: "6449bf2d2107f1f56a7134857c88e4bb0dd7c732e4368ad37bb3e18fbcfb3bd7"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.11.0"
+  patrol_finders:
+    dependency: transitive
+    description:
+      name: patrol_finders
+      sha256: "3d451a1cede00d1b4223f88bf616fd4fab9d21af09c21bef859541788307a88a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.7.0"
+  patrol_log:
+    dependency: transitive
+    description:
+      name: patrol_log
+      sha256: eb7dbb4c7e679410bd9f4b349bbf0da4a56e5a2efe718613e268fa26f4b7bf41
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.10.2"
   pdf:
     dependency: "direct main"
     description:
@@ -1593,10 +1625,10 @@ packages:
     dependency: transitive
     description:
       name: test_api
-      sha256: "2a122cbe059f8b610d3a5415f42e255b6c17b1f21eee1d960f31080237fb4f11"
+      sha256: "949a932224383300f01be9221c39180316445ecb8e7547f70a41a35bf421fb9e"
       url: "https://pub.dev"
     source: hosted
-    version: "0.7.12"
+    version: "0.7.11"
   timezone:
     dependency: transitive
     description:
@@ -1713,10 +1745,10 @@ packages:
     dependency: transitive
     description:
       name: vector_math
-      sha256: "92b9910f66ed1057fd4da7b040ae7c74cafacf885bdc81be496928d5049b032d"
+      sha256: d530bd74fea330e6e364cda7a85019c434070188383e1cd8d9777ee586914c5b
       url: "https://pub.dev"
     source: hosted
-    version: "2.4.3"
+    version: "2.2.0"
   vm_service:
     dependency: transitive
     description:

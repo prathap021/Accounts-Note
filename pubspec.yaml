@@ -93,6 +93,18 @@ dev_dependencies:
   fake_cloud_firestore: ^4.2.0
   firebase_auth_mocks: ^0.15.2
   flutter_launcher_icons: ^0.14.4
+  patrol: ^4.11.0
+
+# Patrol end-to-end tests (patrol_test/). Run with `patrol test`, not
+# `flutter test` — see patrol_test/README.md.
+patrol:
+  app_name: Accounts Note
+  test_directory: patrol_test
+  android:
+    package_name: com.example.income_expense_tracker
+  ios:
+    bundle_id: com.example.incomeExpenseTracker
+
 flutter:
   uses-material-design: true
   assets:
