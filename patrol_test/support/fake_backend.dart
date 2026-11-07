@@ -5,6 +5,10 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../test/support/fake_subscriptions.dart';
+
+export '../../test/support/fake_subscriptions.dart';
+
 /// In-memory stand-ins for every network dependency the app has, so the
 /// end-to-end suite drives the real UI, real Hive and real platform plugins on
 /// a device without ever touching the production Firebase project.
@@ -20,6 +24,15 @@ class FakeBackend {
   final FakeFirebaseAuth auth;
   final FakeConnectivity connectivity = FakeConnectivity();
   final cf.FirebaseFunctions functions = UnavailableFunctions();
+
+  /// The device's app store: sells the three plans, answers at once.
+  final FakeSubscriptionStore store = FakeSubscriptionStore();
+
+  /// The backend's purchase verifier; writes the plan to the profile.
+  late final FakeSubscriptionBackend subscriptions = FakeSubscriptionBackend(
+    firestore: firestore,
+    currentUid: () => auth.currentUser?.uid,
+  );
 }
 
 /// One registered email/password account, as the auth server would hold it.

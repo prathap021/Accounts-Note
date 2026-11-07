@@ -8,6 +8,7 @@ import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
+import '../../data/local/daily_usage_store.dart';
 import '../../data/local/transaction_local_store.dart';
 import '../../data/repositories/transaction_repository.dart';
 import '../../firebase_options.dart';
@@ -147,6 +148,7 @@ class BackgroundSync {
       final manager = SyncManager(
         store: store,
         repository: TransactionRepository(),
+        usageStore: DailyUsageStore(await SharedPreferences.getInstance()),
       );
       await manager.syncNow();
       await manager.dispose();

@@ -6,6 +6,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/sync/sync_manager.dart';
 import '../../core/utils/result.dart';
 import '../../models/transaction_model.dart';
+import '../local/daily_usage_store.dart';
 import '../local/sync_status.dart';
 import '../local/transaction_local_store.dart';
 import 'transaction_repository.dart';
@@ -26,11 +27,16 @@ class OfflineTransactionRepository {
   /// racing a fire-and-forget future.
   final bool autoSync;
 
+  /// Counts each new entry until the server has counted it, for the daily
+  /// limit. Optional so tests that do not care about limits can skip it.
+  final DailyUsageStore? usageStore;
+
   OfflineTransactionRepository({
     required this.store,
     required this.remote,
     required this.syncManager,
     this.autoSync = true,
+    this.usageStore,
     Uuid? uuid,
   }) : _uuid = uuid ?? const Uuid();
 
@@ -54,12 +60,19 @@ class OfflineTransactionRepository {
         id: tx.id.isEmpty ? _uuid.v4() : tx.id,
         createdAt: now,
         updatedAt: now,
+        // Pins the local day this entry counts against, however late it
+        // reaches the server and whatever timezone the phone is in by then.
+        createdTzOffsetMinutes: now.timeZoneOffset.inMinutes,
         syncStatus: SyncStatus.pending,
         pendingOp: PendingOp.create,
         retryCount: 0,
         clearSyncError: true,
       );
       await store.put(saved);
+      final uid = store.uid;
+      if (uid != null) {
+        await usageStore?.recordCreated(uid, saved.usageDay, saved.type);
+      }
       _kickSync();
       return Result.success(saved);
     } catch (e) {

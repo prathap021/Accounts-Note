@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/result.dart';
+import '../../models/daily_usage.dart';
 import '../../models/transaction_model.dart';
 
 class TransactionFilter {
@@ -64,9 +65,6 @@ class TransactionRepository {
 
   CollectionReference<Map<String, dynamic>> _col(String uid) =>
       _firestore.collection(FirestorePaths.transactions(uid));
-
-  DocumentReference<Map<String, dynamic>> _userRef(String uid) =>
-      _firestore.collection(FirestoreCollections.users).doc(uid);
 
   Stream<List<TransactionModel>> watchTransactions(
     String uid, {
@@ -175,44 +173,44 @@ class TransactionRepository {
     }
   }
 
-  /// Bumps the lifetime counter used by the optional contribution prompt.
-  /// Best-effort: a failure here must never cost the user their transaction.
-  Future<void> incrementLifetimeCount(String uid) async {
-    try {
-      await _userRef(uid).update({'lifetimeTxnCount': FieldValue.increment(1)});
-    } catch (_) {
-      // Counter drift is acceptable; the ledger is what matters.
-    }
+  /// Uploads a new entry together with the bump to its day's counter.
+  ///
+  /// The two go in one batch because the security rules accept a new
+  /// transaction only when the same write moves
+  /// `users/{uid}/usage/{day}` up by exactly one for its type, names this
+  /// entry as `lastTxId`, and stays within the plan's daily limit. Anything
+  /// else — a create without the bump, two creates on one bump, a counter
+  /// past the limit — is refused as a whole.
+  ///
+  /// Replaying this after a lost acknowledgement finds the document already
+  /// there, which the rules treat as an update. The counter still moves by
+  /// one, so a retry can cost the user one entry of allowance but can never
+  /// duplicate the transaction.
+  Future<void> createTransactionCounted(String uid, TransactionModel tx) async {
+    final offset = tx.usageTzOffsetMinutes;
+    final toSave = tx.copyWith(createdTzOffsetMinutes: offset);
+    final usageRef = _firestore.doc(FirestorePaths.usageDay(uid, tx.usageDay));
+    final batch = _firestore.batch()
+      ..set(_col(uid).doc(tx.id), toSave.toMap(), SetOptions(merge: true))
+      ..set(
+        usageRef,
+        {
+          tx.type.name: FieldValue.increment(1),
+          'lastTxId': tx.id,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    await batch.commit();
   }
 
-  /// Creates a transaction and increments lifetime count for contribution prompts.
-  /// Never blocks income/expense — contribution is optional and separate.
-  Future<Result<TransactionModel>> addTransaction(
-    String uid,
-    TransactionModel tx,
-  ) async {
-    try {
-      final userRef = _userRef(uid);
-      final txRef = _col(uid).doc();
-      final now = DateTime.now();
-      final toSave = tx.copyWith(id: txRef.id, createdAt: now, updatedAt: now);
-
-      await _firestore.runTransaction((txn) async {
-        final userSnap = await txn.get(userRef);
-        if (!userSnap.exists) {
-          throw StateError('User profile missing.');
-        }
-
-        txn.set(txRef, toSave.toMap());
-        txn.update(userRef, {
-          'lifetimeTxnCount': FieldValue.increment(1),
-        });
-      });
-
-      return Result.success(toSave);
-    } catch (e) {
-      return Result.failure(AppFailure.fromException(e));
-    }
+  /// The server's count for [day]: every entry uploaded for it, from any
+  /// device. Emits from the local Firestore cache first, so it works offline.
+  Stream<DailyUsage> watchUsage(String uid, String day) {
+    return _firestore
+        .doc(FirestorePaths.usageDay(uid, day))
+        .snapshots()
+        .map((snap) => DailyUsage.fromMap(day, snap.data()));
   }
 
   Future<Result<void>> updateTransaction(

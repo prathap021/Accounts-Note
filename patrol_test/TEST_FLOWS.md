@@ -5,8 +5,8 @@ covers: where each flow starts, what the test does, and what it checks.
 For how to run the suite and how the test harness works, see
 [README.md](README.md).
 
-**Last full run:** 44 of 44 passed, 7 Nov 2026, on the `Pixel` Android emulator
-(Android 7.1.1, API 25), in one app session, in about 4½ minutes.
+**Last full run:** 49 of 49 passed, 7 Nov 2026, on the `Pixel` Android emulator
+(Android 7.1.1, API 25), in one app session, in about 5½ minutes.
 
 ## How to read this
 
@@ -35,6 +35,7 @@ For how to run the suite and how the test harness works, see
 | Currency | INR (₹) unless the flow changes it |
 | Network | Online unless the flow switches it off |
 | "Cloud" | In-memory fakes of Firebase Auth and Firestore. Nothing reaches the real project |
+| Store | A fake app store selling the three plans at ₹99.00, ₹199.00 and ₹299.00. Purchases go through at once, and a fake verifier writes the plan to the profile the way the `verifySubscription` Cloud Function does |
 
 Seeded transactions are written to the cloud before launch, as if logged
 on another device. The app pulls them down through its normal sync.
@@ -87,8 +88,13 @@ on another device. The app pulls them down through its normal sync.
 | [NAV-02](#nav-02--android-back-from-a-tab) | Android back from a tab | `navigation_reports_test.dart` | ✓ |
 | [NAV-03](#nav-03--android-back-from-a-pushed-screen) | Android back from a pushed screen | `navigation_reports_test.dart` | ✓ |
 | [REP-01](#rep-01--reports-totals-and-ranges) | Reports totals and ranges | `navigation_reports_test.dart` | |
+| [SUB-01](#sub-01--daily-limit-then-upgrade) | Daily limit, then upgrade | `subscriptions_test.dart` | |
+| [SUB-02](#sub-02--plans-status-and-todays-use) | Plans, status and today's use | `subscriptions_test.dart` | |
+| [SUB-03](#sub-03--upgrade-a-plan) | Upgrade a plan | `subscriptions_test.dart` | |
+| [SUB-04](#sub-04--restore-after-a-reinstall) | Restore after a reinstall | `subscriptions_test.dart` | |
+| [SUB-05](#sub-05--cancelled-plan-keeps-its-limits-until-it-ends) | Cancelled plan keeps its limits until it ends | `subscriptions_test.dart` | |
 
-44 flows in total. NAV-02 and NAV-03 are skipped automatically when not
+49 flows in total. NAV-02 and NAV-03 are skipped automatically when not
 running on Android.
 
 ---
@@ -564,6 +570,70 @@ All flows start signed in as Asha.
 | 1 | Open **Reports** | "This month so far": Income ₹20,000.00, Expenses ₹8,000.00, plus the "Income vs expenses" chart |
 | 2 | Switch to **Year** | "This year so far", still including the ₹20,000.00 |
 
+## 9. Subscriptions and daily limits
+
+All flows start signed in as Asha. "Today's count" is the server's per-day
+counter, seeded as if entries had already been uploaded. The Firestore
+rules that enforce the limits on the server are tested separately, in
+`rules_test/`.
+
+### SUB-01 · Daily limit, then upgrade
+
+`subscriptions_test.dart` › _a free user gets 7 expenses a day, then is offered the plans_
+**Starts from:** Free plan, 6 expenses already counted today.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Add an expense: ₹450, Food | "Transaction added". That was the 7th, the last one free |
+| 2 | Tap **Add** → **Expense** | "Daily expense limit reached", "You've added 7 of 7 expense entries today on the Free plan. Upgrade for up to 100 a day…". The form does not open |
+| 3 | Tap **Not now** → **Add** → **Income** | The income form opens: income has its own 7 |
+| 4 | Back, **Add** → **Expense** → **See plans** | The plan screen |
+| 5 | **Subscribe** on Basic | "You're on Basic. Thank you!" |
+| 6 | Back, add an expense: ₹120, Transport | "Transaction added": Basic allows 30 |
+
+### SUB-02 · Plans, status and today's use
+
+`subscriptions_test.dart` › _the plan screen shows every plan, the current status and today's use_
+**Starts from:** Free plan, 2 income and 5 expenses counted today.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Settings → **Subscription** | "Free", "No subscription", today "2 of 7" income and "5 of 7" expense |
+| 2 | Scroll through the plans | Basic ₹99.00, Standard ₹199.00, Premium ₹299.00, each with its income and expense entries a day (30, 60, 100) |
+| 3 | **Subscribe** on Premium | "You're on Premium. Thank you!". _(store)_ one purchase, acknowledged once verified |
+| 4 | Back to the top | "Renews on …", today "2 of 100" and "5 of 100" |
+| 5 | Back to Settings | The tile reads "Premium · 100 income + 100 expense a day" |
+
+### SUB-03 · Upgrade a plan
+
+`subscriptions_test.dart` › _upgrading replaces the current plan in the store_
+**Starts from:** on Basic, bought on this device.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Settings → **Subscription** | Basic shows "Current plan" |
+| 2 | **Upgrade** on Standard | "You're on Standard. Thank you!". _(store)_ the purchase replaced the Basic subscription, as Google Play needs to switch plans in place |
+
+### SUB-04 · Restore after a reinstall
+
+`subscriptions_test.dart` › _restore brings back a subscription after a reinstall_
+**Starts from:** Free on the profile, but the store account holds a Standard subscription.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Settings → **Subscription** | "Free" |
+| 2 | **Restore purchases** | "Subscription restored.", then Standard with "Renews on …". _(cloud)_ the Standard purchase was verified |
+
+### SUB-05 · Cancelled plan keeps its limits until it ends
+
+`subscriptions_test.dart` › _a cancelled subscription keeps its limits until the month is up_
+**Starts from:** Standard, cancelled but paid for 30 more days; 7 expenses counted today.
+
+| # | Step | Expected |
+|---|---|---|
+| 1 | Add an expense: ₹99, Food | "Transaction added": past the free 7, still within Standard's 60 |
+| 2 | Settings → **Subscription** | "Cancelled · Standard until …", today "8 of 60" expense |
+
 ---
 
 ## Bugs these flows found
@@ -584,7 +654,8 @@ return.
 |---|---|
 | Google and Apple sign-in | They open the provider's own account UI and need a real account, so they can't run unattended. They share the post-sign-in path with email, which is covered |
 | CSV export, "Backup & Delete" | Both end in the system share sheet or a file save, which differ between devices. The backup step also reads Firebase directly, which the fakes can't reach |
-| Contribution payments | Hand off to Stripe in a browser |
+| The real store purchase sheet | Google Play and the App Store show their own payment UI, which needs a signed-in store account and a licence tester. The flows use a fake store; the purchase handling around it is real. Test real purchases with a Play internal testing track and App Store sandbox accounts |
+| Server-side verification | The `verifySubscription` and notification functions call Google's and Apple's APIs. The flows use a fake verifier that writes the same profile fields |
 | Profile photo | Needs the camera or a gallery with images in it |
 | iOS | Only Android's native test runner is set up. iOS needs Patrol's `RunnerUITests` target in Xcode before this suite can run there |
 

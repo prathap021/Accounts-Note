@@ -5,6 +5,7 @@ import '../data/repositories/offline_transaction_repository.dart';
 import '../data/repositories/transaction_repository.dart';
 import '../models/transaction_model.dart';
 import 'auth_provider.dart';
+import 'subscription_provider.dart';
 import 'sync_provider.dart';
 
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
@@ -65,15 +66,20 @@ class TransactionActionsNotifier extends Notifier<AsyncValue<void>> {
     return const AsyncData(null);
   }
 
+  /// Refuses with [DailyLimitReached] as the error when today's allowance for
+  /// the entry's type is used up, so the form can offer an upgrade.
   Future<bool> addTransaction(TransactionModel tx) async {
     if (_uid == null) return false;
     state = const AsyncLoading();
+    final blocked = await ref.read(dailyLimitCheckerProvider).check(tx.type);
+    if (blocked != null) {
+      state = AsyncError(blocked, StackTrace.current);
+      return false;
+    }
     final result = await _repo.addTransaction(tx);
     return result.when(
       success: (_) {
         state = const AsyncData(null);
-        // Counter drift is acceptable; never block the ledger on it.
-        ref.read(transactionRepositoryProvider).incrementLifetimeCount(_uid!);
         AppReviewService.checkAndAskForReview();
         return true;
       },

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 import '../core/constants/app_constants.dart';
 import '../data/local/sync_status.dart';
+import 'daily_usage.dart';
 
 class TransactionModel extends Equatable {
   final String id;
@@ -24,6 +25,13 @@ class TransactionModel extends Equatable {
   final String? recurringId; // link back to the recurring template, if any
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  /// How far the device was ahead of UTC, in minutes, when this was created.
+  ///
+  /// Together with [createdAt] it fixes the local day the entry counts
+  /// against for the daily limit, and the security rules recompute that day
+  /// from these two fields. Null on entries made before the limit existed.
+  final int? createdTzOffsetMinutes;
 
   /// Where this record stands with the cloud. Owned by the local store.
   final SyncStatus syncStatus;
@@ -50,6 +58,7 @@ class TransactionModel extends Equatable {
     this.recurringId,
     required this.createdAt,
     required this.updatedAt,
+    this.createdTzOffsetMinutes,
     this.syncStatus = SyncStatus.synced,
     this.pendingOp = PendingOp.none,
     this.lastSyncError,
@@ -74,6 +83,14 @@ class TransactionModel extends Equatable {
   /// Settled in cash, bank or UPI — money that actually moved.
   bool get isCash => !isOnCard;
 
+  /// The offset used for the daily limit: the one recorded at creation, or
+  /// this device's for entries that predate the field.
+  int get usageTzOffsetMinutes =>
+      createdTzOffsetMinutes ?? createdAt.timeZoneOffset.inMinutes;
+
+  /// The local day (`yyyy-MM-dd`) this entry counts against.
+  String get usageDay => usageDayOf(createdAt, usageTzOffsetMinutes);
+
   TransactionModel copyWith({
     String? id,
     TransactionType? type,
@@ -89,6 +106,7 @@ class TransactionModel extends Equatable {
     String? recurringId,
     DateTime? createdAt,
     DateTime? updatedAt,
+    int? createdTzOffsetMinutes,
     SyncStatus? syncStatus,
     PendingOp? pendingOp,
     String? lastSyncError,
@@ -110,6 +128,8 @@ class TransactionModel extends Equatable {
       recurringId: recurringId ?? this.recurringId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      createdTzOffsetMinutes:
+          createdTzOffsetMinutes ?? this.createdTzOffsetMinutes,
       syncStatus: syncStatus ?? this.syncStatus,
       pendingOp: pendingOp ?? this.pendingOp,
       lastSyncError:
@@ -135,6 +155,7 @@ class TransactionModel extends Equatable {
       'recurringId': recurringId,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
+      'createdTzOffsetMinutes': createdTzOffsetMinutes,
     };
   }
 
@@ -157,6 +178,7 @@ class TransactionModel extends Equatable {
       'recurringId': recurringId,
       'createdAt': createdAt.millisecondsSinceEpoch,
       'updatedAt': updatedAt.millisecondsSinceEpoch,
+      'createdTzOffsetMinutes': createdTzOffsetMinutes,
       'syncStatus': syncStatus.name,
       'pendingOp': pendingOp.name,
       'lastSyncError': lastSyncError,
@@ -187,6 +209,8 @@ class TransactionModel extends Equatable {
       recurringId: map['recurringId'] as String?,
       createdAt: dateFrom(map['createdAt']),
       updatedAt: dateFrom(map['updatedAt']),
+      createdTzOffsetMinutes:
+          (map['createdTzOffsetMinutes'] as num?)?.toInt(),
       syncStatus: SyncStatus.fromName(map['syncStatus'] as String?),
       pendingOp: PendingOp.fromName(map['pendingOp'] as String?),
       lastSyncError: map['lastSyncError'] as String?,
@@ -214,6 +238,8 @@ class TransactionModel extends Equatable {
       recurringId: data['recurringId'] as String?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdTzOffsetMinutes:
+          (data['createdTzOffsetMinutes'] as num?)?.toInt(),
       // Anything read back from Firestore is, by definition, in the cloud.
       syncStatus: SyncStatus.synced,
     );
@@ -235,5 +261,6 @@ class TransactionModel extends Equatable {
         recurringId,
         createdAt,
         updatedAt,
+        createdTzOffsetMinutes,
       ];
 }

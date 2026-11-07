@@ -151,7 +151,11 @@ class AuthActionsNotifier extends Notifier<AsyncValue<void>> {
         }
         await sync.stop();
         // Wipe the local ledger: the next account must not see this one's.
+        // The count of entries still waiting to upload goes with it, since
+        // those entries are gone; the server's count is kept.
+        final uid = ref.read(currentUidProvider);
         await ref.read(transactionLocalStoreProvider).clear();
+        if (uid != null) await ref.read(dailyUsageStoreProvider).clear(uid);
         await _repo.signOut();
         return Result.success(null);
       });
@@ -162,11 +166,13 @@ class AuthActionsNotifier extends Notifier<AsyncValue<void>> {
     // until the delete actually succeeds — if it fails the user still has an
     // account, and wiping their data first would strand them with an empty one.
     await ref.read(syncManagerProvider).stop();
+    final uid = ref.read(currentUidProvider);
 
     final result = await _repo.deleteAccount();
     await result.when(
       success: (_) async {
         await ref.read(transactionLocalStoreProvider).clear();
+        if (uid != null) await ref.read(dailyUsageStoreProvider).clear(uid);
         state = const AsyncData(null);
       },
       failure: (f) async {

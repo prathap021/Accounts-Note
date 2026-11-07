@@ -52,6 +52,12 @@ class FailingRepository extends TransactionRepository {
     attempts++;
     throw StateError('network down');
   }
+
+  @override
+  Future<void> createTransactionCounted(String uid, TransactionModel tx) async {
+    attempts++;
+    throw StateError('network down');
+  }
 }
 
 const uid = 'user-1';

@@ -48,36 +48,131 @@ service cloud.firestore {
         && card.createdAt is timestamp;
     }
 
-    // Stripe contribution fields are server-owned (Cloud Functions Admin SDK).
-    function contributionFieldsUnchanged() {
+    // ---- Subscriptions and daily limits -----------------------------------
+    //
+    // Plan fields on users/{uid}. Written only by Cloud Functions
+    // (functions/src/subscriptions.ts) after the store confirms a purchase;
+    // never accepted from the app.
+    function subscriptionFields() {
+      return [
+        'subscriptionPlan',
+        'subscriptionStatus',
+        'subscriptionExpiresAt',
+        'subscriptionAutoRenewing',
+        'subscriptionPlatform',
+        'subscriptionProductId',
+        'subscriptionLinkId',
+        'subscriptionUpdatedAt'
+      ];
+    }
+
+    function subscriptionFieldsUnchanged() {
       return !request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny([
-          'hasContributed',
-          'totalContributedUsd',
-          'lastContributionAt',
-          'lastContributionAmountUsd',
-          'stripeCustomerId',
-          'subscriptionStatus',
-          'subscriptionPlan',
-          'subscriptionExpiresAt',
-          'stripeSubscriptionId',
-          'cancelAtPeriodEnd'
-        ]);
+        .hasAny(subscriptionFields());
+    }
+
+    // New entries allowed per day, per type (income and expense each), for
+    // the user's plan. A plan counts while it is active, in a payment grace
+    // period, or cancelled but not yet at the end of its paid month.
+    // Must match SubscriptionPlan in lib/models/subscription_plan.dart.
+    function dailyLimit(uid) {
+      let user = get(/databases/$(database)/documents/users/$(uid)).data;
+      let expires = user.get('subscriptionExpiresAt', null);
+      let live = user.get('subscriptionStatus', '') in ['active', 'grace', 'canceled']
+        && expires is timestamp
+        && expires > request.time;
+      let plan = live ? user.get('subscriptionPlan', 'free') : 'free';
+      return {'free': 7, 'basic': 30, 'standard': 60, 'premium': 100}.get(plan, 7);
+    }
+
+    function pad2(n) {
+      return n < 10 ? '0' + string(n) : string(n);
+    }
+
+    // yyyy-MM-dd of a timestamp's UTC calendar fields.
+    function dayKeyOf(ts) {
+      return string(ts.year()) + '-' + pad2(ts.month()) + '-' + pad2(ts.day());
+    }
+
+    // A new entry records when it was made (createdAt) and the device's UTC
+    // offset then. Entries are accepted up to 3 days late, so ones made
+    // offline still upload, and backdating cannot reach further than that.
+    function hasCreationStamp(tx) {
+      return tx.createdAt is timestamp
+        && tx.createdAt > request.time - duration.value(3, 'd')
+        && tx.createdAt < request.time + duration.value(1, 'h')
+        && tx.createdTzOffsetMinutes is int
+        && tx.createdTzOffsetMinutes >= -720
+        && tx.createdTzOffsetMinutes <= 840;
+    }
+
+    // The local day the entry counts against, as the app computes it in
+    // usageDayOf() (lib/models/daily_usage.dart).
+    function usageDayOf(tx) {
+      return dayKeyOf(tx.createdAt + duration.value(tx.createdTzOffsetMinutes, 'm'));
+    }
+
+    // The same write must move users/{uid}/usage/{day} up by exactly one for
+    // this entry's type, name this entry as lastTxId (so one bump cannot
+    // cover two entries), and stay within the plan's daily limit.
+    function bumpsUsageFor(uid, txId, tx, day) {
+      let path = /databases/$(database)/documents/users/$(uid)/usage/$(day);
+      let before = exists(path) ? get(path).data : {};
+      let after = getAfter(path).data;
+      return after.lastTxId == txId
+        && after.get(tx.type, 0) == before.get(tx.type, 0) + 1
+        && after.get(tx.type, 0) <= dailyLimit(uid);
+    }
+
+    function isCountedNewEntry(uid, txId) {
+      let tx = request.resource.data;
+      return hasCreationStamp(tx)
+        && bumpsUsageFor(uid, txId, tx, usageDayOf(tx));
+    }
+
+    // users/{uid}/usage/{yyyy-MM-dd}: { income, expense, lastTxId, updatedAt }.
+    // Counters only ever go up, by one, for one type at a time.
+    function isUsageBump(next, prev, day) {
+      return day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && next.keys().hasOnly(['income', 'expense', 'lastTxId', 'updatedAt'])
+        && next.lastTxId is string
+        && next.updatedAt == request.time
+        && next.get('income', 0) is int
+        && next.get('expense', 0) is int
+        && (
+          (next.get('income', 0) == prev.get('income', 0) + 1
+            && next.get('expense', 0) == prev.get('expense', 0))
+          || (next.get('expense', 0) == prev.get('expense', 0) + 1
+            && next.get('income', 0) == prev.get('income', 0))
+        );
     }
 
     match /users/{uid} {
       allow read: if isOwner(uid);
       allow create: if isOwner(uid)
-        && (!('hasContributed' in request.resource.data)
-            || request.resource.data.hasContributed == false);
-      allow update: if isOwner(uid) && contributionFieldsUnchanged();
+        && !request.resource.data.keys().hasAny(subscriptionFields());
+      allow update: if isOwner(uid) && subscriptionFieldsUnchanged();
       allow delete: if isOwner(uid);
 
       match /transactions/{txId} {
         // Reads/listens must not require request.resource validation.
         allow read: if isOwner(uid);
-        allow create, update: if isOwner(uid) && isValidTransaction();
+        // A new entry is accepted only alongside its day's counter bump.
+        allow create: if isOwner(uid)
+          && isValidTransaction()
+          && isCountedNewEntry(uid, txId);
+        allow update: if isOwner(uid) && isValidTransaction();
         allow delete: if isOwner(uid);
+      }
+
+      match /usage/{day} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) && isUsageBump(request.resource.data, {}, day);
+        allow update: if isOwner(uid)
+          && isUsageBump(request.resource.data, resource.data, day);
+        // Never from the app: deleting a counter would hand the day's
+        // allowance back. Account deletion runs with the Admin SDK.
+        allow delete: if false;
       }
 
       match /categories/{catId} {

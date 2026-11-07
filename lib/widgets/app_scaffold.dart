@@ -3,13 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../features/contribute/contribution_dialogs.dart';
 import '../core/sync/background_sync.dart';
-import '../providers/contribution_provider.dart';
+import '../providers/subscription_provider.dart';
 import '../providers/sync_provider.dart';
 
 /// Persistent bottom navigation for top-level tabs (ShellRoute).
-/// Also hosts the optional contribution prompt (never blocks transactions).
+/// Also starts the subscription controller, which must be listening to the
+/// store from the moment the signed-in app opens.
 class AppScaffold extends ConsumerStatefulWidget {
   final Widget child;
   const AppScaffold({super.key, required this.child});
@@ -32,9 +32,6 @@ class _AppScaffoldState extends ConsumerState<AppScaffold>
         'Budgets'),
     ('/reports', Icons.insights_outlined, Icons.insights_rounded, 'Reports'),
   ];
-
-  bool _promptInFlight = false;
-  bool _promptScheduled = false;
 
   @override
   void initState() {
@@ -72,49 +69,17 @@ class _AppScaffoldState extends ConsumerState<AppScaffold>
     return index == -1 ? 0 : index;
   }
 
-  void _scheduleContributionPrompt() {
-    if (_promptInFlight || _promptScheduled || !mounted) return;
-    _promptScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      _promptScheduled = false;
-      if (!mounted) return;
-      if (!ref.read(shouldShowContributionPromptProvider)) return;
-      await _presentContributionPrompt();
-    });
-  }
-
-  Future<void> _presentContributionPrompt() async {
-    if (_promptInFlight || !mounted) return;
-    _promptInFlight = true;
-    try {
-      final result = await showContributionPromptDialog(context);
-      if (!mounted) return;
-      final actions = ref.read(contributionActionsProvider.notifier);
-      if (result == ContributionPromptResult.contribute) {
-        await actions.markPromptShownToday();
-        if (mounted) context.push('/contribute');
-      } else {
-        // Not Now or barrier dismiss — suppress for the rest of today.
-        await actions.declinePromptForToday();
-      }
-    } finally {
-      _promptInFlight = false;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
     final currentIndex = _currentIndex(location);
     final scheme = Theme.of(context).colorScheme;
 
-    ref.listen<bool>(shouldShowContributionPromptProvider, (prev, next) {
-      if (next) _scheduleContributionPrompt();
-    });
-
-    if (ref.watch(shouldShowContributionPromptProvider)) {
-      _scheduleContributionPrompt();
-    }
+    // Purchases can arrive at any time (a renewal on launch, a purchase that
+    // finished while the app was closed), so the controller is kept listening
+    // for the whole session, not only while the plan screen is open. A
+    // provider nothing listens to is paused, hence a listener, not a read.
+    ref.listen(subscriptionControllerProvider, (_, _) {});
 
     return Scaffold(
       body: widget.child,

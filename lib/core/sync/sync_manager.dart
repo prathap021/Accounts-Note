@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../data/local/daily_usage_store.dart';
 import '../../data/local/sync_status.dart';
 import '../../data/local/transaction_local_store.dart';
 import '../../data/repositories/transaction_repository.dart';
@@ -66,6 +67,11 @@ class SyncManager {
   final TransactionRepository repository;
   final Connectivity connectivity;
 
+  /// Told when a new entry's upload has been counted by the server, so the
+  /// on-device count of not-yet-counted entries goes down by one. Optional:
+  /// without it the daily-limit check simply leans on the server's count.
+  final DailyUsageStore? usageStore;
+
   /// Give up auto-retrying after this many attempts; the record stays on the
   /// device and is retried on the next manual sync or app start.
   static const maxAutoRetries = 5;
@@ -74,6 +80,7 @@ class SyncManager {
     required this.store,
     required this.repository,
     Connectivity? connectivity,
+    this.usageStore,
   }) : connectivity = connectivity ?? Connectivity();
 
   final _stateController = StreamController<SyncState>.broadcast();
@@ -187,6 +194,17 @@ class SyncManager {
       try {
         switch (tx.pendingOp) {
           case PendingOp.create:
+            // Goes up with its day's counter bump, which the rules require
+            // of every new entry. Keyed by the record's own id, so a replay
+            // updates the same document instead of adding a second one.
+            await repository.createTransactionCounted(uid, tx);
+            await usageStore?.recordUploaded(uid, tx.usageDay, tx.type);
+            await store.put(tx.copyWith(
+              syncStatus: SyncStatus.synced,
+              pendingOp: PendingOp.none,
+              retryCount: 0,
+              clearSyncError: true,
+            ));
           case PendingOp.update:
             // Keyed by the record's own id and merged, so replaying this
             // after a timeout updates the same document instead of adding

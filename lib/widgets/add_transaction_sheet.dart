@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/constants/app_constants.dart';
 import '../core/theme/app_theme.dart';
+import '../features/subscription/limit_reached_sheet.dart';
+import '../providers/subscription_provider.dart';
 
 /// Single entry point for "add a transaction" so every surface that offers it
 /// (dashboard FAB, activity FAB) asks the same question the same way.
@@ -13,19 +16,35 @@ Future<void> showAddTransactionSheet(BuildContext context) {
   );
 }
 
-class _AddTransactionSheet extends StatelessWidget {
+class _AddTransactionSheet extends ConsumerWidget {
   const _AddTransactionSheet();
 
   /// Resolve the router before closing the sheet, so navigation never runs
   /// against a context that is on its way out of the tree.
-  void _open(BuildContext context, TransactionType type) {
+  ///
+  /// Checks today's allowance first: with it used up, the user is told so
+  /// here rather than after filling in the whole form.
+  Future<void> _open(
+    BuildContext context,
+    WidgetRef ref,
+    TransactionType type,
+  ) async {
     final router = GoRouter.of(context);
-    Navigator.pop(context);
-    router.push('/transaction/add', extra: type);
+    final navigator = Navigator.of(context);
+    final blocked = await ref.read(dailyLimitCheckerProvider).check(type);
+    navigator.pop();
+    if (blocked == null) {
+      router.push('/transaction/add', extra: type);
+      return;
+    }
+    final rootContext = router.routerDelegate.navigatorKey.currentContext;
+    if (rootContext != null && rootContext.mounted) {
+      await showDailyLimitReachedSheet(rootContext, blocked);
+    }
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
     // Scrollable because the form this opens autofocuses its amount field:
@@ -51,7 +70,7 @@ class _AddTransactionSheet extends StatelessWidget {
                 color: AppColors.income,
                 title: 'Income',
                 subtitle: 'Salary, freelance, refunds…',
-                onTap: () => _open(context, TransactionType.income),
+                onTap: () => _open(context, ref, TransactionType.income),
               ),
               const SizedBox(height: AppSpacing.md),
               _TypeOption(
@@ -59,7 +78,7 @@ class _AddTransactionSheet extends StatelessWidget {
                 color: AppColors.expense,
                 title: 'Expense',
                 subtitle: 'Food, travel, bills…',
-                onTap: () => _open(context, TransactionType.expense),
+                onTap: () => _open(context, ref, TransactionType.expense),
               ),
             ],
           ),

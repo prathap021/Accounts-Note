@@ -27,6 +27,11 @@ Repository: [github.com/prathap021/Accounts-Note](https://github.com/prathap021/
   Activity by one card or all cards. Every filter shows its total, live in the
   filter sheet as you tap
 - **Categories**: default seeded categories + custom icon/color categories
+- **Subscriptions**: free accounts can add 7 income and 7 expense entries a
+  day. Three monthly plans raise that: Basic ₹99 (30 + 30), Standard ₹199
+  (60 + 60) and Premium ₹299 (100 + 100). Bought through Google Play Billing
+  or the App Store, verified by Cloud Functions, and enforced by the
+  Firestore rules, so a modified app cannot get round the limits
 - **Reports**: week/month/year views, charts, CSV export & share
 - **Security**: per-user Firestore rules — users only access their own data
 - **Offline**: Firestore unlimited local cache; syncs when back online
@@ -60,7 +65,11 @@ users/{uid}
   ├─ creditCards/{cardId}
   ├─ recurringTransactions/{recurringId}
   ├─ settings/preferences
-  └─ notifications/{notificationId}
+  ├─ notifications/{notificationId}
+  └─ usage/{yyyy-MM-dd}          entries added that day, per type (limits)
+
+subscriptionLinks/{linkId}       which account owns each store subscription
+                                 (Cloud Functions only)
 ```
 
 ---
@@ -139,14 +148,81 @@ firebase deploy --only firestore:rules,firestore:indexes
   `google-services.json` so `oauth_client` is populated
 - **Apple (iOS)**: in Xcode add the **Sign in with Apple** capability
 
-### 4. Run
+### 4. Subscriptions (in-app purchases)
+
+The plans are monthly auto-renewing subscriptions with these product ids,
+the same in both stores (they are defined in
+`lib/models/subscription_plan.dart`, `firestore.rules` and
+`functions/src/subscriptions.ts`, which must agree):
+
+| Plan | Product id | Price | Income / expense per day |
+|---|---|---:|---:|
+| Basic | `accounts_note_basic_monthly` | ₹99 | 30 / 30 |
+| Standard | `accounts_note_standard_monthly` | ₹199 | 60 / 60 |
+| Premium | `accounts_note_premium_monthly` | ₹299 | 100 / 100 |
+
+Free accounts get 7 / 7. Prices shown in the app come from the store, so set
+them there.
+
+**Google Play**
+
+1. In Play Console → Monetize → Subscriptions, create the three products,
+   each with one monthly auto-renewing base plan.
+2. Give the Cloud Functions service account
+   (`PROJECT_ID@appspot.gserviceaccount.com`) access in Play Console → Users
+   and permissions, with "View financial data" and "Manage orders and
+   subscriptions". The functions use it to read purchases; no key file is
+   needed.
+3. Real-time notifications: Play Console → Monetize → Monetization setup →
+   topic `projects/PROJECT_ID/topics/play-billing-notifications`. Grant
+   `google-play-developer-notifications@system.gserviceaccount.com` the Pub/Sub
+   Publisher role on that topic (deploying the functions creates it).
+
+**App Store**
+
+1. In App Store Connect, create one subscription group with the three
+   products, ordered Premium, Standard, Basic (highest first), so moving
+   between them is treated as an upgrade or downgrade.
+2. Create an In-App Purchase key (Users and Access → Integrations) and set:
+
+```bash
+# functions/.env
+APPLE_IAP_KEY_ID=XXXXXXXXXX
+APPLE_IAP_ISSUER_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+APPLE_BUNDLE_ID=com.example.incomeExpenseTracker
+```
+
+```bash
+firebase functions:secrets:set APPLE_IAP_PRIVATE_KEY < SubscriptionKey_XXXXXXXXXX.p8
+```
+
+   Not shipping on iOS yet? Set the secret to `unset`; deploying needs it to
+   exist, and iOS verification then reports that it is not set up.
+3. App Store Server Notifications (V2): point both the production and sandbox
+   URLs at the `appStoreNotifications` function's URL.
+4. In Xcode, add the **In-App Purchase** capability.
+
+**Deploy**
+
+```bash
+cd functions && npm install && cd ..
+firebase deploy --only functions,firestore:rules
+```
+
+The app's own check stops the user as soon as a limit is reached, even
+offline. The Firestore rules are what enforce it: a new transaction is
+accepted only in the same write as a +1 to that day's counter, within the
+plan's limit, and the plan fields can only be written by the functions.
+Entries made offline are accepted up to 3 days late.
+
+### 5. Run
 
 ```bash
 flutter pub get
 flutter run
 ```
 
-### 5. Release build
+### 6. Release build
 
 ```bash
 flutter build apk --release
@@ -156,11 +232,18 @@ flutter build appbundle --release
 
 Configure your own signing keystore for Play Store releases.
 
-### 6. Tests
+### 7. Tests
 
 ```bash
-flutter test
+flutter test                                   # unit and widget tests
+patrol test --dart-define-from-file=patrol_test/single_session.json
+                                               # end-to-end, on a device
+(cd rules_test && npm install)                 # once
+firebase emulators:exec --only firestore --project demo-accounts-note \
+  "npm --prefix rules_test test"               # Firestore rules
 ```
+
+See [patrol_test/README.md](patrol_test/README.md) for the end-to-end suite.
 
 ---
 

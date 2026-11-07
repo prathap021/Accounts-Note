@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/sync/background_sync.dart';
 import '../core/sync/sync_manager.dart';
+import '../data/local/daily_usage_store.dart';
 import '../data/local/transaction_local_store.dart';
 import '../data/repositories/offline_transaction_repository.dart';
 import 'auth_provider.dart';
+import 'settings_provider.dart';
 import 'transaction_provider.dart';
 
 /// The Hive-backed store. Its box is opened/closed as the signed-in user
@@ -17,10 +19,18 @@ final transactionLocalStoreProvider = Provider<TransactionLocalStore>((ref) {
   return store;
 });
 
+/// Entries added on this device that the server has not counted yet.
+final dailyUsageStoreProvider = Provider<DailyUsageStore>((ref) {
+  final store = DailyUsageStore(ref.watch(sharedPreferencesProvider));
+  ref.onDispose(store.dispose);
+  return store;
+});
+
 final syncManagerProvider = Provider<SyncManager>((ref) {
   final manager = SyncManager(
     store: ref.watch(transactionLocalStoreProvider),
     repository: ref.watch(transactionRepositoryProvider),
+    usageStore: ref.watch(dailyUsageStoreProvider),
   );
   ref.onDispose(manager.dispose);
   return manager;
@@ -56,6 +66,7 @@ final offlineTransactionRepositoryProvider =
     store: ref.watch(transactionLocalStoreProvider),
     remote: ref.watch(transactionRepositoryProvider),
     syncManager: ref.watch(syncManagerProvider),
+    usageStore: ref.watch(dailyUsageStoreProvider),
   );
 });
 

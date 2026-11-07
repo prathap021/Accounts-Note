@@ -17,7 +17,7 @@ import '../../providers/category_provider.dart';
 import '../../providers/credit_card_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/sync_provider.dart';
-import '../../providers/contribution_provider.dart';
+import '../../providers/profile_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../widgets/add_transaction_sheet.dart';

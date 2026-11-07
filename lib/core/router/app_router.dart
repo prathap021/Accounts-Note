@@ -10,8 +10,8 @@ import '../../features/categories/categories_screen.dart';
 import '../../features/credit_cards/credit_cards_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/reports/reports_screen.dart';
-import '../../features/contribute/contribute_screen.dart';
 import '../../features/settings/settings_screen.dart';
+import '../../features/subscription/subscription_screen.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/transactions/add_edit_transaction_screen.dart';
 import '../../features/transactions/transactions_screen.dart';
@@ -110,7 +110,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
-      GoRoute(path: '/contribute', builder: (_, _) => const ContributeScreen()),
+      GoRoute(
+        path: '/subscription',
+        builder: (_, _) => const SubscriptionScreen(),
+      ),
       GoRoute(path: '/categories', builder: (_, _) => const CategoriesScreen()),
       GoRoute(
         path: '/credit-cards',

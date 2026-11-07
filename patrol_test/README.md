@@ -41,7 +41,7 @@ app, which kills the first one mid-test ("Process crashed").
 `flutter test` does **not** run these tests. Patrol needs its native test
 runner to drive the device.
 
-A full run takes about 4½ minutes on an emulator.
+A full run takes about 5½ minutes on an emulator.
 
 **If a run reports `Total: 0` after about 4–5 minutes**, the APK never
 installed. Check
@@ -87,7 +87,7 @@ after it will see it.
 
 ## What is covered
 
-[TEST_FLOWS.md](TEST_FLOWS.md) describes all 44 flows step by step, with
+[TEST_FLOWS.md](TEST_FLOWS.md) describes all 49 flows step by step, with
 their starting state and expected results. In summary:
 
 | File | Flows |
@@ -100,6 +100,7 @@ their starting state and expected results. In summary:
 | `credit_cards_test.dart` | Add a card, keeping only the last 4 digits; card spend kept out of the cash balance; rename and delete; add a card from the payment picker while logging an expense |
 | `settings_test.dart` | Currency, appearance (kept after a restart), display name; log out wipes the device and signing back in restores from the cloud; delete account (10-second guard, data and sign-in gone); cancelling the delete |
 | `navigation_reports_test.dart` | Every bottom tab; Android back goes Home first, then asks before exiting; back closes a pushed screen; Reports totals and range switch |
+| `subscriptions_test.dart` | The free 7-a-day limit and the upgrade prompt; income and expense counted apart; the plan screen (prices, limits, status, today's use); subscribe, upgrade, restore; a cancelled plan keeping its limits until it ends |
 
 ### Not covered, on purpose
 
@@ -109,7 +110,11 @@ their starting state and expected results. In summary:
 - **CSV export and "Backup & Delete".** These end in the system share sheet
   or a file save, which differs between devices. The backup step also reads
   `FirebaseAuth.instance` directly, which the fakes cannot reach.
-- **Contribution payments.** These hand off to Stripe in a browser.
+- **The real store purchase sheet and server verification.** Google Play
+  and the App Store need real store accounts, and verification calls their
+  APIs. A fake store and verifier stand in (`test/support/fake_subscriptions.dart`);
+  the app's purchase handling around them is real. The server-side limits
+  are covered by the Firestore rules tests in `rules_test/`.
 
 ## Layout
 

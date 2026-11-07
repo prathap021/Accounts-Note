@@ -1,0 +1,13 @@
+{
+  "name": "accounts-note-rules-test",
+  "private": true,
+  "type": "module",
+  "description": "Firestore security rules tests. Run from the repo root: firebase emulators:exec --only firestore \"npm --prefix rules_test test\"",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "firebase": "^13.2.0"
+  }
+}

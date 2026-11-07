@@ -9,6 +9,10 @@ class FirestoreCollections {
   static const recurringTransactions = 'recurringTransactions';
   static const settings = 'settings';
   static const notifications = 'notifications';
+
+  /// Per-day entry counters, `users/{uid}/usage/{yyyy-MM-dd}`, that the
+  /// security rules check before accepting a new transaction.
+  static const usage = 'usage';
 }
 
 /// Every user document owns these as SUB-collections, e.g.
@@ -42,6 +46,9 @@ class FirestorePaths {
   static String recurring(String uid) =>
       '${user(uid)}/${FirestoreCollections.recurringTransactions}';
 
+  static String usageDay(String uid, String day) =>
+      '${user(uid)}/${FirestoreCollections.usage}/$day';
+
   static String settings(String uid) =>
       '${user(uid)}/${FirestoreCollections.settings}/preferences';
 }
@@ -53,39 +60,33 @@ enum TransactionType { income, expense }
 /// filtering on this method means "any credit card".
 const kCreditCardPaymentMethod = 'Credit Card';
 
-/// User access tier — separate from income/expense transaction types.
-/// Contribution marks the user as a [contributor]; it is never logged as a
-/// transaction in the ledger.
-enum UserAccessTier { free, contributor }
-
 enum RecurrenceFrequency { daily, weekly, monthly, yearly }
 
 class AppDefaults {
   static const defaultCurrency = 'INR';
   static const pageSize = 20; // transactions fetched per pagination page
   static const financialMonthStartDay = 1;
-
-  /// After this many lifetime income+expense creates, the optional
-  /// contribution dialog becomes eligible (does not block transactions).
-  static const contributionPromptTransactionThreshold = 7;
-
-  /// @Deprecated Use [contributionPromptTransactionThreshold].
-  static const freeDailyTransactionLimit = contributionPromptTransactionThreshold;
-}
-
-/// Optional one-time contribution (USD) — user-tier support, not a ledger entry.
-class ContributionPricing {
-  static const minUsd = 1.0;
-  static const presetUsd = <double>[1, 5, 10];
-  static const currency = 'usd';
-  static const successDeepLink = 'accountsnote://stripe-success';
-  static const cancelDeepLink = 'accountsnote://stripe-cancel';
 }
 
 /// Public project links shown in Settings / About.
 class AppLinks {
   static const githubRepo = 'https://github.com/prathap021/Accounts-Note';
   static const license = 'MIT';
+
+  /// Must match `applicationId` in android/app/build.gradle.kts.
+  static const androidPackage = 'com.example.income_expense_tracker';
+
+  /// Where the user cancels or changes a subscription. Neither store lets an
+  /// app cancel on the user's behalf, so the plan screen links here.
+  static String manageSubscription({
+    required String platform,
+    String? productId,
+  }) =>
+      platform == 'ios'
+          ? 'https://apps.apple.com/account/subscriptions'
+          : 'https://play.google.com/store/account/subscriptions'
+              '?package=$androidPackage'
+              '${productId == null ? '' : '&sku=$productId'}';
 }
 
 const List<Map<String, dynamic>> kDefaultExpenseCategories = [

@@ -18,9 +18,11 @@ import '../../providers/category_provider.dart';
 import '../../providers/credit_card_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../providers/subscription_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../widgets/credit_card_visual.dart';
 import '../credit_cards/credit_cards_screen.dart';
+import '../subscription/limit_reached_sheet.dart';
 
 const _paymentMethods = ['Cash', 'Card', 'UPI', 'Bank Transfer', 'Wallet', 'Other'];
 
@@ -437,6 +439,13 @@ class _AddEditTransactionScreenState
       Navigator.of(context).pop();
     } else {
       final err = ref.read(transactionActionsProvider);
+      if (err is AsyncError && err.error is DailyLimitReached) {
+        await showDailyLimitReachedSheet(
+          context,
+          err.error as DailyLimitReached,
+        );
+        return;
+      }
       final failure = err is AsyncError && err.error is AppFailure
           ? err.error as AppFailure
           : null;

@@ -82,6 +82,9 @@ genhtml coverage/lcov.info -o coverage/html   # needs lcov installed
 | `unit/data/credit_card_repository_test.dart` | Card CRUD, ordering, per-user isolation, and writes the server never acknowledges (offline) |
 | `unit/models/credit_card_model_test.dart` | Card serialization, display name, and the guards that keep a full card number out |
 | `unit/credit_card_totals_test.dart` | The total for a filter, and each card's spend this month across month boundaries |
+| `unit/models/subscription_test.dart` | Plan prices and daily limits, which states keep a plan (cancelled until it ends; on hold, paused, expired never), parsing the profile, and the App Store account tag matching the backend's |
+| `unit/data/daily_usage_test.dart` | Which local day an entry counts against, the on-device count of entries not yet uploaded, and that each new entry uploads with its day-counter bump |
+| `unit/state/subscription_controller_test.dart` | The daily limit check (free, paid, expired, unsynced entries) and buying: verify-then-acknowledge, upgrades, cancelled and pending payments, refused purchases, restore, unconfirmed purchases picked up at launch |
 | `unit/state/settings_provider_test.dart` | Theme, currency and onboarding persistence |
 | `unit/state/sync_state_test.dart` | The Synced / Syncing / Pending / Failed labels |
 | `unit/email_verification_test.dart` | Who is gated behind verification — email/password yes, Google and Apple never |
@@ -93,6 +96,8 @@ genhtml coverage/lcov.info -o coverage/html   # needs lcov installed
 | `widget/sync_status_chip_test.dart` | Sync chip and failure banner states |
 | `widget/verify_email_screen_test.dart` | Email-verification gate: address shown, resend cooldown, silent re-check on resume vs. reporting on manual check |
 | `widget/forgot_password_sheet_test.dart` | Password reset: validation, carried-over email, confirmation |
+| `widget/subscription_screen_test.dart` | The plan screen: three plans with prices and limits, status and today's use, subscribe/upgrade labels, no-store notice, restore; and the limit-reached sheet |
+| `support/fake_subscriptions.dart` | A fake app store and purchase verifier, shared with the Patrol suite |
 | `widget/delete_progress_test.dart` | Account-deletion progress: step sequencing, optional backup step, non-dismissible |
 | `widget/responsive_test.dart` | Proportional sizing, and the fallback when ScreenUtil is not initialised |
 | `widget/theme_scaling_test.dart` | Theme builds and type actually scales at non-1.0 factors |

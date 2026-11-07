@@ -21,7 +21,9 @@ import '../../core/utils/user_facing_error.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/credit_card_provider.dart';
 import '../../providers/settings_provider.dart';
-import '../../providers/contribution_provider.dart';
+import '../../models/subscription_plan.dart';
+import '../../providers/profile_provider.dart';
+import '../../providers/subscription_provider.dart';
 import '../../widgets/app_logo.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -230,7 +232,7 @@ class SettingsScreen extends ConsumerWidget {
     final profile = ref.watch(userProfileProvider).asData?.value;
     final actionState = ref.watch(authActionsProvider);
     final actions = ref.read(authActionsProvider.notifier);
-    final isContributor = profile?.isContributor ?? false;
+    final plan = ref.watch(currentPlanProvider);
     final settings = ref.watch(settingsProvider);
     final cardCount = ref.watch(creditCardLookupProvider).length;
     // Resolved the same way as the dashboard greeting so one name is shown
@@ -271,7 +273,7 @@ class SettingsScreen extends ConsumerWidget {
             name: name,
             email: user?.email,
             photoUrl: photoUrl,
-            isContributor: isContributor,
+            plan: plan,
             saving: saving,
             onEditName: saving ? null : () => _editName(context, ref, name),
             onChangePhoto: saving ? null : () => _changePhoto(context, ref),
@@ -312,17 +314,22 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
-          const SectionLabel('About & support'),
+          const SectionLabel('Subscription'),
           _SettingsGroup(
             children: [
               _SettingsTile(
-                icon: Icons.favorite_rounded,
-                title: 'Support Accounts Note',
-                subtitle: isContributor
-                    ? 'Thank you for your support'
-                    : 'Donations & sponsorships',
-                onTap: () => context.push('/contribute'),
+                icon: Icons.workspace_premium_rounded,
+                title: 'Subscription',
+                subtitle: '${plan.title} · ${plan.dailyIncomeLimit} income + '
+                    '${plan.dailyExpenseLimit} expense a day',
+                onTap: () => context.push('/subscription'),
               ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          const SectionLabel('About'),
+          _SettingsGroup(
+            children: [
               _SettingsTile(
                 icon: Icons.code_rounded,
                 title: 'Source code',
@@ -480,7 +487,7 @@ class _ProfileCard extends StatelessWidget {
   final String name;
   final String? email;
   final String? photoUrl;
-  final bool isContributor;
+  final SubscriptionPlan plan;
   final bool saving;
   final VoidCallback? onEditName;
   final VoidCallback? onChangePhoto;
@@ -489,7 +496,7 @@ class _ProfileCard extends StatelessWidget {
     required this.name,
     required this.email,
     required this.photoUrl,
-    required this.isContributor,
+    required this.plan,
     required this.saving,
     required this.onEditName,
     required this.onChangePhoto,
@@ -501,7 +508,7 @@ class _ProfileCard extends StatelessWidget {
     final scheme = theme.colorScheme;
 
     // A light surface like every other card on the screen. Colour is spent on
-    // the avatar ring and the contributor badge, not a full slab, so the
+    // the avatar ring and the plan badge, not a full slab, so the
     // user's name and address stay the loudest thing here.
     return AppCard(
       padding: const EdgeInsets.all(AppSpacing.xl),
@@ -585,7 +592,7 @@ class _ProfileCard extends StatelessWidget {
                     ),
                   ),
                 ],
-                if (isContributor) ...[
+                if (plan.isPaid) ...[
                   const SizedBox(height: AppSpacing.sm),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -599,11 +606,11 @@ class _ProfileCard extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.favorite_rounded,
+                        Icon(Icons.workspace_premium_rounded,
                             size: 11.rr, color: AppColors.income),
                         const SizedBox(width: 5),
                         Text(
-                          'Contributor',
+                          plan.title,
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: AppColors.income,
                             fontWeight: FontWeight.w700,

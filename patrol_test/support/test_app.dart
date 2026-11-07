@@ -12,7 +12,7 @@ import 'package:income_expense_tracker/core/sync/sync_manager.dart';
 import 'package:income_expense_tracker/data/repositories/auth_repository.dart';
 import 'package:income_expense_tracker/data/repositories/budget_repository.dart';
 import 'package:income_expense_tracker/data/repositories/category_repository.dart';
-import 'package:income_expense_tracker/data/repositories/contribution_repository.dart';
+import 'package:income_expense_tracker/data/repositories/profile_repository.dart';
 import 'package:income_expense_tracker/data/repositories/credit_card_repository.dart';
 import 'package:income_expense_tracker/data/repositories/transaction_repository.dart';
 import 'package:income_expense_tracker/main.dart';
@@ -20,9 +20,10 @@ import 'package:income_expense_tracker/models/transaction_model.dart';
 import 'package:income_expense_tracker/providers/auth_provider.dart';
 import 'package:income_expense_tracker/providers/budget_provider.dart';
 import 'package:income_expense_tracker/providers/category_provider.dart';
-import 'package:income_expense_tracker/providers/contribution_provider.dart';
+import 'package:income_expense_tracker/providers/profile_provider.dart';
 import 'package:income_expense_tracker/providers/credit_card_provider.dart';
 import 'package:income_expense_tracker/providers/settings_provider.dart';
+import 'package:income_expense_tracker/providers/subscription_provider.dart';
 import 'package:income_expense_tracker/providers/sync_provider.dart';
 import 'package:income_expense_tracker/providers/transaction_provider.dart';
 import 'package:path_provider/path_provider.dart';
@@ -177,18 +178,18 @@ List<Override> appOverrides(FakeBackend backend, SharedPreferences prefs) {
     creditCardRepositoryProvider.overrideWithValue(
       CreditCardRepository(firestore: firestore),
     ),
-    contributionRepositoryProvider.overrideWithValue(
-      ContributionRepository(
-        firestore: firestore,
-        functions: backend.functions,
-      ),
+    profileRepositoryProvider.overrideWithValue(
+      ProfileRepository(firestore: firestore),
     ),
+    subscriptionStoreProvider.overrideWithValue(backend.store),
+    subscriptionRepositoryProvider.overrideWithValue(backend.subscriptions),
     // Same wiring as production, with connectivity under the test's control.
     syncManagerProvider.overrideWith((ref) {
       final manager = SyncManager(
         store: ref.watch(transactionLocalStoreProvider),
         repository: ref.watch(transactionRepositoryProvider),
         connectivity: backend.connectivity,
+        usageStore: ref.watch(dailyUsageStoreProvider),
       );
       ref.onDispose(manager.dispose);
       return manager;
