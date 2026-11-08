@@ -11,6 +11,7 @@ void main() {
     'logging income and an expense updates the dashboard and syncs to the cloud',
     ($) async {
       final (backend, user) = await launchSignedIn($);
+      await $('No transactions yet').scrollTo();
       expect($('No transactions yet'), findsOneWidget);
 
       await $.addTransaction(
@@ -146,8 +147,9 @@ void main() {
       await $(find.byTooltip('Delete transaction')).tap();
       await $.dialog.$('Delete').tap();
 
-      await $.expectDashboard();
-      await $('No transactions yet').waitUntilVisible();
+      // Back on Home, still scrolled down to where the entry was.
+      await $('AVAILABLE BALANCE').scrollTo(scrollDirection: AxisDirection.up);
+      await $('No transactions yet').scrollTo();
       await $.eventually(
         () async => (await backend.cloudTransactions(user.uid)).isEmpty,
         reason: 'the delete reaches the cloud',

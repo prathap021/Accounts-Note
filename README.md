@@ -63,9 +63,10 @@ Repository: [github.com/prathap021/Accounts-Note](https://github.com/prathap021/
 - **Offline**: Firestore unlimited local cache; syncs when back online
 - **Design**: one design system in `lib/core/theme/app_theme.dart`: a
   violet lead colour with a spectrum of accents (green income, coral
-  expenses, and each category in its own bright colour), a gradient
-  dashboard header with the balance, colourful stat cards, a dark insight
-  strip, soft-shadowed cards (hairlines in dark mode), pill toggles and
+  expenses, and each category in its own bright colour), a clean, light
+  Home (the balance in large type, Expenses / Income pills, a 7-day
+  spending chart, categories as coloured progress bars), soft-shadowed
+  cards (hairlines in dark mode), pill toggles and
   chips, a floating rounded navigation bar, colour-coded settings, and
   light and dark themes. Type is Figtree, bundled in `assets/fonts/` (SIL
   Open Font License), so the app looks the same offline on first launch

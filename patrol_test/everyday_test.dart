@@ -151,7 +151,7 @@ void main() {
 
     expect(await backend.cloudTransactions(user.uid), isEmpty);
     await $.leaveSettings();
-    await $('No transactions yet').waitUntilExists();
+    await $('No transactions yet').scrollTo();
     // Defaults are back, so a new entry can be added straight away.
     await $.addTransaction(
       type: TransactionType.expense,

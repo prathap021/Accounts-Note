@@ -774,12 +774,16 @@ class AppSliverHeader extends StatelessWidget {
   final List<Widget> actions;
   final Widget? leading;
 
+  /// Defaults to the page canvas.
+  final Color? backgroundColor;
+
   const AppSliverHeader({
     super.key,
     required this.title,
     this.eyebrow,
     this.actions = const [],
     this.leading,
+    this.backgroundColor,
   });
 
   @override
@@ -787,6 +791,7 @@ class AppSliverHeader extends StatelessWidget {
     final theme = Theme.of(context);
     return SliverAppBar(
       floating: true,
+      backgroundColor: backgroundColor,
       toolbarHeight: 80.rh,
       automaticallyImplyLeading: false,
       titleSpacing: AppSpacing.gutter + 2,

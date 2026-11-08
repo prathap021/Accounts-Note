@@ -5,13 +5,16 @@ covers: where each flow starts, what the test does, and what it checks.
 For how to run the suite and how the test harness works, see
 [README.md](README.md).
 
-**Last full run:** 69 of 71 passed, 8 Nov 2026, on the `Pixel` Android emulator
+**Last full run:** 67 of 71 passed, 8 Nov 2026, on the `Pixel` Android emulator
 (Android 7.1.1, API 25), in one app session, in about 9 minutes, after the
-colourful redesign. The two failures (TXN-04, TXN-06) checked the balance
-after scrolling down to a row; the taller dashboard header had scrolled it
-out of view. The tests now scroll back up to it, and `transactions_test.dart`
-passes in full (6 of 6). (`screenshots_test.dart` is reported as skipped: it
-only runs when asked for; see the README.)
+clean, light Home redesign. The four failures were tests looking for
+things the new 7-day chart had moved below the fold ("No transactions
+yet", the balance after a delete) or a category row that could not be
+tapped. The chart now waits for a first entry, rows open Reports, and the
+tests scroll to what they check; `transactions_test.dart` (6/6),
+`everyday_test.dart` and `insights_test.dart` pass in full on rerun.
+(`screenshots_test.dart` is reported as skipped: it only runs when asked
+for; see the README.)
 
 ## How to read this
 
@@ -909,7 +912,7 @@ The fingerprint reader is a fake that answers as the test sets it.
 
 | # | Step | Expected |
 |---|---|---|
-| 1 | Scroll to **Where your money went** | Rent ₹18,000 and the other largest categories, each with its own icon and colour; no "Everything else" row |
+| 1 | Scroll to **Where your money went** | Rent ₹18,000 and the other largest categories, each with its own icon, colour and progress bar; no "Everything else" row |
 | 2 | Tap **Show all 7 categories** | Transport is listed as itself; still no "Everything else" |
 
 ## Bugs these flows found
