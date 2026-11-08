@@ -1,0 +1,123 @@
+name: Release Android
+
+# Builds a signed app bundle and uploads it to Google Play.
+#
+#   • Push a tag like v1.0.1      → tests, then a release on the closed
+#                                   testing track (alpha).
+#   • Actions → Release Android → Run workflow → pick the track and status.
+#
+# Build numbers come from the run number (1000 + run), so every upload has a
+# version code Play has not seen. The version name comes from pubspec.yaml.
+#
+# Secrets (Settings → Secrets and variables → Actions); see README "CI/CD":
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+#   ANDROID_KEY_PASSWORD, ANDROID_KEY_ALIAS,
+#   GOOGLE_SERVICES_JSON_BASE64, FIREBASE_OPTIONS_DART_BASE64,
+#   PLAY_SERVICE_ACCOUNT_JSON
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      track:
+        description: Play track
+        type: choice
+        options: [alpha, internal, beta, production]
+        default: alpha
+      status:
+        description: >-
+          Release status. Use draft while the app has never been published
+          (Play only accepts drafts then), completed to roll out.
+        type: choice
+        options: [completed, draft]
+        default: completed
+
+concurrency:
+  group: release-android
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    uses: ./.github/workflows/tests.yml
+
+  build:
+    name: Build and upload
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: play-store
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build number
+        run: echo "BUILD_NUMBER=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: stable
+          cache: true
+
+      - name: Restore Firebase config and signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+          FIREBASE_OPTIONS_DART_BASE64: ${{ secrets.FIREBASE_OPTIONS_DART_BASE64 }}
+        run: |
+          for v in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_PASSWORD KEY_ALIAS \
+                   GOOGLE_SERVICES_JSON_BASE64 FIREBASE_OPTIONS_DART_BASE64; do
+            if [ -z "${!v}" ]; then echo "::error::Missing secret for $v"; exit 1; fi
+          done
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/upload.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyPassword=$KEY_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+          } > android/key.properties
+          echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > android/app/google-services.json
+          echo "$FIREBASE_OPTIONS_DART_BASE64" | base64 -d > lib/firebase_options.dart
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build app bundle
+        run: flutter build appbundle --release --build-number="$BUILD_NUMBER"
+
+      # Fails the release if it was not signed with the upload key, rather
+      # than letting Play reject a debug-signed bundle.
+      - name: Check signature
+        run: |
+          keytool -printcert -jarfile build/app/outputs/bundle/release/app-release.aab \
+            | grep -q "CN=Accounts Note" \
+            || { echo "::error::Bundle is not signed with the upload key"; exit 1; }
+
+      - name: Keep the bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-${{ env.BUILD_NUMBER }}
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+      - name: Upload to Google Play
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.accountsnote.app
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: ${{ inputs.track || 'alpha' }}
+          status: ${{ inputs.status || 'completed' }}
+          whatsNewDirectory: distribution/whatsnew
+
+      - name: Remove signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.jks" android/key.properties

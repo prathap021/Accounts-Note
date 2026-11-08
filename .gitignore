@@ -87,3 +87,7 @@ skills-lock.json
 # Patrol: generated on every `patrol test` / `patrol develop` run
 patrol_test/test_bundle.dart
 /test_bundle.dart
+
+# Local browser-test output
+playwright-report/
+test-results/

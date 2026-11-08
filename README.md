@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue.svg)](https://flutter.dev)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Tests](https://github.com/prathap021/Accounts-Note/actions/workflows/tests.yml/badge.svg)](https://github.com/prathap021/Accounts-Note/actions/workflows/tests.yml)
 
 **Open-source** personal finance app to track income and expenses. Built with
 **Flutter**, **Riverpod**, and **Cloud Firestore**.
@@ -10,6 +11,19 @@
 Anyone is welcome to use, fork, improve, and contribute.
 
 Repository: [github.com/prathap021/Accounts-Note](https://github.com/prathap021/Accounts-Note)
+
+---
+
+## Screenshots
+
+| Home | Add an entry | Activity |
+|:---:|:---:|:---:|
+| <img src="store/screenshots/01-home.png" width="240" alt="Home: the month's balance, income and spending"> | <img src="store/screenshots/02-add-entry.png" width="240" alt="Adding an income entry"> | <img src="store/screenshots/03-activity.png" width="240" alt="Activity: every entry, searchable"> |
+| **Reports** | **Settings** | **Sign in** |
+| <img src="store/screenshots/04-reports.png" width="240" alt="Reports: spending by category in a donut chart"> | <img src="store/screenshots/05-settings.png" width="240" alt="Profile and settings"> | <img src="store/screenshots/06-sign-in.png" width="240" alt="Sign in with Google or email"> |
+
+Google Play listing assets (icon, feature graphic, phone and tablet
+screenshots) live in [store/](store/).
 
 ---
 
@@ -363,9 +377,14 @@ Back up the `.jks` file and its password somewhere safe (a password
 manager). With Play App Signing, Google holds the real app-signing key and a
 lost upload key can be reset through Play support, but it takes days.
 
-After the first upload, add the SHA-1 and SHA-256 from Play Console → App
-integrity → **App signing key certificate** to the Firebase Android app too,
-or Google sign-in fails for users who install from Play (error 10).
+After the first upload, add the SHA-1 and SHA-256 from Play Console →
+**Protected with Play → Play Store protection → Protect app signing key**
+(the **App signing key certificate**) to the Firebase Android app too, or
+Google sign-in fails for users who install from Play (error 10).
+
+Every upload to Play needs a new build number (the `+N` in `pubspec.yaml`),
+even if an earlier upload was discarded. To put an existing build on another
+track, use **Add from library** instead of uploading it again.
 
 ### 7. Tests
 
@@ -379,6 +398,55 @@ firebase emulators:exec --only firestore --project demo-accounts-note \
 ```
 
 See [patrol_test/README.md](patrol_test/README.md) for the end-to-end suite.
+
+### 8. CI/CD
+
+Three GitHub Actions workflows live in [.github/workflows/](.github/workflows/):
+
+| Workflow | Runs on | What it does |
+|---|---|---|
+| [tests.yml](.github/workflows/tests.yml) | every push to `master` and every pull request | `flutter analyze` and `flutter test`; lints, builds and tests the Cloud Functions and Firestore rules on the Firestore emulator |
+| [release-android.yml](.github/workflows/release-android.yml) | a pushed tag `v*`, or **Run workflow** | runs the tests, builds a signed app bundle and uploads it to Google Play (closed testing by default) |
+| [deploy-firebase.yml](.github/workflows/deploy-firebase.yml) | a push to `master` that touches `functions/`, `firestore.rules`, `firestore.indexes.json` or `hosting/`, or **Run workflow** | runs the tests, then deploys functions, Firestore rules and indexes, and Hosting |
+
+The git-ignored config files are never in the repo: CI uses placeholders
+from [ci/](ci/) for tests, and the release and deploy workflows restore the
+real files from repository secrets.
+
+**Releasing a new Android version**
+
+1. Update `version:` in `pubspec.yaml` (the part before `+`, e.g. `1.0.1`)
+   and the release notes in
+   [distribution/whatsnew/whatsnew-en-US](distribution/whatsnew/whatsnew-en-US).
+2. Commit, then tag and push:
+   ```bash
+   git tag v1.0.1 && git push origin master v1.0.1
+   ```
+3. The workflow uploads to the **closed testing (alpha)** track. For another
+   track, use Actions → **Release Android** → **Run workflow**.
+
+The build number is set by CI (`1000 + run number`), so it always goes up
+and never clashes with a number Play has already seen.
+
+**Secrets** (Settings → Secrets and variables → Actions). Values ending in
+`_BASE64` are the file's contents, base64-encoded (`base64 -w0 <file>`).
+
+| Secret | Used by | Value |
+|---|---|---|
+| `ANDROID_KEYSTORE_BASE64` | release | the upload keystore (`.jks`) |
+| `ANDROID_KEYSTORE_PASSWORD` | release | its store password |
+| `ANDROID_KEY_PASSWORD` | release | its key password |
+| `ANDROID_KEY_ALIAS` | release | its alias (`upload`) |
+| `GOOGLE_SERVICES_JSON_BASE64` | release | `android/app/google-services.json` |
+| `FIREBASE_OPTIONS_DART_BASE64` | release | `lib/firebase_options.dart` |
+| `PLAY_SERVICE_ACCOUNT_JSON` | release | key of a service account invited in Play Console → Users and permissions with **Release apps to testing tracks** (and **Release to production** if you release there) |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | deploy | key of a deployer service account in the Firebase project (roles: Firebase Admin, Cloud Functions Admin, Service Account User, Secret Manager Viewer, Artifact Registry Writer, Cloud Build Editor) |
+| `FIREBASE_JSON_BASE64` | deploy | `firebase.json` |
+| `FUNCTIONS_ENV_BASE64` | deploy | `functions/.env.<project-id>` |
+
+The release and deploy jobs run in the `play-store` and
+`firebase-production` environments; add required reviewers to those in
+Settings → Environments if you want to approve each release by hand.
 
 ---
 

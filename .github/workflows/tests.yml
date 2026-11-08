@@ -6,10 +6,15 @@ on:
   push:
     branches: [master]
   pull_request:
+  workflow_call:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
-    name: Analyze and test
+  app:
+    name: App — analyze and test
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -21,6 +26,11 @@ jobs:
           flutter-version: '3.44.1'
           channel: stable
           cache: true
+
+      # lib/firebase_options.dart is git-ignored; analysis and unit tests
+      # only need something with the same shape.
+      - name: Use placeholder Firebase options
+        run: cp ci/firebase_options.stub.dart lib/firebase_options.dart
 
       - name: Install dependencies
         run: flutter pub get
@@ -42,3 +52,45 @@ jobs:
           name: coverage
           path: coverage/lcov.info
           if-no-files-found: ignore
+
+  backend:
+    name: Functions and Firestore rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            functions/package-lock.json
+            rules_test/package-lock.json
+
+      # The Firestore emulator runs on Java.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install dependencies
+        run: |
+          npm ci --prefix functions
+          npm ci --prefix rules_test
+
+      - name: Lint and build functions
+        run: |
+          npm --prefix functions run lint
+          npm --prefix functions run build
+
+      # firebase.json is git-ignored; the emulator only needs the rules.
+      - name: Emulator config
+        run: cp ci/firebase.emulator.json firebase.json
+
+      - name: Functions and rules tests (Firestore emulator)
+        run: >
+          npx --yes firebase-tools@15.35.0 emulators:exec
+          --only firestore --project demo-accounts-note
+          "node --test functions/test/*.test.mjs && npm --prefix rules_test test"
