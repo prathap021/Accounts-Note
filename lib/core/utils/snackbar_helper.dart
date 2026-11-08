@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import 'app_log.dart';
 
 class SnackbarHelper {
   static void showSuccess(BuildContext context, String message) {
@@ -8,6 +9,8 @@ class SnackbarHelper {
   }
 
   static void showError(BuildContext context, String message) {
+    // What the user was told, next to the underlying error in the log.
+    appLog('Error shown to the user: $message');
     _show(context, message, AppColors.expense, Icons.error_rounded);
   }
 

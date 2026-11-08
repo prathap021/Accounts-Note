@@ -7,6 +7,7 @@ import 'package:in_app_update/in_app_update.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../providers/settings_provider.dart';
+import '../utils/app_log.dart';
 
 /// What to do about an update the store reports.
 enum UpdateDecision {
@@ -188,7 +189,7 @@ class AppUpdateController extends Notifier<AppUpdateState> {
     try {
       await _client.completeFlexibleUpdate();
     } catch (e) {
-      debugPrint('Installing the update failed: $e');
+      appLog('Installing the update failed: $e');
     }
   }
 
@@ -199,7 +200,7 @@ class AppUpdateController extends Notifier<AppUpdateState> {
       info = await _client.checkForUpdate();
     } catch (e) {
       // Not installed from Google Play, or no Play Store on the device.
-      debugPrint('Update check unavailable: $e');
+      appLog('Update check unavailable: $e');
       state = state.copyWith(phase: UpdatePhase.unavailable);
       return;
     }
@@ -259,7 +260,7 @@ class AppUpdateController extends Notifier<AppUpdateState> {
     try {
       return await run();
     } catch (e) {
-      debugPrint('Update failed: $e');
+      appLog('Update failed: $e');
       return AppUpdateResult.inAppUpdateFailed;
     }
   }

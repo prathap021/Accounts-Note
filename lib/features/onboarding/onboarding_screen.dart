@@ -95,7 +95,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           vertical: AppSpacing.lg,
                         ),
                       ),
-                      child: Text(_currentPage == 0 ? 'Next' : 'Get started'),
+                      child: Text(_currentPage == 0 ? 'Next' : 'Acknowledge'),
                     ),
                   ],
                 ),
@@ -162,7 +162,7 @@ class _IntroPage extends StatelessWidget {
             icon: Icons.lock_outline_rounded,
             title: 'No ads, no trackers',
             description:
-                'Your data syncs securely to your own Google account — nothing hidden.',
+                'Your data syncs securely to your account in the cloud',
           ),
         ],
       ),
@@ -259,7 +259,7 @@ class _PrivacyPage extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            'We value your privacy. Your financial data is encrypted and securely stored in your personal Google account.',
+            'We value your privacy. Your financial data is encrypted and securely stored in  account.',
             style: theme.textTheme.bodyLarge?.copyWith(
               color: scheme.onSurfaceVariant,
               height: 1.5,

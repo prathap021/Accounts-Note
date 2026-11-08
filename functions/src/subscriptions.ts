@@ -33,6 +33,7 @@ import {
   AppStoreServerAPIClient,
   Environment,
 } from "@apple/app-store-server-library";
+import {runAs} from "./runtime";
 
 /** Pub/Sub topic that Google Play's real-time notifications publish to. */
 export const PLAY_NOTIFICATIONS_TOPIC = "play-billing-notifications";
@@ -486,7 +487,7 @@ const appleSecrets = {secrets: ["APPLE_IAP_PRIVATE_KEY"]};
  * when a function is first created, so it is declared to hold on every
  * deploy.
  */
-const publicAccess = {invoker: "public" as const};
+const publicAccess = {invoker: "public" as const, ...runAs};
 
 /**
  * Callable. The app sends the store's proof right after a purchase or
@@ -574,7 +575,9 @@ export const refreshSubscription = functions
  * subscription event — renewed, cancelled, on hold, expired, revoked —
  * triggers a fresh read of that purchase.
  */
-export const playBillingNotifications = functions.pubsub
+export const playBillingNotifications = functions
+  .runWith({...runAs})
+  .pubsub
   .topic(PLAY_NOTIFICATIONS_TOPIC)
   .onPublish(async (message) => {
     const payload = message.json ?? {};

@@ -18,6 +18,7 @@ import 'period_provider.dart';
 import 'settings_provider.dart';
 import 'subscription_provider.dart';
 import 'sync_provider.dart';
+import '../core/utils/app_log.dart';
 
 // ------------------------------------------------------------ notifications
 
@@ -193,7 +194,7 @@ class RecurringRunner {
       }
       await scheduleBillReminders(rules: rules);
     } catch (e) {
-      debugPrint('Recurring entries could not be made: $e');
+      appLog('Recurring entries could not be made: $e');
     } finally {
       _running = false;
     }
@@ -307,7 +308,7 @@ class BudgetAlerts {
         }
       }
     } catch (e) {
-      debugPrint('Budget alert check skipped: $e');
+      appLog('Budget alert check skipped: $e');
     }
   }
 }

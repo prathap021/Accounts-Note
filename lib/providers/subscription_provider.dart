@@ -15,6 +15,7 @@ import 'auth_provider.dart';
 import 'profile_provider.dart';
 import 'sync_provider.dart';
 import 'transaction_provider.dart';
+import '../core/utils/app_log.dart';
 
 final subscriptionStoreProvider = Provider<SubscriptionStore>((ref) {
   return InAppPurchaseSubscriptionStore();
@@ -270,7 +271,7 @@ class SubscriptionController extends Notifier<SubscriptionUiState> {
 
     _purchases = _store.purchaseUpdates.listen(
       _onPurchases,
-      onError: (Object e) => debugPrint('Purchase stream error: $e'),
+      onError: (Object e) => appLog('Purchase stream error: $e'),
     );
     ref.onDispose(() => _purchases?.cancel());
 
@@ -309,7 +310,7 @@ class SubscriptionController extends Notifier<SubscriptionUiState> {
       );
       if (available) await _finishUnacknowledged();
     } catch (e) {
-      debugPrint('Store unavailable: $e');
+      appLog('Store unavailable: $e');
       state = state.copyWith(loading: false, storeAvailable: false);
     }
   }
@@ -385,7 +386,7 @@ class SubscriptionController extends Notifier<SubscriptionUiState> {
     try {
       if (state.storeAvailable) await _store.restore(accountUid: uid);
     } catch (e) {
-      debugPrint('Restore failed: $e');
+      appLog('Restore failed: $e');
     }
     // Also re-check what the backend has on file. That covers a reinstall
     // on a device whose store has nothing to re-deliver.
@@ -458,7 +459,7 @@ class SubscriptionController extends Notifier<SubscriptionUiState> {
     try {
       await _store.complete(p);
     } catch (e) {
-      debugPrint('completePurchase failed: $e');
+      appLog('completePurchase failed: $e');
     }
   }
 

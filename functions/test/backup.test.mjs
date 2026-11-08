@@ -140,6 +140,16 @@ describe("backup files", () => {
       /changed or damaged/);
   });
 
+  test("a file from an earlier key is accepted alongside the current one",
+    async () => {
+      await seedAsha();
+      const payload = await backup.readBackup(db, "asha", null, "INR");
+      const old = backup.encodeBackup(payload, "old-project-key-0123456789");
+      assert.throws(() => backup.decodeBackup(old, SECRET), /changed or damaged/);
+      const back = backup.decodeBackup(old, [SECRET, "old-project-key-0123456789"]);
+      assert.equal(back.collections.transactions.length, 3);
+    });
+
   test("a file signed with another key is refused", async () => {
     await seedAsha();
     const content = await exportAsha();

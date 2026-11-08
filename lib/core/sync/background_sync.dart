@@ -13,6 +13,7 @@ import '../../data/local/transaction_local_store.dart';
 import '../../data/repositories/transaction_repository.dart';
 import '../../firebase_options.dart';
 import 'sync_manager.dart';
+import '../utils/app_log.dart';
 
 /// Entry point for the background isolate.
 ///
@@ -81,7 +82,7 @@ class BackgroundSync {
         backoffPolicyDelay: const Duration(minutes: 1),
       );
     } catch (e) {
-      debugPrint('Could not register periodic sync: $e');
+      appLog('Could not register periodic sync: $e');
     }
   }
 
@@ -101,7 +102,7 @@ class BackgroundSync {
         backoffPolicyDelay: const Duration(minutes: 1),
       );
     } catch (e) {
-      debugPrint('Could not schedule catch-up sync: $e');
+      appLog('Could not schedule catch-up sync: $e');
     }
   }
 
@@ -110,7 +111,7 @@ class BackgroundSync {
     try {
       await Workmanager().cancelAll();
     } catch (e) {
-      debugPrint('Could not cancel background sync: $e');
+      appLog('Could not cancel background sync: $e');
     }
   }
 
@@ -156,7 +157,7 @@ class BackgroundSync {
       // Anything still queued means the platform should try again later.
       return store.pendingCount == 0 && store.failedCount == 0;
     } catch (e, st) {
-      debugPrint('Background sync ($taskName) failed: $e\n$st');
+      appLog('Background sync ($taskName) failed: $e\n$st');
       return false;
     } finally {
       await store?.close();

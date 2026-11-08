@@ -81,7 +81,7 @@ class AppLinks {
 
   /// PRIVACY.md in the repository. Also the URL to give in Play Console and
   /// App Store Connect.
-  static const privacyPolicy = '$githubRepo/blob/master/PRIVACY.md';
+  static const privacyPolicy = 'https://accounts-note-4ae3d.web.app/privacy/';
 
   /// Must match `applicationId` in android/app/build.gradle.kts.
   static const androidPackage = 'com.accountsnote.app';

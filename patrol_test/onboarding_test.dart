@@ -16,7 +16,7 @@ void main() {
       await $('Next').tap();
       await $('Privacy first').waitUntilVisible();
 
-      await $('Get started').tap();
+      await $('Acknowledge').tap();
 
       // First run: the currency, from the phone's location if allowed.
       await $('Set your currency').waitUntilVisible();
@@ -65,7 +65,7 @@ void main() {
 
     await $('Privacy first').waitUntilVisible();
     expect(
-      $('Get started'),
+      $('Acknowledge'),
       findsOneWidget,
       reason: 'the last page offers to finish, not to go further',
     );

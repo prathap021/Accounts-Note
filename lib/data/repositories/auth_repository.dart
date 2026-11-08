@@ -5,7 +5,6 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
-import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
@@ -13,6 +12,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/utils/result.dart';
 import '../../models/app_user_model.dart';
 import 'default_categories.dart';
+import '../../core/utils/app_log.dart';
 
 /// Wraps FirebaseAuth + platform-native sign-in SDKs behind one clean API.
 /// The UI/state layer never touches FirebaseAuth or GoogleSignIn directly.
@@ -174,7 +174,7 @@ class AuthRepository {
       _verificationSentForUid = user.uid;
       return true;
     } catch (e) {
-      debugPrint('Could not send verification email to ${user.email}: $e');
+      appLog('Could not send the verification email: $e');
       return false;
     }
   }

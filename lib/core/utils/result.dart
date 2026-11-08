@@ -1,3 +1,5 @@
+import 'app_log.dart';
+
 /// A lightweight Result/Either type so repositories never throw raw
 /// exceptions into the UI layer. Every repository method returns
 /// `Result<T>` and the Notifier decides how to surface `AppFailure`.
@@ -42,7 +44,10 @@ class AppFailure implements Exception {
   /// Repositories put user-facing text in [message]; [fromException] stays generic.
   String get userMessage => message;
 
+  /// A failure nobody planned for. The user sees a generic message; the
+  /// real error is logged (see [appError]) so it can be traced.
   factory AppFailure.fromException(Object e) {
+    appError(e, StackTrace.current, 'AppFailure');
     return AppFailure(
       'Something went wrong. Please try again.',
       code: 'unknown',

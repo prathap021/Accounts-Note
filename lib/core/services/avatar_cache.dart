@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import '../utils/app_log.dart';
 
 /// Downloads the bytes behind an avatar URL, or null if they can't be had.
 typedef AvatarFetcher = Future<Uint8List?> Function(String url);
@@ -76,7 +77,7 @@ class AvatarCache {
       }
       _directory = dir;
     } catch (e) {
-      debugPrint('AvatarCache: no disk cache available ($e)');
+      appLog('AvatarCache: no disk cache available ($e)');
     }
   }
 

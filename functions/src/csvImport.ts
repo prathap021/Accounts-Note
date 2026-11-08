@@ -19,6 +19,7 @@ import {
   FieldValue,
 } from "firebase-admin/firestore";
 import {createHash} from "crypto";
+import {runAs} from "./runtime";
 
 /** Rows importable per calendar month: the plan's monthly total. */
 export const MONTHLY_IMPORT_ROWS: Record<string, number> = {
@@ -261,7 +262,12 @@ export async function importRows(
 
 /** Callable. Imports rows the app read from a CSV file. */
 export const importCsvRows = functions
-  .runWith({invoker: "public", timeoutSeconds: 300, memory: "512MB"})
+  .runWith({
+    ...runAs,
+    invoker: "public",
+    timeoutSeconds: 300,
+    memory: "512MB",
+  })
   .https.onCall(async (data, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError(

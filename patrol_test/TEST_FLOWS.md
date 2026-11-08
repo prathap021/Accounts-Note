@@ -140,7 +140,7 @@ running on Android.
 |---|---|---|
 | 1 | Open the app | "Welcome to Accounts Note" page, listing "Log in seconds" |
 | 2 | Tap **Next** | "Privacy first" page |
-| 3 | Tap **Get started** | "Set your currency", explaining the location stays on the phone |
+| 3 | Tap **Acknowledge** | "Set your currency", explaining the location stays on the phone |
 | 4 | **Use my location**, then allow it in the system dialog _(native)_ | The currency is set from the country ("Currency set to …"), or, where the emulator cannot name its country, "Couldn't find your location" and the region's currency is kept |
 | 5 | Continue | Sign-in screen ("Continue with Email") |
 | 6 | Close the app and open it again | Sign-in screen straight away. The intro is not shown again |
@@ -152,7 +152,7 @@ running on Android.
 
 | # | Step | Expected |
 |---|---|---|
-| 1 | Swipe the first page to the left | "Privacy first" page, offering **Get started** |
+| 1 | Swipe the first page to the left | "Privacy first" page, offering **Acknowledge** |
 
 ## 2. Sign up, sign in and password reset
 

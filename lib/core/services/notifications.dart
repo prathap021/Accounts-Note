@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
+import '../utils/app_log.dart';
 
 /// What a notification opens when tapped.
 abstract final class NotificationAction {
@@ -93,7 +93,7 @@ class LocalNotifications implements AppNotifications {
         final local = await FlutterTimezone.getLocalTimezone();
         tz.setLocalLocation(tz.getLocation(local.identifier));
       } catch (e) {
-        debugPrint('Local time zone unknown, using UTC: $e');
+        appLog('Local time zone unknown, using UTC: $e');
       }
       await _plugin.initialize(
         settings: const InitializationSettings(
@@ -111,7 +111,7 @@ class LocalNotifications implements AppNotifications {
       );
       _ready = true;
     } catch (e) {
-      debugPrint('Notifications unavailable: $e');
+      appLog('Notifications unavailable: $e');
     }
   }
 
@@ -139,7 +139,7 @@ class LocalNotifications implements AppNotifications {
             false;
       }
     } catch (e) {
-      debugPrint('Notification permission request failed: $e');
+      appLog('Notification permission request failed: $e');
     }
     return false;
   }
@@ -176,7 +176,7 @@ class LocalNotifications implements AppNotifications {
         payload: NotificationAction.addExpense,
       );
     } catch (e) {
-      debugPrint('Could not schedule the daily reminder: $e');
+      appLog('Could not schedule the daily reminder: $e');
     }
   }
 
@@ -214,7 +214,7 @@ class LocalNotifications implements AppNotifications {
         );
       }
     } catch (e) {
-      debugPrint('Could not schedule bill reminders: $e');
+      appLog('Could not schedule bill reminders: $e');
     }
   }
 
@@ -238,7 +238,7 @@ class LocalNotifications implements AppNotifications {
         payload: action,
       );
     } catch (e) {
-      debugPrint('Could not show a notification: $e');
+      appLog('Could not show a notification: $e');
     }
   }
 

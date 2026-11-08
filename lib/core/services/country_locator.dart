@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import '../utils/app_log.dart';
 
 /// Where the user is, as a country code ("IN", "DE"), from the phone's
 /// approximate location.
@@ -55,7 +55,7 @@ class DeviceCountryLocator implements CountryLocator {
     } catch (e) {
       // No fix, no geocoder (some devices without Google services), no
       // network for the lookup: fall back to the phone's region.
-      debugPrint('Country from location unavailable: $e');
+      appLog('Country from location unavailable: $e');
       return null;
     }
   }

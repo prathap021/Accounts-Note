@@ -18,6 +18,7 @@ import {
   FieldValue,
 } from "firebase-admin/firestore";
 import {createHmac, timingSafeEqual} from "crypto";
+import {runAs} from "./runtime";
 
 export const BACKUP_FORMAT = "accounts-note-backup";
 export const BACKUP_VERSION = 1;
@@ -138,10 +139,14 @@ export function encodeBackup(payload: BackupPayload, secret: string): string {
 /**
  * Checks a file's format and signature and returns its payload.
  * @param {string} content The file's contents.
- * @param {string} secret The signing key.
+ * @param {string | string[]} secrets The signing key, or every key a file
+ *   may have been signed with (the current one and earlier ones).
  * @return {BackupPayload} The payload.
  */
-export function decodeBackup(content: string, secret: string): BackupPayload {
+export function decodeBackup(
+  content: string,
+  secrets: string | string[],
+): BackupPayload {
   const invalid = (why: string) =>
     new functions.https.HttpsError("invalid-argument", why);
   if (typeof content !== "string" || !content) {
@@ -164,9 +169,14 @@ export function decodeBackup(content: string, secret: string): BackupPayload {
     throw invalid("This backup was made by a newer version of the app. " +
       "Update the app, then try again.");
   }
-  const expected = Buffer.from(sign(file.data, secret), "hex");
   const given = Buffer.from(file.signature, "hex");
-  if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
+  const signedByUs = (Array.isArray(secrets) ? secrets : [secrets])
+    .some((secret) => {
+      const expected = Buffer.from(sign(file.data, secret), "hex");
+      return given.length === expected.length &&
+        timingSafeEqual(given, expected);
+    });
+  if (!signedByUs) {
     throw invalid("This backup file has been changed or damaged, so it " +
       "cannot be imported.");
   }
@@ -397,11 +407,13 @@ export async function applyBackup(
 // -------------------------------------------------------------- functions
 
 const backupOptions = {
+  ...runAs,
   secrets: ["BACKUP_SIGNING_KEY"],
   invoker: "public" as const,
   timeoutSeconds: 300,
   memory: "512MB" as const,
 };
+
 
 /**
  * The signing key.
@@ -414,6 +426,19 @@ function signingKey(): string {
       "failed-precondition", "Backups are not set up on the server yet.");
   }
   return key;
+}
+
+/**
+ * Every key an imported file may be signed with: the current one, then an
+ * earlier one if BACKUP_SIGNING_KEY_PREVIOUS is set (it then also needs
+ * adding to backupOptions.secrets). Old backups can instead be re-signed
+ * with scripts/resign-backup.mjs.
+ * @return {string[]} The keys.
+ */
+function acceptedKeys(): string[] {
+  const previous = process.env.BACKUP_SIGNING_KEY_PREVIOUS;
+  return [signingKey(),
+    ...(previous && previous.length >= 16 ? [previous] : [])];
 }
 
 /** Callable. Returns the signed backup file for the caller's account. */
@@ -449,6 +474,6 @@ export const importBackup = functions
       throw new functions.https.HttpsError(
         "unauthenticated", "Sign in required.");
     }
-    const payload = decodeBackup(data?.content, signingKey());
+    const payload = decodeBackup(data?.content, acceptedKeys());
     return applyBackup(getFirestore(), context.auth.uid, payload);
   });

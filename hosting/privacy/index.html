@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accounts Note – Privacy policy</title>
+<style>
+  :root { --ink:#0f1c20; --muted:#5a6a70; --teal:#0e7c7e; --bg:#f3f6f8; --card:#fff; }
+  @media (prefers-color-scheme: dark) { :root { --ink:#e6eef0; --muted:#9aabb0; --teal:#2dd4bf; --bg:#0a1214; --card:#131f22; } }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:24px 16px 48px; }
+  article { background:var(--card); border-radius:20px; padding:28px 24px; box-shadow:0 8px 24px rgba(15,23,42,.06); }
+  h1 { margin:0 0 4px; font-size:1.8rem; letter-spacing:-.02em; }
+  h2 { margin:28px 0 8px; font-size:1.15rem; color:var(--teal); }
+  p, li { color:var(--ink); } em { color:var(--muted); font-style:normal; font-size:.9rem; }
+  ul { padding-left:1.2rem; } li { margin:6px 0; }
+  a { color:var(--teal); }
+</style>
+</head>
+<body><main><article>
+<h1>Accounts Note privacy policy</h1>
+<p><em>Last updated: 8 November 2026</em></p>
+<p>Accounts Note (&quot;the app&quot;) is a personal income and expense tracker, published by Prathap A. This policy explains what the app stores, where, why, and the choices you have.</p>
+<h2>What the app stores</h2>
+<ul><li><strong>Your account</strong>: your email address, display name and profile photo, from the sign-in you choose (email and password, Google or Apple). Handled by Firebase Authentication.</li><li><strong>Your ledger</strong>: the transactions, categories, budgets, recurring entries, accounts (a name, a type and an opening balance) and transfers between them that you enter. Stored on your phone and in your own area of Google Cloud Firestore, so they sync between your devices. No one else&#x27;s account can read them.</li><li><strong>Credit cards</strong>: a name, a colour, an optional limit and at most the last four digits. The full card number, expiry date and CVV are never asked for or stored.</li><li><strong>Receipt photos</strong>: a photo you choose to attach to an entry, from the camera or gallery, stored with your ledger. The app only opens the camera or gallery when you ask it to.</li><li><strong>Daily entry counts</strong>: how many entries you add each day, to apply your plan&#x27;s limit.</li><li><strong>Your subscription</strong>: the plan you bought and when it renews or ends, as confirmed by Google Play or the App Store. Payment details stay with the store; the app never sees them.</li><li><strong>Settings</strong>: currency, theme, reminders, the month start day and similar preferences, on your phone.</li></ul>
+<h2>Data that stays on your phone</h2>
+<ul><li><strong>Location</strong>: when you first open the app it offers to use your <strong>approximate location once</strong> to choose your currency. It is turned into a country on your phone and then discarded; it is never stored or sent anywhere. You can decline, and the app uses your phone&#x27;s region setting instead.</li><li><strong>App lock</strong>: if you set a PIN, only a salted, one-way hash of it is kept, on your phone. Fingerprint or face unlock is handled entirely by your phone; the app never receives your biometric data.</li><li><strong>Reminders</strong>: daily, bill and budget reminders are scheduled on your phone as local notifications.</li></ul>
+<h2>Files you import or export</h2>
+<ul><li><strong>Backups</strong>: &quot;Back up now&quot; creates a file with your ledger and hands it to you to save or send; where it goes after that is your choice. The file is signed so it cannot be altered, but it is not encrypted, so keep it somewhere private. Importing a backup adds its entries to the account you are signed in to.</li><li><strong>CSV import</strong> and <strong>report exports</strong> (PDF, Excel, CSV) work on files you choose. An imported file&#x27;s rows are sent to the app&#x27;s server only to be added to your ledger; the file itself is not kept.</li></ul>
+<h2>Diagnostics</h2>
+<p>The app uses Firebase Crashlytics to report crashes and Firebase Analytics for anonymous usage statistics. These contain no ledger data.</p>
+<h2>How your data is used and shared</h2>
+<p>Your data is used only to run the app&#x27;s features for you. It is not sold, rented or used for advertising, and the app shows no ads.</p>
+<p>It is processed by these service providers, only to provide the app:</p>
+<ul><li><strong>Google</strong> (Firebase Authentication, Cloud Firestore, Cloud Functions, Crashlytics, Analytics, Google Play) for sign-in, storage, sync, backups, crash reports and purchases.</li><li><strong>Apple</strong> (Sign in with Apple, App Store) for sign-in and purchases on iPhone.</li></ul>
+<p>Data is encrypted in transit (HTTPS) and at rest on Google&#x27;s servers.</p>
+<h2>Keeping and deleting your data</h2>
+<p>Your data is kept while your account exists. Settings → <strong>Clear all data</strong> removes every transaction, category, card, account, budget and receipt from your phone and the cloud at once. To have your account itself deleted, email the address below; it will be deleted with all its data within 30 days.</p>
+<h2>Children</h2>
+<p>The app is not directed at children under 13 and does not knowingly collect data from them.</p>
+<h2>Changes</h2>
+<p>If this policy changes, the new version is posted here with a new &quot;Last updated&quot; date.</p>
+<h2>Contact</h2>
+<p>Prathap A — <a href="mailto:selflearner.dev@gmail.com">selflearner.dev@gmail.com</a></p>
+</article></main></body>
+</html>

@@ -18,8 +18,24 @@ final authStateProvider = StreamProvider<fb.User?>((ref) {
 });
 
 final currentUidProvider = Provider<String?>((ref) {
+  // While signing out, every screen already treats the user as gone, so
+  // their live Firestore listeners close before the sign-in ends. Otherwise
+  // they fail with PERMISSION_DENIED the moment Firebase signs out.
+  if (ref.watch(signingOutProvider)) return null;
   return ref.watch(authStateProvider).asData?.value?.uid;
 });
+
+/// True for the moment between closing the user's data and signing out.
+final signingOutProvider = NotifierProvider<SigningOutNotifier, bool>(
+  SigningOutNotifier.new,
+);
+
+class SigningOutNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
 
 /// Holds transient UI state (loading / error) for auth actions so screens
 /// don't manage their own booleans and can just watch this notifier.
@@ -156,7 +172,16 @@ class AuthActionsNotifier extends Notifier<AsyncValue<void>> {
         final uid = ref.read(currentUidProvider);
         await ref.read(transactionLocalStoreProvider).clear();
         if (uid != null) await ref.read(dailyUsageStoreProvider).clear(uid);
-        await _repo.signOut();
+        // Close every live listener on this user's data first, then sign
+        // out, so none of them is cut off mid-listen.
+        final signingOut = ref.read(signingOutProvider.notifier);
+        signingOut.set(true);
+        try {
+          await Future<void>.delayed(const Duration(milliseconds: 150));
+          await _repo.signOut();
+        } finally {
+          signingOut.set(false);
+        }
         return Result.success(null);
       });
 }

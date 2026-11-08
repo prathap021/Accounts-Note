@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
 
 import 'settings_provider.dart';
+import '../core/utils/app_log.dart';
 
 /// The phone's fingerprint / face unlock, behind an interface for tests.
 abstract class BiometricUnlock {
@@ -35,7 +36,7 @@ class DeviceBiometricUnlock implements BiometricUnlock {
         persistAcrossBackgrounding: true,
       );
     } catch (e) {
-      debugPrint('Biometric unlock failed: $e');
+      appLog('Biometric unlock failed: $e');
       return false;
     }
   }

@@ -151,7 +151,7 @@ void main() {
       expect(s.platform, 'ios');
     });
 
-    test('old Stripe contribution fields no longer mean anything', () {
+    test('an old one-off contribution field never grants a plan', () {
       final s = SubscriptionStatus.fromUserData({
         'hasContributed': true,
         'subscriptionStatus': 'active',

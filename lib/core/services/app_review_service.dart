@@ -1,10 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../providers/settings_provider.dart';
 import '../constants/app_constants.dart';
+import '../utils/app_log.dart';
 
 final appReviewServiceProvider = Provider<AppReviewService>((ref) {
   return AppReviewService(prefs: ref.watch(sharedPreferencesProvider));
@@ -73,7 +73,7 @@ class AppReviewService {
       await review.requestReview();
     } catch (e) {
       // A rating prompt must never get in the way of saving a transaction.
-      debugPrint('Review request skipped: $e');
+      appLog('Review request skipped: $e');
     }
   }
 

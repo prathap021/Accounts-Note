@@ -7,6 +7,7 @@ import '../../data/local/daily_usage_store.dart';
 import '../../data/local/sync_status.dart';
 import '../../data/local/transaction_local_store.dart';
 import '../../data/repositories/transaction_repository.dart';
+import '../utils/app_log.dart';
 
 /// Overall sync state, surfaced to the UI as a status chip.
 enum SyncPhase { idle, syncing, offline, failed }
@@ -196,7 +197,7 @@ class SyncManager {
         firstSyncDone: true,
       );
     } catch (e) {
-      debugPrint('Sync failed: $e');
+      appLog('Sync failed: $e');
       _refreshCounts(phase: SyncPhase.failed, firstSyncDone: true);
     } finally {
       _syncing = false;
@@ -269,7 +270,7 @@ class SyncManager {
     final result = await repository.fetchAllForSync(uid);
     await result.when(
       success: (remote) async => store.reconcileFromCloud(remote),
-      failure: (f) async => debugPrint('Sync pull failed: ${f.userMessage}'),
+      failure: (f) async => appLog('Sync pull failed: ${f.userMessage}'),
     );
   }
 
