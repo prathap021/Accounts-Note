@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/constants/app_constants.dart';
-import 'package:income_expense_tracker/features/reports/reports_screen.dart';
+import 'package:accounts_note/core/constants/app_constants.dart';
+import 'package:accounts_note/features/reports/reports_screen.dart';
 import 'package:patrol/patrol.dart';
 
 import 'support/steps.dart';

@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart' show SetOptions;
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/constants/app_constants.dart';
-import 'package:income_expense_tracker/data/local/sync_status.dart';
-import 'package:income_expense_tracker/models/transaction_model.dart';
+import 'package:accounts_note/core/constants/app_constants.dart';
+import 'package:accounts_note/data/local/sync_status.dart';
+import 'package:accounts_note/models/transaction_model.dart';
 
 import '../../support/fixtures.dart';
 

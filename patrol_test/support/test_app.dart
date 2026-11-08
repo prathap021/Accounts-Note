@@ -6,35 +6,35 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:hive_ce_flutter/hive_flutter.dart';
-import 'package:income_expense_tracker/core/constants/app_constants.dart';
-import 'package:income_expense_tracker/core/services/avatar_cache.dart';
-import 'package:income_expense_tracker/core/sync/sync_manager.dart';
-import 'package:income_expense_tracker/data/repositories/account_repository.dart';
-import 'package:income_expense_tracker/data/repositories/auth_repository.dart';
-import 'package:income_expense_tracker/data/repositories/csv_import_repository.dart';
-import 'package:income_expense_tracker/data/repositories/receipt_repository.dart';
-import 'package:income_expense_tracker/data/repositories/backup_repository.dart';
-import 'package:income_expense_tracker/data/repositories/budget_repository.dart';
-import 'package:income_expense_tracker/data/repositories/data_reset_repository.dart';
-import 'package:income_expense_tracker/data/repositories/recurring_repository.dart';
-import 'package:income_expense_tracker/core/services/notifications.dart';
-import 'package:income_expense_tracker/data/repositories/category_repository.dart';
-import 'package:income_expense_tracker/data/repositories/profile_repository.dart';
-import 'package:income_expense_tracker/data/repositories/credit_card_repository.dart';
-import 'package:income_expense_tracker/data/repositories/transaction_repository.dart';
-import 'package:income_expense_tracker/main.dart';
-import 'package:income_expense_tracker/models/transaction_model.dart';
-import 'package:income_expense_tracker/providers/account_provider.dart';
-import 'package:income_expense_tracker/providers/app_lock_provider.dart';
-import 'package:income_expense_tracker/providers/auth_provider.dart';
-import 'package:income_expense_tracker/providers/budget_provider.dart';
-import 'package:income_expense_tracker/providers/category_provider.dart';
-import 'package:income_expense_tracker/providers/profile_provider.dart';
-import 'package:income_expense_tracker/providers/credit_card_provider.dart';
-import 'package:income_expense_tracker/providers/settings_provider.dart';
-import 'package:income_expense_tracker/providers/subscription_provider.dart';
-import 'package:income_expense_tracker/providers/sync_provider.dart';
-import 'package:income_expense_tracker/providers/transaction_provider.dart';
+import 'package:accounts_note/core/constants/app_constants.dart';
+import 'package:accounts_note/core/services/avatar_cache.dart';
+import 'package:accounts_note/core/sync/sync_manager.dart';
+import 'package:accounts_note/data/repositories/account_repository.dart';
+import 'package:accounts_note/data/repositories/auth_repository.dart';
+import 'package:accounts_note/data/repositories/csv_import_repository.dart';
+import 'package:accounts_note/data/repositories/receipt_repository.dart';
+import 'package:accounts_note/data/repositories/backup_repository.dart';
+import 'package:accounts_note/data/repositories/budget_repository.dart';
+import 'package:accounts_note/data/repositories/data_reset_repository.dart';
+import 'package:accounts_note/data/repositories/recurring_repository.dart';
+import 'package:accounts_note/core/services/notifications.dart';
+import 'package:accounts_note/data/repositories/category_repository.dart';
+import 'package:accounts_note/data/repositories/profile_repository.dart';
+import 'package:accounts_note/data/repositories/credit_card_repository.dart';
+import 'package:accounts_note/data/repositories/transaction_repository.dart';
+import 'package:accounts_note/main.dart';
+import 'package:accounts_note/models/transaction_model.dart';
+import 'package:accounts_note/providers/account_provider.dart';
+import 'package:accounts_note/providers/app_lock_provider.dart';
+import 'package:accounts_note/providers/auth_provider.dart';
+import 'package:accounts_note/providers/budget_provider.dart';
+import 'package:accounts_note/providers/category_provider.dart';
+import 'package:accounts_note/providers/profile_provider.dart';
+import 'package:accounts_note/providers/credit_card_provider.dart';
+import 'package:accounts_note/providers/settings_provider.dart';
+import 'package:accounts_note/providers/subscription_provider.dart';
+import 'package:accounts_note/providers/sync_provider.dart';
+import 'package:accounts_note/providers/transaction_provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:patrol/patrol.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -158,7 +158,7 @@ Future<void> _pumpApp(
   await $.pumpWidget(
     ProviderScope(
       overrides: appOverrides(backend, prefs),
-      child: const IncomeExpenseTrackerApp(),
+      child: const AccountsNoteApp(),
     ),
   );
   await $.pumpAndTrySettle();

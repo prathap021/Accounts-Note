@@ -6,15 +6,15 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/sync/sync_manager.dart';
-import 'package:income_expense_tracker/core/utils/result.dart';
-import 'package:income_expense_tracker/data/local/transaction_local_store.dart';
-import 'package:income_expense_tracker/data/repositories/backup_repository.dart';
-import 'package:income_expense_tracker/data/repositories/transaction_repository.dart';
-import 'package:income_expense_tracker/features/settings/backup_flow.dart';
-import 'package:income_expense_tracker/providers/auth_provider.dart';
-import 'package:income_expense_tracker/providers/settings_provider.dart';
-import 'package:income_expense_tracker/providers/sync_provider.dart';
+import 'package:accounts_note/core/sync/sync_manager.dart';
+import 'package:accounts_note/core/utils/result.dart';
+import 'package:accounts_note/data/local/transaction_local_store.dart';
+import 'package:accounts_note/data/repositories/backup_repository.dart';
+import 'package:accounts_note/data/repositories/transaction_repository.dart';
+import 'package:accounts_note/features/settings/backup_flow.dart';
+import 'package:accounts_note/providers/auth_provider.dart';
+import 'package:accounts_note/providers/settings_provider.dart';
+import 'package:accounts_note/providers/sync_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// A backup file as the server writes it (the signature is the server's

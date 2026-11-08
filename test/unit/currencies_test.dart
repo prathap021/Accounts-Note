@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/constants/currencies.dart';
-import 'package:income_expense_tracker/core/utils/currency_formatter.dart';
-import 'package:income_expense_tracker/models/subscription_plan.dart';
-import 'package:income_expense_tracker/providers/settings_provider.dart';
+import 'package:accounts_note/core/constants/currencies.dart';
+import 'package:accounts_note/core/utils/currency_formatter.dart';
+import 'package:accounts_note/models/subscription_plan.dart';
+import 'package:accounts_note/providers/settings_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

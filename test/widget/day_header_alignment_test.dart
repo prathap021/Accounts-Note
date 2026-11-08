@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/theme/app_theme.dart';
-import 'package:income_expense_tracker/core/utils/currency_formatter.dart';
+import 'package:accounts_note/core/theme/app_theme.dart';
+import 'package:accounts_note/core/utils/currency_formatter.dart';
 
 /// Regression guard for the Activity day header.
 ///

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/widgets/double_back_to_exit.dart';
+import 'package:accounts_note/widgets/double_back_to_exit.dart';
 
 /// Back at the app's root is the one gesture that can throw away what the
 /// user was doing, so the rules are pinned here: never leave from a tab, and

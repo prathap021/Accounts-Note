@@ -44,6 +44,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
     projectId: 'YOUR_PROJECT_ID',
     storageBucket: 'YOUR_STORAGE_BUCKET',
-    iosBundleId: 'com.example.incomeExpenseTracker',
+    iosBundleId: 'com.accountsnote.app',
   );
 }

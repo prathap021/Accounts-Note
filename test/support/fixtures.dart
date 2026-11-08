@@ -2,12 +2,12 @@ import 'dart:io';
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:hive_ce/hive.dart';
-import 'package:income_expense_tracker/core/constants/app_constants.dart';
-import 'package:income_expense_tracker/data/local/transaction_local_store.dart';
-import 'package:income_expense_tracker/models/budget_model.dart';
-import 'package:income_expense_tracker/models/category_model.dart';
-import 'package:income_expense_tracker/models/credit_card_model.dart';
-import 'package:income_expense_tracker/models/transaction_model.dart';
+import 'package:accounts_note/core/constants/app_constants.dart';
+import 'package:accounts_note/data/local/transaction_local_store.dart';
+import 'package:accounts_note/models/budget_model.dart';
+import 'package:accounts_note/models/category_model.dart';
+import 'package:accounts_note/models/credit_card_model.dart';
+import 'package:accounts_note/models/transaction_model.dart';
 
 /// Shared builders and harnesses for the test suite.
 ///

@@ -61,9 +61,9 @@ Repository: [github.com/prathap021/Accounts-Note](https://github.com/prathap021/
   its entries), a trend chart, and export as PDF, Excel or CSV
 - **Security**: per-user Firestore rules — users only access their own data
 - **Offline**: Firestore unlimited local cache; syncs when back online
-- **Design**: one design system in `lib/core/theme/app_theme.dart`: a
-  violet lead colour with a spectrum of accents (green income, coral
-  expenses, and each category in its own bright colour), a clean, light
+- **Design**: one design system in `lib/core/theme/app_theme.dart`: the
+  logo's teal as the theme colour, with accents for meaning (green income,
+  coral expenses, and each category in its own bright colour), a clean, light
   Home (the balance in large type, Expenses / Income pills, a 7-day
   spending chart, categories as coloured progress bars), soft-shadowed
   cards (hairlines in dark mode), pill toggles and
@@ -239,7 +239,7 @@ accounts in INR, dollars otherwise.
 # functions/.env
 APPLE_IAP_KEY_ID=XXXXXXXXXX
 APPLE_IAP_ISSUER_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-APPLE_BUNDLE_ID=com.example.incomeExpenseTracker
+APPLE_BUNDLE_ID=com.accountsnote.app
 ```
 
 ```bash
@@ -339,7 +339,33 @@ flutter build apk --release
 flutter build appbundle --release
 ```
 
-Configure your own signing keystore for Play Store releases.
+#### Release signing
+
+Release builds are signed with an **upload key** whose details live in
+`android/key.properties` (git-ignored, never committed):
+
+```properties
+storePassword=…
+keyPassword=…
+keyAlias=upload
+storeFile=/absolute/path/to/accounts-note-upload.jks
+```
+
+`android/app/build.gradle.kts` reads that file; without it, release builds
+fall back to the debug key so they still run locally. To make a key:
+
+```bash
+keytool -genkeypair -v -keystore ~/keystores/accounts-note-upload.jks \
+  -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+```
+
+Back up the `.jks` file and its password somewhere safe (a password
+manager). With Play App Signing, Google holds the real app-signing key and a
+lost upload key can be reset through Play support, but it takes days.
+
+After the first upload, add the SHA-1 and SHA-256 from Play Console → App
+integrity → **App signing key certificate** to the Firebase Android app too,
+or Google sign-in fails for users who install from Play (error 10).
 
 ### 7. Tests
 

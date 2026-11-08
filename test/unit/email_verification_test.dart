@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/data/repositories/auth_repository.dart';
+import 'package:accounts_note/data/repositories/auth_repository.dart';
 
 /// Who gets gated behind email verification.
 ///

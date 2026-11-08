@@ -847,7 +847,7 @@ class _WeekSpendingState extends ConsumerState<_WeekSpending> {
                                       begin: Alignment.topCenter,
                                       end: Alignment.bottomCenter,
                                       colors: [
-                                        Color(0xFF8E72FF),
+                                        Color(0xFF2BB3B5),
                                         AppColors.primary,
                                       ],
                                     )

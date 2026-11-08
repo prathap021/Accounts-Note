@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/constants/app_constants.dart';
-import 'package:income_expense_tracker/core/theme/app_theme.dart';
+import 'package:accounts_note/core/constants/app_constants.dart';
+import 'package:accounts_note/core/theme/app_theme.dart';
 import 'package:patrol/patrol.dart';
 
 import 'support/steps.dart';

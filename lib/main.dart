@@ -111,7 +111,7 @@ Future<void> main() async {
         overrides: [
           sharedPreferencesProvider.overrideWithValue(prefs),
         ],
-        child: const IncomeExpenseTrackerApp(),
+        child: const AccountsNoteApp(),
       ),
     );
   }, (error, stack) {
@@ -123,8 +123,8 @@ Future<void> main() async {
   });
 }
 
-class IncomeExpenseTrackerApp extends ConsumerWidget {
-  const IncomeExpenseTrackerApp({super.key});
+class AccountsNoteApp extends ConsumerWidget {
+  const AccountsNoteApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

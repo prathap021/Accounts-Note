@@ -1,4 +1,4 @@
-name: income_expense_tracker
+name: accounts_note
 description: Open-source Income & Expense Tracker built with Flutter, Riverpod, and Firestore.
 publish_to: 'none'
 version: 1.0.0+1
@@ -108,9 +108,9 @@ patrol:
   app_name: Accounts Note
   test_directory: patrol_test
   android:
-    package_name: com.example.income_expense_tracker
+    package_name: com.accountsnote.app
   ios:
-    bundle_id: com.example.incomeExpenseTracker
+    bundle_id: com.accountsnote.app
 
 flutter:
   uses-material-design: true

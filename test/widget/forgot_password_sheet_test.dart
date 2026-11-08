@@ -3,10 +3,10 @@ import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/theme/app_theme.dart';
-import 'package:income_expense_tracker/data/repositories/auth_repository.dart';
-import 'package:income_expense_tracker/features/auth/forgot_password_sheet.dart';
-import 'package:income_expense_tracker/providers/auth_provider.dart';
+import 'package:accounts_note/core/theme/app_theme.dart';
+import 'package:accounts_note/data/repositories/auth_repository.dart';
+import 'package:accounts_note/features/auth/forgot_password_sheet.dart';
+import 'package:accounts_note/providers/auth_provider.dart';
 
 /// The reset sheet is the only route back in for someone locked out, so its
 /// validation and confirmation are worth pinning.

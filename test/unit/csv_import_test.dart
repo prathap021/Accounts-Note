@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/constants/app_constants.dart';
-import 'package:income_expense_tracker/data/repositories/csv_import_repository.dart';
+import 'package:accounts_note/core/constants/app_constants.dart';
+import 'package:accounts_note/data/repositories/csv_import_repository.dart';
 
 void main() {
   group('reading CSV files', () {

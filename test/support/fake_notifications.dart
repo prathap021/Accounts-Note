@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart' show TimeOfDay;
-import 'package:income_expense_tracker/core/services/notifications.dart';
-import 'package:income_expense_tracker/providers/app_lock_provider.dart';
+import 'package:accounts_note/core/services/notifications.dart';
+import 'package:accounts_note/providers/app_lock_provider.dart';
 
 /// Records what would be shown or scheduled. Shared by test/ and the Patrol
 /// suite, where the real plugin would pop system UI.

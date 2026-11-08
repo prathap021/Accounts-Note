@@ -4,10 +4,10 @@ import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/theme/app_theme.dart';
-import 'package:income_expense_tracker/data/repositories/auth_repository.dart';
-import 'package:income_expense_tracker/features/auth/verify_email_screen.dart';
-import 'package:income_expense_tracker/providers/auth_provider.dart';
+import 'package:accounts_note/core/theme/app_theme.dart';
+import 'package:accounts_note/data/repositories/auth_repository.dart';
+import 'package:accounts_note/features/auth/verify_email_screen.dart';
+import 'package:accounts_note/providers/auth_provider.dart';
 
 /// The gate an email/password account sits behind until they confirm. It must
 /// say which address to look for, offer a resend without letting the user

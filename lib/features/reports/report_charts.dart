@@ -57,51 +57,16 @@ class CategoryBreakdownCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final total = totals.fold<double>(0, (s, c) => s + c.amount);
 
     return AppCard(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
       child: Column(
         children: [
           if (showChart)
-            SizedBox(
-              height: 170,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  PieChart(
-                    PieChartData(
-                      sectionsSpace: 2,
-                      centerSpaceRadius: 52,
-                      startDegreeOffset: -90,
-                      sections: [
-                        for (var i = 0; i < totals.length; i++)
-                          PieChartSectionData(
-                            value: totals[i].amount,
-                            color: _colorAt(i),
-                            radius: 24,
-                            showTitle: false,
-                          ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(
-                    width: 100,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        CurrencyFormatter.formatCompact(
-                          total,
-                          currencyCode: currency,
-                        ),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            _ExpenseDonut(
+              totals: totals,
+              colors: [for (var i = 0; i < totals.length; i++) _colorAt(i)],
+              currency: currency,
             ),
           for (var i = 0; i < totals.length; i++)
             InkWell(
@@ -176,6 +141,160 @@ class CategoryBreakdownCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A thick donut of the categories with rounded, spaced segments and the
+/// total in the middle. Tapping a segment pops it out and shows its share.
+class _ExpenseDonut extends StatefulWidget {
+  const _ExpenseDonut({
+    required this.totals,
+    required this.colors,
+    required this.currency,
+  });
+
+  final List<CategoryTotal> totals;
+  final List<Color> colors;
+  final String currency;
+
+  @override
+  State<_ExpenseDonut> createState() => _ExpenseDonutState();
+}
+
+class _ExpenseDonutState extends State<_ExpenseDonut> {
+  int? _touched;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final totals = widget.totals;
+    final total = totals.fold<double>(0, (s, c) => s + c.amount);
+    final touched = _touched != null && _touched! < totals.length
+        ? _touched
+        : null;
+
+    // "₹27,488" large, ".00" lighter.
+    final formatted = CurrencyFormatter.format(
+      total,
+      currencyCode: widget.currency,
+    );
+    final dot = formatted.lastIndexOf('.');
+    final whole = dot < 0 ? formatted : formatted.substring(0, dot);
+    final fraction = dot < 0 ? '' : formatted.substring(dot);
+
+    return SizedBox(
+      key: const Key('report-donut'),
+      height: 250,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          PieChart(
+            PieChartData(
+              sectionsSpace: totals.length == 1 ? 0 : 5,
+              centerSpaceRadius: 72,
+              startDegreeOffset: -90,
+              pieTouchData: PieTouchData(
+                touchCallback: (event, response) {
+                  if (event is! FlTapUpEvent) return;
+                  final i = response?.touchedSection?.touchedSectionIndex;
+                  setState(
+                    () => _touched = (i == null || i < 0 || i == _touched)
+                        ? null
+                        : i,
+                  );
+                },
+              ),
+              sections: [
+                for (var i = 0; i < totals.length; i++)
+                  PieChartSectionData(
+                    value: totals[i].amount,
+                    color: widget.colors[i],
+                    radius: i == touched ? 40 : 32,
+                    cornerRadius: 10,
+                    showTitle: false,
+                    badgeWidget: i == touched
+                        ? _ShareBadge(share: totals[i].share)
+                        : null,
+                    badgePositionPercentageOffset: 1.08,
+                  ),
+              ],
+            ),
+            duration: const Duration(milliseconds: 250),
+          ),
+          IgnorePointer(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  touched == null ? 'Total expenses' : totals[touched].name,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: 128,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: touched != null
+                        ? Text(
+                            CurrencyFormatter.format(
+                              totals[touched].amount,
+                              currencyCode: widget.currency,
+                            ),
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          )
+                        : Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(text: whole),
+                                TextSpan(
+                                  text: fraction,
+                                  style: TextStyle(
+                                    color: scheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The dark "31%" bubble on a tapped segment.
+class _ShareBadge extends StatelessWidget {
+  const _ShareBadge({required this.share});
+
+  final double share;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: AppColors.ink,
+      borderRadius: BorderRadius.circular(AppRadii.pill),
+    ),
+    child: Text(
+      '${(share * 100).round()}%',
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+        color: Colors.white,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+  );
 }
 
 /// Income and spending per day, week or month across the period.

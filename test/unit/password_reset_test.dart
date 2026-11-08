@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/data/repositories/auth_repository.dart';
+import 'package:accounts_note/data/repositories/auth_repository.dart';
 
 /// Wording shown when a password-reset request fails.
 ///

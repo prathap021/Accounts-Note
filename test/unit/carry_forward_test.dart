@@ -1,10 +1,10 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/constants/app_constants.dart';
-import 'package:income_expense_tracker/core/sync/sync_manager.dart';
-import 'package:income_expense_tracker/data/repositories/offline_transaction_repository.dart';
-import 'package:income_expense_tracker/data/repositories/transaction_repository.dart';
-import 'package:income_expense_tracker/providers/dashboard_provider.dart';
+import 'package:accounts_note/core/constants/app_constants.dart';
+import 'package:accounts_note/core/sync/sync_manager.dart';
+import 'package:accounts_note/data/repositories/offline_transaction_repository.dart';
+import 'package:accounts_note/data/repositories/transaction_repository.dart';
+import 'package:accounts_note/providers/dashboard_provider.dart';
 
 import '../support/fixtures.dart';
 

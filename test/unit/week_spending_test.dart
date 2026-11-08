@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/constants/app_constants.dart';
-import 'package:income_expense_tracker/data/local/sync_status.dart';
-import 'package:income_expense_tracker/features/dashboard/dashboard_screen.dart';
-import 'package:income_expense_tracker/models/transaction_model.dart';
+import 'package:accounts_note/core/constants/app_constants.dart';
+import 'package:accounts_note/data/local/sync_status.dart';
+import 'package:accounts_note/features/dashboard/dashboard_screen.dart';
+import 'package:accounts_note/models/transaction_model.dart';
 
 /// The dashboard's "Last 7 days" bars.
 void main() {

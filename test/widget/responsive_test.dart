@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/theme/responsive.dart';
+import 'package:accounts_note/core/theme/responsive.dart';
 
 /// Proportional sizing must scale on real devices *and* degrade to raw values
 /// when ScreenUtil was never initialized — otherwise every widget test, and

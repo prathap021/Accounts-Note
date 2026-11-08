@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/services/country_locator.dart';
-import 'package:income_expense_tracker/features/onboarding/currency_setup_dialog.dart';
-import 'package:income_expense_tracker/providers/settings_provider.dart';
+import 'package:accounts_note/core/services/country_locator.dart';
+import 'package:accounts_note/features/onboarding/currency_setup_dialog.dart';
+import 'package:accounts_note/providers/settings_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeLocator implements CountryLocator {

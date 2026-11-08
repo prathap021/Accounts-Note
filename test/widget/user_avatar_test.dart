@@ -4,9 +4,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/services/avatar_cache.dart';
-import 'package:income_expense_tracker/core/theme/app_theme.dart';
-import 'package:income_expense_tracker/widgets/user_avatar.dart';
+import 'package:accounts_note/core/services/avatar_cache.dart';
+import 'package:accounts_note/core/theme/app_theme.dart';
+import 'package:accounts_note/widgets/user_avatar.dart';
 
 /// A real 1x1 PNG, so nothing here depends on bytes that would fail to decode.
 final kPngBytes = Uint8List.fromList(base64Decode(

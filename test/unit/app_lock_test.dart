@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/features/lock/lock_screen.dart';
-import 'package:income_expense_tracker/providers/app_lock_provider.dart';
-import 'package:income_expense_tracker/providers/auth_provider.dart';
-import 'package:income_expense_tracker/providers/settings_provider.dart';
+import 'package:accounts_note/features/lock/lock_screen.dart';
+import 'package:accounts_note/providers/app_lock_provider.dart';
+import 'package:accounts_note/providers/auth_provider.dart';
+import 'package:accounts_note/providers/settings_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/fake_notifications.dart';

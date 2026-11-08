@@ -1,10 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/constants/app_constants.dart';
-import 'package:income_expense_tracker/core/services/notifications.dart';
-import 'package:income_expense_tracker/core/utils/money_month.dart';
-import 'package:income_expense_tracker/models/recurring_rule.dart';
+import 'package:accounts_note/core/constants/app_constants.dart';
+import 'package:accounts_note/core/services/notifications.dart';
+import 'package:accounts_note/core/utils/money_month.dart';
+import 'package:accounts_note/models/recurring_rule.dart';
 import 'package:patrol/patrol.dart';
 
 import 'support/steps.dart';

@@ -3,12 +3,12 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart' as cf;
-import 'package:income_expense_tracker/core/constants/app_constants.dart';
-import 'package:income_expense_tracker/core/utils/result.dart';
-import 'package:income_expense_tracker/data/repositories/backup_repository.dart';
-import 'package:income_expense_tracker/data/repositories/subscription_repository.dart';
-import 'package:income_expense_tracker/data/subscriptions/subscription_store.dart';
-import 'package:income_expense_tracker/models/subscription_plan.dart';
+import 'package:accounts_note/core/constants/app_constants.dart';
+import 'package:accounts_note/core/utils/result.dart';
+import 'package:accounts_note/data/repositories/backup_repository.dart';
+import 'package:accounts_note/data/repositories/subscription_repository.dart';
+import 'package:accounts_note/data/subscriptions/subscription_store.dart';
+import 'package:accounts_note/models/subscription_plan.dart';
 
 /// Shared by the widget tests (test/) and the Patrol suite (patrol_test/).
 

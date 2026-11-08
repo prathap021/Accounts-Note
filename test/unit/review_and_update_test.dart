@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_update/in_app_update.dart';
-import 'package:income_expense_tracker/core/services/app_review_service.dart';
-import 'package:income_expense_tracker/core/services/app_update_service.dart';
-import 'package:income_expense_tracker/providers/settings_provider.dart';
+import 'package:accounts_note/core/services/app_review_service.dart';
+import 'package:accounts_note/core/services/app_update_service.dart';
+import 'package:accounts_note/providers/settings_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 AppUpdateInfo info({
@@ -23,7 +23,7 @@ AppUpdateInfo info({
   flexibleAllowedPreconditions: null,
   availableVersionCode: 42,
   installStatus: status,
-  packageName: 'com.example.income_expense_tracker',
+  packageName: 'com.accountsnote.app',
   clientVersionStalenessDays: staleDays,
   updatePriority: priority,
 );

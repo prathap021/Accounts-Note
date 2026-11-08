@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/sync/sync_manager.dart';
-import 'package:income_expense_tracker/data/local/sync_status.dart';
+import 'package:accounts_note/core/sync/sync_manager.dart';
+import 'package:accounts_note/data/local/sync_status.dart';
 
 /// The one-word status the user sees. Getting this wrong tells people their
 /// data is safe when it is not, so every phase is pinned.

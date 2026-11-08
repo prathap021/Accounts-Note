@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/utils/currency_formatter.dart';
+import 'package:accounts_note/core/utils/currency_formatter.dart';
 
 /// Money formatting is shown on nearly every screen, so a regression here is
 /// both highly visible and easy to introduce.

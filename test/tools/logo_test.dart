@@ -3,7 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/widgets/app_logo.dart';
+import 'package:accounts_note/widgets/app_logo.dart';
 
 /// Regenerates assets/branding/app_icon_generated.png from [AppLogo].
 ///

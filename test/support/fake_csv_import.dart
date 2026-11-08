@@ -3,9 +3,9 @@ import 'dart:typed_data';
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:income_expense_tracker/core/utils/result.dart';
-import 'package:income_expense_tracker/data/repositories/csv_import_repository.dart';
-import 'package:income_expense_tracker/data/repositories/receipt_repository.dart';
+import 'package:accounts_note/core/utils/result.dart';
+import 'package:accounts_note/data/repositories/csv_import_repository.dart';
+import 'package:accounts_note/data/repositories/receipt_repository.dart';
 
 /// The CSV import function, writing straight into the fake Firestore: rows
 /// become entries in the matching category (by name and type), or in a new

@@ -6,18 +6,18 @@
     "configurations": [
     
         {
-            "name": "income_expense_tracker",
+            "name": "Accounts Note",
             "request": "launch",
             "type": "dart"
         },
         {
-            "name": "income_expense_tracker (profile mode)",
+            "name": "Accounts Note (profile mode)",
             "request": "launch",
             "type": "dart",
             "flutterMode": "profile"
         },
         {
-            "name": "income_expense_tracker (release mode)",
+            "name": "Accounts Note (release mode)",
             "request": "launch",
             "type": "dart",
             "flutterMode": "release"

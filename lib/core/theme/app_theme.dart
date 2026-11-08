@@ -4,25 +4,25 @@ import 'package:flutter/services.dart';
 
 import 'responsive.dart';
 
-/// Accounts Note visual language: a vivid violet lead colour with a
-/// spectrum of friendly accents (orange, green, blue, pink, amber, teal) for
-/// stats, categories and icons; airy neutral surfaces; soft shadows rather
-/// than outlines; generous rounding; and one typeface (Figtree, bundled in
-/// assets/fonts).
+/// Accounts Note visual language: the logo's teal as the one theme colour
+/// (buttons, selection, highlights, charts), friendly accents for stats and
+/// categories (green income, coral expenses, each category its own colour),
+/// airy neutral surfaces, soft shadows rather than outlines, generous
+/// rounding, and one typeface (Figtree, bundled in assets/fonts).
 class AppColors {
-  /// The logo and splash teal. Also one of the accent colours, so the logo
-  /// belongs to the palette.
+  /// The logo and splash teal.
   static const brand = Color(0xFF279698);
   static const brandDeep = Color(0xFF0B5F61);
   static const brandSoft = Color(0xFFD5F5F6);
 
-  /// The interactive colour: buttons, links, selection. White text on it,
-  /// and it on white, pass WCAG AA (about 5.9:1).
-  static const primary = Color(0xFF6246EA);
-  static const primaryDeep = Color(0xFF4630C9);
+  /// The theme colour: buttons, links, selection, highlights. The logo's
+  /// teal, a shade deeper so white text on it, and it on white, pass WCAG
+  /// AA (about 5:1).
+  static const primary = Color(0xFF0E7C7E);
+  static const primaryDeep = Color(0xFF0B5F61);
 
-  /// The primary for dark surfaces (dark mode, the loading panel).
-  static const primaryLight = Color(0xFFA99BFF);
+  /// The theme colour on dark surfaces (dark mode, the loading panel).
+  static const primaryLight = Color(0xFF2DD4BF);
 
   // Accents.
   static const coral = Color(0xFFFF7A45);
@@ -36,41 +36,40 @@ class AppColors {
   static const expense = Color(0xFFE11D48);
   static const warning = Color(0xFFD97706);
   static const mist = Color(0xFFF0FDFA);
-  static const ink = Color(0xFF14122B);
+  static const ink = Color(0xFF0F172A);
   static const muted = Color(0xFF64748B);
 
   /// App canvas behind cards: a faintly cool grey, so white cards lift off
   /// it.
-  static const canvasLight = Color(0xFFF4F5FA);
-  static const canvasDark = Color(0xFF0D0C1A);
+  static const canvasLight = Color(0xFFF3F6F8);
+  static const canvasDark = Color(0xFF0A1214);
 
-  /// The dashboard header and other hero surfaces: violet into indigo-blue.
-  /// White small text passes AA on its lightest corner.
+  /// Hero surfaces (the balance card): the logo's teal, deepening.
   static const heroGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF7558FA), Color(0xFF5B45E8), Color(0xFF3B48D6)],
-    stops: [0, 0.5, 1],
+    colors: [Color(0xFF169A9C), Color(0xFF0E7577), Color(0xFF094B4D)],
+    stops: [0, 0.55, 1],
   );
 
   static const heroGradientDark = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF4B36C4), Color(0xFF3A2C9E), Color(0xFF26307F)],
-    stops: [0, 0.5, 1],
+    colors: [Color(0xFF0F6E70), Color(0xFF0B5254), Color(0xFF083A3C)],
+    stops: [0, 0.55, 1],
   );
 
   /// Friendly tints for icon tiles (settings rows and the like), picked by
   /// name so each row keeps its colour.
   static const tilePalette = [
-    Color(0xFF6246EA), // violet
+    Color(0xFF0E7C7E), // teal
     Color(0xFF2563EB), // blue
     Color(0xFFEA580C), // orange
     Color(0xFF059669), // emerald
     Color(0xFFDB2777), // pink
     Color(0xFF0284C7), // sky
     Color(0xFFD97706), // amber
-    Color(0xFF0D9488), // teal
+    Color(0xFF4F46E5), // indigo
   ];
 
   static Color tileColorFor(String key) =>
@@ -135,7 +134,7 @@ class AppTheme {
 
   static ThemeData light() {
     final base = ColorScheme.fromSeed(
-      seedColor: AppColors.primary,
+      seedColor: AppColors.brand,
       brightness: Brightness.light,
       primary: AppColors.primary,
       onPrimary: Colors.white,
@@ -146,17 +145,17 @@ class AppTheme {
 
     return _base(
       scheme: base.copyWith(
-        primaryContainer: const Color(0xFFE7E2FF),
-        onPrimaryContainer: const Color(0xFF22106E),
-        onSurface: const Color(0xFF14122B),
+        primaryContainer: const Color(0xFFD6F2F1),
+        onPrimaryContainer: const Color(0xFF053B3C),
+        onSurface: const Color(0xFF0F1C20),
         surfaceContainerLowest: Colors.white,
         surfaceContainerLow: const Color(0xFFF8FAFB),
         surfaceContainer: Colors.white,
-        surfaceContainerHigh: const Color(0xFFEFF0F7),
-        surfaceContainerHighest: const Color(0xFFE4E6F1),
-        outline: const Color(0xFFC6C9DA),
-        outlineVariant: const Color(0xFFE4E6F1),
-        onSurfaceVariant: const Color(0xFF5E6278),
+        surfaceContainerHigh: const Color(0xFFEEF2F4),
+        surfaceContainerHighest: const Color(0xFFE3E9EC),
+        outline: const Color(0xFFC3CED2),
+        outlineVariant: const Color(0xFFE3E9EC),
+        onSurfaceVariant: const Color(0xFF5A6A70),
         shadow: AppColors.ink,
       ),
       scaffold: AppColors.canvasLight,
@@ -165,10 +164,10 @@ class AppTheme {
 
   static ThemeData dark() {
     final base = ColorScheme.fromSeed(
-      seedColor: AppColors.primary,
+      seedColor: AppColors.brand,
       brightness: Brightness.dark,
       primary: AppColors.primaryLight,
-      onPrimary: const Color(0xFF1A1060),
+      onPrimary: const Color(0xFF032B2A),
       secondary: const Color(0xFFFFB38F),
       surface: AppColors.canvasDark,
       error: const Color(0xFFFB7185),
@@ -176,16 +175,16 @@ class AppTheme {
 
     return _base(
       scheme: base.copyWith(
-        primaryContainer: const Color(0xFF2E2370),
-        onPrimaryContainer: const Color(0xFFE2DDFF),
-        surfaceContainerLowest: const Color(0xFF0D0C1A),
-        surfaceContainerLow: const Color(0xFF131223),
-        surfaceContainer: const Color(0xFF18172B),
-        surfaceContainerHigh: const Color(0xFF211F38),
-        surfaceContainerHighest: const Color(0xFF2A2844),
-        outline: const Color(0xFF45435F),
-        outlineVariant: const Color(0xFF2B2A45),
-        onSurfaceVariant: const Color(0xFFA9A8C2),
+        primaryContainer: const Color(0xFF0D3B3C),
+        onPrimaryContainer: const Color(0xFFB4F1EA),
+        surfaceContainerLowest: const Color(0xFF0A1214),
+        surfaceContainerLow: const Color(0xFF0F191C),
+        surfaceContainer: const Color(0xFF131F22),
+        surfaceContainerHigh: const Color(0xFF1A282C),
+        surfaceContainerHighest: const Color(0xFF213236),
+        outline: const Color(0xFF3A4C51),
+        outlineVariant: const Color(0xFF243439),
+        onSurfaceVariant: const Color(0xFF9AABB0),
       ),
       scaffold: AppColors.canvasDark,
     );
@@ -552,7 +551,7 @@ class AppTheme {
           color: dark ? scheme.onSurface : Colors.white,
           fontWeight: FontWeight.w600,
         ),
-        actionTextColor: dark ? scheme.primary : const Color(0xFFC4B8FF),
+        actionTextColor: dark ? scheme.primary : const Color(0xFF5EEAD4),
         shape: RoundedRectangleBorder(borderRadius: control),
         insetPadding: const EdgeInsets.all(AppSpacing.lg),
         elevation: 6,
@@ -634,8 +633,8 @@ class SoftMeshBackground extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: dark
-              ? const [Color(0xFF0D0C1A), Color(0xFF1C1840), Color(0xFF0D0C1A)]
-              : const [Color(0xFFF5F2FF), Color(0xFFEEF3FF), Color(0xFFFFF6F1)],
+              ? const [Color(0xFF0A1214), Color(0xFF103033), Color(0xFF0A1214)]
+              : const [Color(0xFFF1FAFA), Color(0xFFEAF3F7), Color(0xFFFFF7F2)],
         ),
       ),
       child: Stack(
@@ -645,7 +644,7 @@ class SoftMeshBackground extends StatelessWidget {
             right: -50,
             child: _Blob(
               size: 240.rr,
-              color: (dark ? const Color(0xFF8B7BFF) : AppColors.primary)
+              color: (dark ? AppColors.primaryLight : AppColors.brand)
                   .withValues(alpha: dark ? 0.16 : 0.16),
             ),
           ),

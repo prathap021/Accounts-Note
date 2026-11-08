@@ -1,7 +1,7 @@
 import 'package:cloud_functions/cloud_functions.dart' as cf;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/data/repositories/subscription_repository.dart';
-import 'package:income_expense_tracker/data/subscriptions/subscription_store.dart';
+import 'package:accounts_note/data/repositories/subscription_repository.dart';
+import 'package:accounts_note/data/subscriptions/subscription_store.dart';
 
 class _FailingCallable implements cf.HttpsCallable {
   _FailingCallable(this.code);

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/sync/sync_manager.dart';
-import 'package:income_expense_tracker/core/theme/app_theme.dart';
-import 'package:income_expense_tracker/providers/sync_provider.dart';
-import 'package:income_expense_tracker/widgets/sync_status_chip.dart';
+import 'package:accounts_note/core/sync/sync_manager.dart';
+import 'package:accounts_note/core/theme/app_theme.dart';
+import 'package:accounts_note/providers/sync_provider.dart';
+import 'package:accounts_note/widgets/sync_status_chip.dart';
 
 /// The chip is how a user finds out their data has not left the device, so
 /// each state must be legible at a glance.

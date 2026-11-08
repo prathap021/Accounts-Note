@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/utils/money_month.dart';
-import 'package:income_expense_tracker/providers/period_provider.dart';
-import 'package:income_expense_tracker/providers/settings_provider.dart';
+import 'package:accounts_note/core/utils/money_month.dart';
+import 'package:accounts_note/providers/period_provider.dart';
+import 'package:accounts_note/providers/settings_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

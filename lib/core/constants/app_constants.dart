@@ -84,7 +84,7 @@ class AppLinks {
   static const privacyPolicy = '$githubRepo/blob/master/PRIVACY.md';
 
   /// Must match `applicationId` in android/app/build.gradle.kts.
-  static const androidPackage = 'com.example.income_expense_tracker';
+  static const androidPackage = 'com.accountsnote.app';
 
   /// The app's numeric Apple ID (App Store Connect → App Information), used
   /// to open the App Store page for "Rate Accounts Note" on iOS. Until it is

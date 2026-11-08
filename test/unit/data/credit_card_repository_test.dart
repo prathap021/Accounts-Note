@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart' show CollectionReference;
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/utils/result.dart';
-import 'package:income_expense_tracker/data/repositories/credit_card_repository.dart';
-import 'package:income_expense_tracker/models/credit_card_model.dart';
+import 'package:accounts_note/core/utils/result.dart';
+import 'package:accounts_note/data/repositories/credit_card_repository.dart';
+import 'package:accounts_note/models/credit_card_model.dart';
 
 import '../../support/fixtures.dart';
 

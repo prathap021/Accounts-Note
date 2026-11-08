@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/utils/currency_formatter.dart';
-import 'package:income_expense_tracker/features/reports/reports_screen.dart';
+import 'package:accounts_note/core/utils/currency_formatter.dart';
+import 'package:accounts_note/features/reports/reports_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:patrol/patrol.dart';
 

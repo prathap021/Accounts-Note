@@ -178,7 +178,7 @@ export function mapPlayState(state: string | null | undefined):
 }
 
 const playPackage = () =>
-  process.env.PLAY_PACKAGE_NAME || "com.example.income_expense_tracker";
+  process.env.PLAY_PACKAGE_NAME || "com.accountsnote.app";
 
 /**
  * Reads a subscription purchase from the Google Play Developer API.
@@ -255,7 +255,7 @@ function appleClients(): AppStoreServerAPIClient[] {
   const keyId = process.env.APPLE_IAP_KEY_ID;
   const issuerId = process.env.APPLE_IAP_ISSUER_ID;
   const bundleId =
-    process.env.APPLE_BUNDLE_ID || "com.example.incomeExpenseTracker";
+    process.env.APPLE_BUNDLE_ID || "com.accountsnote.app";
   if (!key || !keyId || !issuerId || key === "unset") {
     throw new functions.https.HttpsError(
       "failed-precondition",

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/constants/app_constants.dart';
-import 'package:income_expense_tracker/core/theme/app_theme.dart';
-import 'package:income_expense_tracker/models/category_model.dart';
-import 'package:income_expense_tracker/models/transaction_model.dart';
-import 'package:income_expense_tracker/widgets/summary_card.dart';
-import 'package:income_expense_tracker/widgets/transaction_tile.dart';
+import 'package:accounts_note/core/constants/app_constants.dart';
+import 'package:accounts_note/core/theme/app_theme.dart';
+import 'package:accounts_note/models/category_model.dart';
+import 'package:accounts_note/models/transaction_model.dart';
+import 'package:accounts_note/widgets/summary_card.dart';
+import 'package:accounts_note/widgets/transaction_tile.dart';
 
 TransactionModel _tx(TransactionType type, {String? note = 'Weekly shop'}) =>
     TransactionModel(

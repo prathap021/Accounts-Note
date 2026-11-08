@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/features/dashboard/dashboard_screen.dart';
+import 'package:accounts_note/features/dashboard/dashboard_screen.dart';
 
 /// The dashboard donut shows the user's own categories, and only those.
 ///

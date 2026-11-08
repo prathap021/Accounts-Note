@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:income_expense_tracker/core/constants/app_constants.dart';
+import 'package:accounts_note/core/constants/app_constants.dart';
 
 import '../../features/accounts/accounts_screen.dart';
 import '../../features/auth/login_screen.dart';

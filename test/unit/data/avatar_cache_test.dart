@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/services/avatar_cache.dart';
+import 'package:accounts_note/core/services/avatar_cache.dart';
 
 /// The offline avatar guarantee lives here: bytes fetched once must survive a
 /// restart of the process with no network, and a failure to fetch must never

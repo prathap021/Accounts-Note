@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/data/subscriptions/subscription_store.dart';
-import 'package:income_expense_tracker/models/app_user_model.dart';
-import 'package:income_expense_tracker/models/subscription_plan.dart';
-import 'package:income_expense_tracker/models/subscription_status.dart';
+import 'package:accounts_note/data/subscriptions/subscription_store.dart';
+import 'package:accounts_note/models/app_user_model.dart';
+import 'package:accounts_note/models/subscription_plan.dart';
+import 'package:accounts_note/models/subscription_status.dart';
 
 void main() {
   final now = DateTime(2026, 11, 7, 12);

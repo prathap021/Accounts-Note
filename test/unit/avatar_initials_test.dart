@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/utils/avatar_provider.dart';
+import 'package:accounts_note/core/utils/avatar_provider.dart';
 
 /// The initials are what the user sees whenever the photo can't be shown —
 /// offline, on a cold start, or for an account that never set one. They are

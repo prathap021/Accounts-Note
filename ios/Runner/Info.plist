@@ -83,5 +83,18 @@
 			<string>com.accountsnote.sync.refresh</string>
 			<string>com.accountsnote.sync.processing</string>
 		</array>
-	</dict>
+	<!-- Google sign-in returns to the app through this scheme: the
+	     REVERSED_CLIENT_ID from GoogleService-Info.plist. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.670037205594-nc28vph0pgac17l59igpg26hrvmof3tv</string>
+			</array>
+		</dict>
+	</array>
+</dict>
 </plist>

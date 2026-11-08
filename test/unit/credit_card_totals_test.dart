@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/constants/app_constants.dart';
-import 'package:income_expense_tracker/models/transaction_totals.dart';
-import 'package:income_expense_tracker/providers/credit_card_provider.dart';
+import 'package:accounts_note/core/constants/app_constants.dart';
+import 'package:accounts_note/models/transaction_totals.dart';
+import 'package:accounts_note/providers/credit_card_provider.dart';
 
 import '../support/fixtures.dart';
 

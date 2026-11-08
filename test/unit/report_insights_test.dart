@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/constants/app_constants.dart';
-import 'package:income_expense_tracker/data/local/sync_status.dart';
-import 'package:income_expense_tracker/features/reports/report_insights.dart';
-import 'package:income_expense_tracker/features/reports/reports_screen.dart';
-import 'package:income_expense_tracker/models/transaction_model.dart';
+import 'package:accounts_note/core/constants/app_constants.dart';
+import 'package:accounts_note/data/local/sync_status.dart';
+import 'package:accounts_note/features/reports/report_insights.dart';
+import 'package:accounts_note/features/reports/reports_screen.dart';
+import 'package:accounts_note/models/transaction_model.dart';
 
 void main() {
   var n = 0;

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:income_expense_tracker/core/utils/avatar_provider.dart';
-import 'package:income_expense_tracker/core/utils/greeting.dart';
+import 'package:accounts_note/core/utils/avatar_provider.dart';
+import 'package:accounts_note/core/utils/greeting.dart';
 
 DateTime at(int hour) => DateTime(2026, 9, 15, hour, 30);
 

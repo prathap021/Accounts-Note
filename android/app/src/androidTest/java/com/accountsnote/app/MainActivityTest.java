@@ -1,4 +1,4 @@
-package com.example.income_expense_tracker;
+package com.accountsnote.app;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 import org.junit.Test;
